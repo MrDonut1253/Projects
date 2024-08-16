@@ -1,15 +1,16 @@
 import time
 
-AGAIN_LIST = ["yes", "Yes", "no", "No"]
+YES_LIST = ["yes", "Yes", "y","Y"]
+NO_LIST = ["no", "No","n","N"]
 
-CHOICES = ["add","subtract","multiply","divide","+","-","*",":"]
+CHOICES = ["add","subtract","multiply","divide","+","-","*",":","/","exit"]
 
 
 def adder(number1, number2):
     result = number1 + number2
     return result
 
-def substractor(number1, number2):
+def subtractor(number1, number2):
     result = number1 - number2
     return result
 
@@ -22,55 +23,51 @@ def divider(number1,number2):
     return result
 
 
+print("---Calculator---")
+
+
 while True:
-    print("--Calculator--")
-    print("")
 
     while True:
         try:
-            number1 = float(input("enter the first number: "))       
+            number1 = int(input("enter the first number: "))     
         except ValueError:
             print("your input is not a number")
             continue
         else:
             break
-    
 
     while True:
         try:
-            number2 = float(input("enter the second number: "))       
+            number2 = int(input("enter the second number: "))
         except ValueError:
             print("your input is not a number")
             continue
         else:
             break
-    print("")
+
     choice = ""
     while choice not in CHOICES:
         choice = input("What do you want to do? (add/subtract/multiply/divide) : ")
         if choice == "add" or choice =="+":
-            print("")
             print(adder(number1,number2))
         elif choice =="substract" or choice =="-":
-            print("")
-            print(substractor(number1,number2))
+            print(subtractor(number1,number2))
         elif choice =="multiply" or choice =="*":
-            print("")
             print(multiplier(number1, number2))
-        elif choice =="divide" or choice == ":":
-            print("")
+        elif choice =="divide" or choice == ":" or choice == "/":
             print(divider(number1,number2))
-    
-    print("")
-    
+        elif choice == "exit":
+            exit()
+
     again=""
-    while again not in AGAIN_LIST:
-        again = input("Calculate again? (Yes/No) : ")
-    if again != "yes" and again != "Yes":
+    while again not in YES_LIST and again not in NO_LIST:
+        again = input("Calculate again? (Y/N) : ")
+    if again in NO_LIST:
         break
-         
+      
 print("Bye!")
-time.sleep(0.5)
+exit()
 
 
   
