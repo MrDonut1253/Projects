@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Frost-Siedlung">
+<meta name="theme-color" content="#cfe0f5">
+<title>Frost-Siedlung</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: #dfe9f6;
+    touch-action: none; overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+    font-family: -apple-system, "SF Pro Rounded", "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  canvas { position: fixed; inset: 0; display: block; touch-action: none; }
+  #hud {
+    position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: calc(env(safe-area-inset-right) + 12px);
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none; z-index: 5;
+  }
+  .pill {
+    display: flex; align-items: center; gap: 8px; min-width: 118px;
+    background: rgba(40, 52, 72, .55); color: #fff; border-radius: 12px;
+    padding: 5px 14px 5px 8px; font-weight: 800; font-size: 26px;
+    text-shadow: 0 2px 0 rgba(0,0,0,.35); box-shadow: 0 2px 6px rgba(0,0,0,.15);
+    transition: transform .12s;
+  }
+  .pill .ic { font-size: 26px; width: 34px; text-align: center; }
+  .pill.pop { transform: scale(1.12); }
+  .pill .max { font-size: 16px; opacity: .75; margin-left: 2px; }
+  .pill.full span:not(.ic) { color: #ffd34d; }
+  #topbar {
+    position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: calc(env(safe-area-inset-left) + 12px);
+    display: flex; gap: 8px; z-index: 6;
+  }
+  .btn-sm {
+    width: 48px; height: 48px; border-radius: 14px; border: none;
+    background: rgba(40, 52, 72, .55); color: #fff; font-size: 24px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  #hint {
+    position: fixed; top: calc(env(safe-area-inset-top) + 14px); left: 50%; transform: translateX(-50%);
+    background: rgba(255,255,255,.88); color: #23344f; font-weight: 800; font-size: 21px;
+    padding: 9px 20px; border-radius: 999px; box-shadow: 0 3px 10px rgba(0,0,0,.18);
+    pointer-events: none; z-index: 5; white-space: nowrap; max-width: 60vw; overflow: hidden; text-overflow: ellipsis;
+    transition: opacity .25s;
+  }
+  #hint:empty { opacity: 0; }
+  .overlay {
+    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px;
+    background: linear-gradient(180deg, rgba(120,160,215,.82), rgba(215,232,250,.88));
+    text-align: center; padding: 20px;
+  }
+  .hidden { display: none !important; }
+  .logo {
+    font-size: clamp(46px, 9vw, 96px); font-weight: 900; letter-spacing: 2px; line-height: .95;
+    color: #fff; -webkit-text-stroke: 3px #3b4a63; text-shadow: 0 6px 0 #3b4a63;
+  }
+  .logo small {
+    display: block; font-size: .5em; color: #ffc928; margin-top: 10px; -webkit-text-stroke: 2px #6b4a00;
+    text-shadow: 0 4px 0 #6b4a00;
+  }
+  .big-btn {
+    font: inherit; font-size: 30px; font-weight: 900; color: #fff; border: none;
+    background: linear-gradient(#5fd35f, #2ea02e); border-radius: 18px; padding: 14px 44px;
+    box-shadow: 0 6px 0 #1d6e1d, 0 10px 18px rgba(0,0,0,.2); cursor: pointer;
+    text-shadow: 0 2px 0 rgba(0,0,0,.3); min-width: 260px;
+  }
+  .big-btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #1d6e1d; }
+  .big-btn.grey { background: linear-gradient(#9fb0c8, #71839c); box-shadow: 0 6px 0 #4f5f76; font-size: 22px; }
+  .info { color: #23344f; font-size: 18px; font-weight: 600; max-width: 560px; line-height: 1.4; }
+  .panel { background: rgba(255,255,255,.9); border-radius: 22px; padding: 26px 34px; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+  .panel h2 { margin: 0 0 8px; font-size: 34px; color: #23344f; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="topbar">
+  <button class="btn-sm" id="bPause" aria-label="Pause">⏸</button>
+  <button class="btn-sm" id="bSound" aria-label="Ton">🔊</button>
+</div>
+<div id="hint"></div>
+<div id="hud">
+  <div class="pill" id="pCash"><span class="ic">💵</span><span id="hCash">0</span></div>
+  <div class="pill" id="pWood"><span class="ic">🪵</span><span id="hWood">0</span></div>
+  <div class="pill" id="pMeat"><span class="ic">🥩</span><span id="hMeat">0</span><span class="max" id="hMeatMax">/12</span></div>
+  <div class="pill" id="pGold"><span class="ic">🪙</span><span id="hGold">0</span></div>
+</div>
+
+<div class="overlay" id="menu">
+  <div class="logo">FROST-SIEDLUNG<small>Überleben im Eis</small></div>
+  <div class="info">Jage Eisbären, verkaufe das Fleisch an die Überlebenden und baue deine Siedlung aus.<br>
+    Ziehe mit dem Finger irgendwo über den Bildschirm, um zu laufen. Angreifen, Holz hacken und Einsammeln passiert automatisch.</div>
+  <button class="big-btn" id="bPlay">Spielen</button>
+  <button class="big-btn grey hidden" id="bNew">Neues Spiel</button>
+</div>
+
+<div class="overlay hidden" id="pause">
+  <div class="panel">
+    <h2>Pause</h2>
+    <div style="display:flex;flex-direction:column;gap:16px;margin-top:16px">
+      <button class="big-btn" id="bResume">Weiter</button>
+      <button class="big-btn grey" id="bReset">Neues Spiel</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="win">
+  <div class="panel">
+    <h2>🔥 Der große Ofen brennt! 🔥</h2>
+    <div class="info">Die Siedlung ist gerettet – alle Überlebenden haben es warm.<br>
+      Ab jetzt zahlen die Kunden den doppelten Preis. Spiel ruhig weiter!</div>
+    <div style="margin-top:18px"><button class="big-btn" id="bWinOk">Weiterspielen</button></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   Grundlagen
+   ========================================================= */
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+let DPR = 1, CW = 0, CH = 0, ZOOM = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  CW = window.innerWidth; CH = window.innerHeight;
+  cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
+  cv.style.width = CW + 'px'; cv.style.height = CH + 'px';
+  ZOOM = Math.max(0.55, Math.min(1.5, Math.min(CW, CH * 1.35) / 960));
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+resize();
+
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const lerp = (a, b, t) => a + (b - a) * t;
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// Isometrische Projektion (Welt x/y -> Bildschirm)
+const IX = 0.866, IY = 0.5;
+const isoX = (x, y) => (x - y) * IX;
+const isoY = (x, y) => (x + y) * IY;
+
+/* =========================================================
+   Welt-Layout
+   ========================================================= */
+const W = 1400, H = 1320;
+const FENCE_Y = 660;
+const GATE_X0 = 630, GATE_X1 = 770, GATE_CX = 700;
+const BEAR_AREA = { x0: 170, x1: 1230, y0: 215, y1: FENCE_Y - 28 };
+
+const DROP = { x: 560, y: 790, r: 40 };          // Fleisch abladen
+const COUNTER = { x0: 505, y0: 830, x1: 615, y1: 885, meat: 0 };
+const REGISTER = { x: 665, y: 858, r: 34 };      // Kasse
+const QUEUE0 = { x: 560, y: 930 };               // Kundenschlange
+const CASHPILE = { x: 715, y: 945, amount: 0 };
+const WOODPILE = { x: 1030, y: 830, n: 0 };
+const GOLDPILE = { x: 470, y: 1215, n: 0 };
+const HUT = { x0: 1080, y0: 720, x1: 1170, y1: 800 };
+const MINE = { x: 200, y: 1100 };
+const RAILS = [[285, 1110], [390, 1110], [390, 1215], [440, 1215]];
+const FURNACE = { x: 960, y: 1080 };
+const SPAWN_CUST = [{ x: 380, y: 1310 }, { x: 760, y: 1310 }, { x: 1300, y: 1250 }];
+
+const OBSTACLES = [
+  COUNTER,
+  { x0: 150, y0: 1050, x1: 260, y1: 1150 },   // Minenfelsen
+];
+
+/* =========================================================
+   Ausbauten (Bau-Felder)
+   ========================================================= */
+const PADS = [
+  { id: 'axes',    name: 'Wirbelnde Äxte',   icon: '🪓', x: 870,  y: 770,  cost: { cash: 20 },  req: [] },
+  { id: 'cashier', name: 'Kassierer',        icon: '🧑‍💼', x: 745, y: 905, cost: { cash: 40 }, req: ['axes'] },
+  { id: 'bag',     name: 'Großer Rucksack',  icon: '🎒', x: 900,  y: 870,  cost: { cash: 60 },  req: ['cashier'] },
+  { id: 'hunter1', name: 'Jäger anheuern',   icon: '🏹', x: 440,  y: 740,  cost: { cash: 100 }, req: ['bag'] },
+  { id: 'lumber',  name: 'Holzfäller-Hütte', icon: '🪚', x: 1125, y: 760,  cost: { cash: 120 }, req: ['hunter1'] },
+  { id: 'mine',    name: 'Goldmine',         icon: '⛏️', x: 300,  y: 990,  cost: { cash: 180, wood: 20 }, req: ['hunter1'] },
+  { id: 'axes2',   name: 'Scharfe Äxte',     icon: '⚔️', x: 960,  y: 770,  cost: { cash: 220, wood: 15 }, req: ['lumber'] },
+  { id: 'hunter2', name: 'Zweiter Jäger',    icon: '🏹', x: 360,  y: 740,  cost: { cash: 300 }, req: ['mine'] },
+  { id: 'bag2',    name: 'Schlitten',        icon: '🛷', x: 980,  y: 870,  cost: { cash: 350, gold: 15 }, req: ['mine'] },
+  { id: 'furnace', name: 'Großer Ofen',      icon: '🔥', x: FURNACE.x, y: FURNACE.y, cost: { cash: 800, wood: 60, gold: 30 }, req: ['hunter2', 'axes2'], big: true },
+];
+const PAD_HALF = 38;
+
+/* =========================================================
+   Zustand
+   ========================================================= */
+let S, player, bears, trees, items, flyers, parts, texts, customers, hunters, lumberjacks, cashier, cart, pads;
+let decoTrees = [], snowDots = [], tents = [], crates = [];
+let gameTime = 0, running = false, paused = false, winShown = false;
+
+function newState() {
+  S = { cash: 0, wood: 0, gold: 0, sold: 0, kills: 0, built: new Set(), price: 5 };
+  COUNTER.meat = 0; CASHPILE.amount = 0; WOODPILE.n = 0; GOLDPILE.n = 0;
+  player = {
+    x: 700, y: 820, face: 1, walkT: 0, moving: false,
+    hp: 100, maxHp: 100, meat: 0, incoming: 0, cap: 12, dmg: 10,
+    atkCd: 0, swing: 0, hurtT: 0, lastHit: 99, dead: 0,
+    orbit: 0, orbitDmg: 7, orbitA: 0, sway: 0, payCd: 0, pickCd: 0,
+  };
+  bears = []; items = []; flyers = []; parts = []; texts = [];
+  customers = []; hunters = []; lumberjacks = []; cashier = null;
+  cart = null;
+  pads = PADS.map(p => ({ ...p, paid: { cash: 0, wood: 0, gold: 0 } }));
+  makeTrees();
+  for (let i = 0; i < 6; i++) spawnBear(true);
+}
+
+function makeTrees() {
+  const r = mulberry32(42);
+  trees = [];
+  const add = (x, y) => {
+    for (const t of trees) if (Math.hypot(t.x - x, t.y - y) < 46) return;
+    trees.push({ x, y, s: 0.9 + r() * 0.4, logs: 3, regrow: 0, shake: 0 });
+  };
+  for (let i = 0; i < 400; i++) {
+    const zone = r();
+    if (zone < 0.5) add(20 + r() * (W - 40), 20 + r() * 170);
+    else if (zone < 0.75) add(1250 + r() * 130, 190 + r() * 440);
+    else add(20 + r() * 130, 190 + r() * 440);
+  }
+  // Deko ausserhalb der Welt
+  decoTrees = [];
+  const r2 = mulberry32(7);
+  for (let i = 0; i < 520; i++) {
+    const x = -420 + r2() * (W + 840), y = -420 + r2() * (H + 840);
+    const inside = x > -15 && x < W + 15 && y > -15 && y < H + 15;
+    if (inside) continue;
+    decoTrees.push({ x, y, s: 0.9 + r2() * 0.6, logs: 3, shake: 0 });
+  }
+  snowDots = [];
+  const r3 = mulberry32(99);
+  for (let i = 0; i < 500; i++) snowDots.push({ x: r3() * W, y: r3() * H, s: 1 + r3() * 2 });
+  tents = [{ x: 1250, y: 1050, c: '#d9824a' }, { x: 1290, y: 930, c: '#5c8fd6' }, { x: 1150, y: 1230, c: '#c55a5a' },
+    { x: 150, y: 820, c: '#5c8fd6' }, { x: 200, y: 900, c: '#d9824a' }];
+  crates = [{ x: 1180, y: 900 }, { x: 1206, y: 918 }, { x: 1172, y: 930 }, { x: 430, y: 800 }];
+}
+
+function spawnBear(initial) {
+  let x, y, tries = 0;
+  do {
+    x = rand(BEAR_AREA.x0 + 20, BEAR_AREA.x1 - 20);
+    y = rand(BEAR_AREA.y0 + 20, BEAR_AREA.y1 - 20);
+    tries++;
+  } while (tries < 30 && player && Math.hypot(player.x - x, player.y - y) < (initial ? 180 : 320));
+  const spiky = !initial && S.kills >= 5 && Math.random() < 0.33;
+  const type = spiky
+    ? { name: 'spiky', hp: 60, dmg: 10, speed: 95, size: 1.2, meat: 5 }
+    : { name: 'polar', hp: 30, dmg: 6, speed: 115, size: 1, meat: 3 };
+  bears.push({ x, y, type, hp: type.hp, face: 1, walkT: 0, tx: x, ty: y, t: 0, atkCd: 0, hitT: 0, aggro: 0,
+    dead: false, deadT: 0, orbitCd: 0, lunge: 0, spawnT: initial ? 1 : 0 });
+}
+
+/* =========================================================
+   Speichern / Laden
+   ========================================================= */
+const SAVE_KEY = 'frost-siedlung-v1';
+function save() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      cash: S.cash, wood: S.wood, gold: S.gold, sold: S.sold, kills: S.kills, built: [...S.built],
+      paid: Object.fromEntries(pads.map(p => [p.id, p.paid])),
+      counter: COUNTER.meat, cashPile: CASHPILE.amount, woodPile: WOODPILE.n, goldPile: GOLDPILE.n,
+      meat: player.meat, win: winShown,
+    }));
+  } catch (e) { }
+}
+function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+function load() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { }
+  if (!d) return false;
+  S.cash = d.cash | 0; S.wood = d.wood | 0; S.gold = d.gold | 0; S.sold = d.sold | 0; S.kills = d.kills | 0;
+  for (const p of pads) if (d.paid && d.paid[p.id]) p.paid = { cash: 0, wood: 0, gold: 0, ...d.paid[p.id] };
+  for (const id of d.built || []) build(id, true);
+  COUNTER.meat = d.counter | 0; CASHPILE.amount = d.cashPile | 0; WOODPILE.n = d.woodPile | 0; GOLDPILE.n = d.goldPile | 0;
+  player.meat = Math.min(d.meat | 0, player.cap);
+  winShown = !!d.win;
+  return true;
+}
+function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
+
+/* =========================================================
+   Ton (WebAudio)
+   ========================================================= */
+let AC = null, soundOn = true;
+const lastSnd = {};
+function initAudio() {
+  if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; }
+}
+function tone(freq, dur, type = 'sine', vol = 0.12, slide = 0, delay = 0) {
+  if (!AC || !soundOn) return;
+  const t0 = AC.currentTime + delay;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t0);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t0 + dur);
+  g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+}
+function sfx(name) {
+  const now = performance.now();
+  const gap = { pick: 45, coin: 60, hit: 70, chop: 90, drop: 45 }[name] || 0;
+  if (lastSnd[name] && now - lastSnd[name] < gap) return;
+  lastSnd[name] = now;
+  switch (name) {
+    case 'pick': tone(660 + Math.random() * 120, 0.07, 'triangle', 0.07, 200); break;
+    case 'drop': tone(420, 0.06, 'triangle', 0.06, -80); break;
+    case 'coin': tone(1320, 0.06, 'square', 0.04); tone(1760, 0.08, 'square', 0.04, 0, 0.05); break;
+    case 'hit': tone(160, 0.1, 'sawtooth', 0.08, -90); break;
+    case 'chop': tone(240, 0.07, 'square', 0.05, -120); break;
+    case 'kill': tone(300, 0.2, 'sawtooth', 0.08, -220); break;
+    case 'hurt': tone(120, 0.18, 'square', 0.07, -60); break;
+    case 'build': [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.18, 'triangle', 0.1, 0, i * 0.08)); break;
+    case 'win': [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.3, 'triangle', 0.12, 0, i * 0.12)); break;
+  }
+}
+
+/* =========================================================
+   Eingabe: virtueller Joystick + Tastatur
+   ========================================================= */
+const joy = { active: false, id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
+const keys = {};
+const JOY_R = 62;
+cv.addEventListener('pointerdown', e => {
+  initAudio();
+  if (joy.active) return;
+  joy.active = true; joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.dx = 0; joy.dy = 0;
+  try { cv.setPointerCapture(e.pointerId); } catch (err) { }
+  e.preventDefault();
+});
+cv.addEventListener('pointermove', e => {
+  if (!joy.active || e.pointerId !== joy.id) return;
+  let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy;
+  const d = Math.hypot(dx, dy);
+  if (d > JOY_R) { // Joystick-Mitte wandert mit
+    joy.ox += dx * (1 - JOY_R / d); joy.oy += dy * (1 - JOY_R / d);
+    dx = e.clientX - joy.ox; dy = e.clientY - joy.oy;
+  }
+  joy.dx = dx; joy.dy = dy;
+  e.preventDefault();
+});
+const joyEnd = e => { if (e.pointerId === joy.id) { joy.active = false; joy.dx = joy.dy = 0; joy.id = null; } };
+cv.addEventListener('pointerup', joyEnd);
+cv.addEventListener('pointercancel', joyEnd);
+window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; initAudio(); if (e.key === 'Escape') togglePause(); });
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+document.addEventListener('dblclick', e => e.preventDefault());
+
+function inputVector() {
+  // Bildschirmrichtung
+  let sx = 0, sy = 0;
+  if (joy.active) {
+    const d = Math.hypot(joy.dx, joy.dy);
+    if (d > 8) { const m = Math.min(1, d / JOY_R); sx = joy.dx / d * m; sy = joy.dy / d * m; }
+  }
+  if (keys['a'] || keys['arrowleft']) sx -= 1;
+  if (keys['d'] || keys['arrowright']) sx += 1;
+  if (keys['w'] || keys['arrowup']) sy -= 1;
+  if (keys['s'] || keys['arrowdown']) sy += 1;
+  const m = Math.hypot(sx, sy);
+  if (m > 1) { sx /= m; sy /= m; }
+  // in Weltrichtung umrechnen (inverse Iso-Projektion)
+  const ax = sx / IX, ay = sy / IY;       // ax = x-y, ay = x+y
+  let wx = (ay + ax) / 2, wy = (ay - ax) / 2;
+  const wm = Math.hypot(wx, wy);
+  const mag = Math.min(1, m);
+  if (wm > 0) { wx = wx / wm * mag; wy = wy / wm * mag; }
+  return { x: wx, y: wy, sx };
+}
+
+/* =========================================================
+   Bewegung & Kollision
+   ========================================================= */
+function blocked(x, y, r = 12) {
+  if (Math.abs(y - FENCE_Y) < 12 && (x < GATE_X0 + 8 || x > GATE_X1 - 8)) return true;
+  for (const o of OBSTACLES) if (x > o.x0 - r && x < o.x1 + r && y > o.y0 - r && y < o.y1 + r) return true;
+  if (S.built.has('lumber') && x > HUT.x0 - r && x < HUT.x1 + r && y > HUT.y0 - r && y < HUT.y1 + r) return true;
+  if (S.built.has('furnace') && Math.hypot(x - FURNACE.x, y - FURNACE.y) < 58) return true;
+  return false;
+}
+function moveEntity(e, dx, dy) {
+  const nx = clamp(e.x + dx, 20, W - 20), ny = clamp(e.y + dy, 20, H - 20);
+  if (blocked(e.x, e.y)) { e.x = nx; e.y = ny; return; }   // steckt fest (z.B. neues Gebäude) -> frei bewegen
+  if (!blocked(nx, e.y)) e.x = nx;
+  if (!blocked(e.x, ny)) e.y = ny;
+}
+// NPC-Steuerung inkl. Weg durchs Tor
+function steer(e, tx, ty, speed, dt) {
+  let wx = tx, wy = ty;
+  const eN = e.y < FENCE_Y, tN = ty < FENCE_Y;
+  if (eN === tN && Math.abs(e.y - FENCE_Y) < 14 && Math.abs(tx - e.x) > 30) {
+    // zuerst vom Zaun weg, dann seitlich laufen
+    wx = clamp(e.x, GATE_X0 + 20, GATE_X1 - 20); wy = eN ? FENCE_Y - 36 : FENCE_Y + 36;
+  } else if (eN !== tN) {
+    if (Math.abs(e.x - GATE_CX) > 22) { wx = GATE_CX; wy = eN ? FENCE_Y - 40 : FENCE_Y + 40; }
+    else { wx = GATE_CX; wy = tN ? FENCE_Y - 45 : FENCE_Y + 45; }
+  }
+  const dx = wx - e.x, dy = wy - e.y, d = Math.hypot(dx, dy);
+  e.moving = false;
+  if (d < 3 && wx === tx && wy === ty) return true;
+  const step = Math.min(d, speed * dt);
+  if (d > 0.001) {
+    const ox = e.x, oy = e.y;
+    moveEntity(e, dx / d * step, dy / d * step);
+    if (Math.abs(e.x - ox) + Math.abs(e.y - oy) < step * 0.3) {  // hängt fest -> seitlich ausweichen
+      e.side = e.side || 1;
+      const bx = e.x, by = e.y;
+      moveEntity(e, -dy / d * step * e.side, dx / d * step * e.side);
+      if (Math.abs(e.x - bx) + Math.abs(e.y - by) < step * 0.3) e.side = -e.side;
+    }
+    e.walkT += dt * 10; e.moving = true;
+    const sdx = isoX(dx, dy); if (Math.abs(sdx) > 0.5) e.face = sdx > 0 ? 1 : -1;
+  }
+  return Math.hypot(tx - e.x, ty - e.y) < 5;
+}
+
+/* =========================================================
+   Effekte
+   ========================================================= */
+function addText(x, y, z, text, color = '#fff', size = 22) {
+  texts.push({ x, y, z, text, color, size, t: 0 });
+}
+function burst(x, y, z, color, n = 8, spd = 120) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = rand(spd * 0.4, spd);
+    parts.push({ x, y, z, vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: rand(80, 260), color, t: 0, life: rand(0.4, 0.8), r: rand(2, 4.5) });
+  }
+}
+// fliegende Gegenstände (von A nach B im Bogen)
+function fly(type, from, toFn, dur, onArrive, arc = 60) {
+  const f = { type, fx: from.x, fy: from.y, fz: from.z || 0, toFn, dur, t: 0, onArrive, arc, x: from.x, y: from.y, z: from.z || 0 };
+  flyers.push(f);
+  return f;
+}
+function playerTop() { return { x: player.x, y: player.y, z: 46 + (player.meat + player.incoming) * 5.5 }; }
+
+/* =========================================================
+   Bauen
+   ========================================================= */
+function padVisible(p) { return !S.built.has(p.id) && p.req.every(r => S.built.has(r)); }
+function padRemaining(p) {
+  return { cash: (p.cost.cash || 0) - p.paid.cash, wood: (p.cost.wood || 0) - p.paid.wood, gold: (p.cost.gold || 0) - p.paid.gold };
+}
+function build(id, silent) {
+  if (S.built.has(id)) return;
+  S.built.add(id);
+  const p = pads.find(q => q.id === id);
+  if (p) p.paid = { cash: p.cost.cash || 0, wood: p.cost.wood || 0, gold: p.cost.gold || 0 };
+  switch (id) {
+    case 'axes': player.orbit = 3; break;
+    case 'axes2': player.orbit = 5; player.orbitDmg = 12; player.dmg = 16; break;
+    case 'cashier': cashier = { x: REGISTER.x + 22, y: REGISTER.y - 6, face: -1, walkT: 0 }; break;
+    case 'bag': player.cap = 25; break;
+    case 'bag2': player.cap = 50; break;
+    case 'hunter1': case 'hunter2': hunters.push(makeWorker(GATE_CX + rand(-30, 30), FENCE_Y + 60, '#2f9e5b')); break;
+    case 'lumber': lumberjacks.push(makeWorker(HUT.x0 - 20, HUT.y1 + 20, '#b8612d')); break;
+    case 'mine': cart = { s: 0, dir: 1, load: 0, wait: 1.5 }; break;
+    case 'furnace': S.price = 10; break;
+  }
+  if (!silent) {
+    sfx('build');
+    if (p) { burst(p.x, p.y, 10, '#ffe066', 22, 220); addText(p.x, p.y, 70, p.name + '!', '#ffe066', 26); }
+    save();
+    if (id === 'furnace' && !winShown) {
+      winShown = true; sfx('win');
+      setTimeout(() => { document.getElementById('win').classList.remove('hidden'); paused = true; }, 1200);
+    }
+  }
+}
+function makeWorker(x, y, coat) {
+  return { x, y, coat, face: 1, walkT: 0, moving: false, state: 'work', carry: 0, target: null, cd: 0, swing: 0 };
+}
+
+/* =========================================================
+   Update
+   ========================================================= */
+let custTimer = 1, bearTimer = 0, saveTimer = 0, uiTimer = 0;
+
+function damageBear(b, d, from) {
+  if (b.dead) return;
+  b.hp -= d; b.hitT = 0.15; b.aggro = 4;
+  const a = Math.atan2(b.y - from.y, b.x - from.x);
+  moveBear(b, Math.cos(a) * 8, Math.sin(a) * 8);
+  burst(b.x, b.y, 30 * b.type.size, '#ffffff', 4, 90);
+  burst(b.x, b.y, 30 * b.type.size, '#e2475a', 3, 90);
+  addText(b.x + rand(-10, 10), b.y, 60 * b.type.size, '-' + d, '#ff5a5a', 20);
+  sfx('hit');
+  if (b.hp <= 0) killBear(b);
+}
+function killBear(b) {
+  b.dead = true; b.deadT = 0; S.kills++;
+  sfx('kill');
+  for (let i = 0; i < b.type.meat; i++) {
+    const a = Math.random() * Math.PI * 2, s = rand(40, 110);
+    items.push({ type: 'meat', x: b.x, y: b.y, z: 20, vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: rand(180, 300), t: 0, claimed: false });
+  }
+  setTimeout(() => spawnBear(false), 3500 + Math.random() * 2500);
+}
+function moveBear(b, dx, dy) {
+  b.x = clamp(b.x + dx, BEAR_AREA.x0, BEAR_AREA.x1);
+  b.y = clamp(b.y + dy, BEAR_AREA.y0, BEAR_AREA.y1);
+}
+
+function update(dt) {
+  gameTime += dt;
+  updatePlayer(dt);
+  updateBears(dt);
+  updateItems(dt);
+  updateCounterAndCustomers(dt);
+  updateHunters(dt);
+  updateLumber(dt);
+  updateCart(dt);
+  updateTrees(dt);
+  updateFlyers(dt);
+  updateFx(dt);
+
+  // Bärenzahl anpassen
+  bearTimer -= dt;
+  if (bearTimer <= 0) {
+    bearTimer = 2;
+    const maxBears = Math.min(12, 6 + Math.floor(S.kills / 8) + hunters.length);
+    const alive = bears.filter(b => !b.dead).length;
+    if (alive < maxBears - 2) spawnBear(false);
+  }
+  saveTimer -= dt;
+  if (saveTimer <= 0) { saveTimer = 4; save(); }
+}
+
+function updatePlayer(dt) {
+  const p = player;
+  p.hurtT = Math.max(0, p.hurtT - dt);
+  p.swing = Math.max(0, p.swing - dt);
+  p.lastHit += dt;
+  if (p.dead > 0) {
+    p.dead -= dt;
+    if (p.dead <= 0) { p.x = 700; p.y = 820; p.hp = p.maxHp; addText(p.x, p.y, 80, 'Wieder fit!', '#7CFC7C'); }
+    return;
+  }
+  const v = inputVector();
+  const speed = 235;
+  const mv = Math.hypot(v.x, v.y);
+  p.moving = mv > 0.05;
+  if (p.moving) {
+    moveEntity(p, v.x * speed * dt, v.y * speed * dt);
+    p.walkT += dt * 12 * mv;
+    if (Math.abs(v.sx) > 0.1) p.face = v.sx > 0 ? 1 : -1;
+  }
+  p.sway = lerp(p.sway, -v.sx * mv * 1.0, Math.min(1, dt * 6));
+
+  // Heilung
+  const inCamp = p.y > FENCE_Y + 10;
+  if (p.lastHit > 2.5 || inCamp) p.hp = Math.min(p.maxHp, p.hp + (inCamp ? 30 : 8) * dt);
+
+  // Angriff / Holzhacken
+  p.atkCd -= dt;
+  let target = null, td = 80;
+  for (const b of bears) { if (b.dead) continue; const d = dist(p, b); if (d < td) { td = d; target = b; } }
+  if (target) {
+    if (p.atkCd <= 0) {
+      p.atkCd = 0.42; p.swing = 0.25;
+      p.face = isoX(target.x - p.x, target.y - p.y) > 0 ? 1 : -1;
+      damageBear(target, p.dmg, p);
+    }
+  } else if (p.atkCd <= 0) {
+    let tree = null, trd = 62;
+    for (const t of trees) { if (t.logs <= 0) continue; const d = dist(p, t); if (d < trd) { trd = d; tree = t; } }
+    if (tree) {
+      p.atkCd = 0.45; p.swing = 0.25;
+      p.face = isoX(tree.x - p.x, tree.y - p.y) > 0 ? 1 : -1;
+      chopTree(tree);
+      fly('wood', { x: tree.x, y: tree.y, z: 40 }, () => ({ x: p.x, y: p.y, z: 50 }), 0.4, () => { S.wood++; popPill('pWood'); sfx('pick'); });
+    }
+  }
+
+  // Wirbelnde Äxte
+  if (p.orbit > 0) {
+    p.orbitA += dt * 4.2;
+    for (let k = 0; k < p.orbit; k++) {
+      const a = p.orbitA + k * Math.PI * 2 / p.orbit;
+      const ax = p.x + Math.cos(a) * 62, ay = p.y + Math.sin(a) * 62;
+      for (const b of bears) {
+        if (b.dead || b.orbitCd > 0) continue;
+        if (Math.hypot(b.x - ax, b.y - ay) < 34 * b.type.size) { b.orbitCd = 0.35; damageBear(b, p.orbitDmg, p); }
+      }
+    }
+  }
+
+  // Fleisch an der Theke abladen
+  p.pickCd -= dt;
+  if (dist(p, DROP) < DROP.r + 10 && p.meat > 0 && p.pickCd <= 0) {
+    p.pickCd = 0.06;
+    const top = playerTop();
+    p.meat--;
+    const slot = COUNTER.meat + countFlyers('meatToCounter');
+    fly('meat', top, () => counterSlot(slot), 0.3, () => { COUNTER.meat++; sfx('drop'); }, 50).tag = 'meatToCounter';
+  }
+  // Geld / Holz / Gold einsammeln
+  if (dist(p, CASHPILE) < 55 && CASHPILE.amount > 0 && p.pickCd <= 0) {
+    p.pickCd = 0.05;
+    const chunk = Math.min(CASHPILE.amount, Math.max(1, Math.round(CASHPILE.amount / 12)));
+    CASHPILE.amount -= chunk;
+    fly('cash', { x: CASHPILE.x, y: CASHPILE.y, z: 10 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.cash += chunk; popPill('pCash'); sfx('coin'); });
+  }
+  if (dist(p, WOODPILE) < 55 && WOODPILE.n > 0 && p.pickCd <= 0) {
+    p.pickCd = 0.07; WOODPILE.n--;
+    fly('wood', { x: WOODPILE.x, y: WOODPILE.y, z: 10 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.wood++; popPill('pWood'); sfx('pick'); });
+  }
+  if (dist(p, GOLDPILE) < 55 && GOLDPILE.n > 0 && p.pickCd <= 0) {
+    p.pickCd = 0.07; GOLDPILE.n--;
+    fly('gold', { x: GOLDPILE.x, y: GOLDPILE.y, z: 10 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.gold++; popPill('pGold'); sfx('coin'); });
+  }
+
+  // Bau-Felder bezahlen
+  p.payCd -= dt;
+  for (const pad of pads) {
+    if (!padVisible(pad)) continue;
+    const half = pad.big ? PAD_HALF * 1.5 : PAD_HALF;
+    if (Math.abs(p.x - pad.x) > half || Math.abs(p.y - pad.y) > half) continue;
+    if (p.payCd > 0) break;
+    p.payCd = 0.045;
+    const rem = padRemaining(pad);
+    let paidSomething = false;
+    for (const res of ['cash', 'wood', 'gold']) {
+      if (rem[res] <= 0 || S[res] <= 0) continue;
+      const step = Math.min(rem[res], S[res], Math.max(1, Math.ceil((pad.cost[res] || 0) / 30)));
+      S[res] -= step; pad.paid[res] += step; paidSomething = true;
+      fly(res, { x: p.x, y: p.y, z: 45 }, () => ({ x: pad.x, y: pad.y, z: 0 }), 0.25, null, 40);
+    }
+    if (paidSomething) sfx('coin');
+    const r2 = padRemaining(pad);
+    if (r2.cash <= 0 && r2.wood <= 0 && r2.gold <= 0) build(pad.id);
+  }
+}
+function countFlyers(tag) { let n = 0; for (const f of flyers) if (f.tag === tag) n++; return n; }
+
+function chopTree(t) {
+  t.logs--; t.shake = 0.3;
+  burst(t.x, t.y, 50, '#ffffff', 5, 80);
+  sfx('chop');
+  if (t.logs <= 0) t.regrow = 25;
+}
+
+function updateBears(dt) {
+  const p = player;
+  const playerHunting = p.dead <= 0 && p.y < FENCE_Y - 8;
+  for (const b of bears) {
+    if (b.dead) { b.deadT += dt; continue; }
+    b.hitT = Math.max(0, b.hitT - dt);
+    b.aggro -= dt; b.atkCd -= dt; b.orbitCd -= dt; b.lunge = Math.max(0, b.lunge - dt);
+    b.spawnT = Math.min(1, b.spawnT + dt * 2);
+    const dp = dist(b, p);
+    let mx = 0, my = 0, spd = 0;
+    if (playerHunting && (dp < 190 || b.aggro > 0)) {
+      if (dp > 44 * b.type.size) { mx = (p.x - b.x) / dp; my = (p.y - b.y) / dp; spd = b.type.speed; }
+      else if (b.atkCd <= 0) {
+        b.atkCd = 1.1; b.lunge = 0.2;
+        p.hp -= b.type.dmg; p.hurtT = 0.25; p.lastHit = 0;
+        sfx('hurt');
+        addText(p.x, p.y, 70, '-' + b.type.dmg, '#ff3b3b', 22);
+        if (p.hp <= 0) playerDown();
+      }
+      const sdx = isoX(p.x - b.x, p.y - b.y); if (Math.abs(sdx) > 2) b.face = sdx > 0 ? 1 : -1;
+    } else {
+      b.t -= dt;
+      if (b.t <= 0 || Math.hypot(b.tx - b.x, b.ty - b.y) < 8) {
+        b.t = rand(2, 5);
+        b.tx = clamp(b.x + rand(-160, 160), BEAR_AREA.x0, BEAR_AREA.x1);
+        b.ty = clamp(b.y + rand(-160, 160), BEAR_AREA.y0, BEAR_AREA.y1);
+      }
+      const d = Math.hypot(b.tx - b.x, b.ty - b.y);
+      if (d > 8) { mx = (b.tx - b.x) / d; my = (b.ty - b.y) / d; spd = 38; }
+      if (spd) { const sdx = isoX(mx, my); if (Math.abs(sdx) > 0.1) b.face = sdx > 0 ? 1 : -1; }
+    }
+    // Abstand zu anderen Bären
+    for (const o of bears) {
+      if (o === b || o.dead) continue;
+      const dx = b.x - o.x, dy = b.y - o.y, d = Math.hypot(dx, dy);
+      if (d < 50 && d > 0.01) { mx += dx / d * 0.8; my += dy / d * 0.8; if (!spd) spd = 30; }
+    }
+    if (spd) {
+      const m = Math.hypot(mx, my) || 1;
+      moveBear(b, mx / m * spd * dt, my / m * spd * dt);
+      b.walkT += dt * spd * 0.09;
+    }
+  }
+  bears = bears.filter(b => !b.dead || b.deadT < 1.2);
+}
+function playerDown() {
+  const p = player;
+  p.dead = 2.2; p.hp = 0;
+  addText(p.x, p.y, 90, 'Autsch! Zurück ins Lager…', '#ffffff', 22);
+  for (let i = 0; i < p.meat; i++) {
+    const a = Math.random() * Math.PI * 2, s = rand(40, 120);
+    items.push({ type: 'meat', x: p.x, y: p.y, z: 40, vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: rand(150, 280), t: 0, claimed: false });
+  }
+  p.meat = 0;
+  for (const b of bears) b.aggro = 0;
+}
+
+function updateItems(dt) {
+  const p = player;
+  for (const it of items) {
+    it.t += dt;
+    if (it.z > 0 || it.vz > 0) {
+      it.vz -= 900 * dt; it.z += it.vz * dt;
+      it.x += it.vx * dt; it.y += it.vy * dt;
+      if (it.z <= 0) { it.z = 0; it.vz = it.vz < -120 ? -it.vz * 0.3 : 0; it.vx *= 0.5; it.vy *= 0.5; }
+    } else { it.vx *= 0.9; it.vy *= 0.9; }
+    it.x = clamp(it.x, 20, W - 20); it.y = clamp(it.y, 20, FENCE_Y - 20);
+    if (it.claimed || it.t < 0.35) continue;
+    if (p.dead <= 0 && p.meat + p.incoming < p.cap && dist(p, it) < 62) {
+      it.claimed = true; it.gone = true; p.incoming++;
+      const from = { x: it.x, y: it.y, z: it.z };
+      fly('meat', from, playerTop, 0.28, () => { p.incoming--; p.meat++; sfx('pick'); popPill('pMeat'); }, 50);
+    }
+  }
+  items = items.filter(it => !it.gone && it.t < 60);
+}
+
+function counterSlot(i) {
+  const col = i % 3, row = Math.floor(i / 3);
+  return { x: COUNTER.x0 + 22 + col * 33, y: (COUNTER.y0 + COUNTER.y1) / 2, z: 30 + row * 5 };
+}
+
+function updateCounterAndCustomers(dt) {
+  // neue Kunden
+  custTimer -= dt;
+  const waiting = customers.filter(c => c.state !== 'leave').length;
+  if (custTimer <= 0 && waiting < 6) {
+    custTimer = rand(2.2, 3.6) / (1 + 0.45 * hunters.length) * (S.built.has('furnace') ? 0.7 : 1);
+    const sp = SPAWN_CUST[Math.floor(Math.random() * SPAWN_CUST.length)];
+    const coats = ['#3b7ddd', '#2f6fc9', '#4a90e2', '#6c5ce7', '#d35454', '#2aa198', '#e08e2b'];
+    customers.push({ x: sp.x, y: sp.y, state: 'queue', want: 1 + Math.floor(Math.random() * 4), got: 0, pending: 0,
+      face: -1, walkT: 0, moving: false, coat: coats[Math.floor(Math.random() * coats.length)], served: 0 });
+  }
+  const queue = customers.filter(c => c.state === 'queue');
+  queue.forEach((c, i) => {
+    const tx = QUEUE0.x + i * 10, ty = QUEUE0.y + i * 42;
+    const arrived = steer(c, tx, ty, 120, dt);
+    if (arrived) c.face = -1;
+    c.atFront = i === 0 && arrived;
+  });
+  // Bedienen
+  const serving = !!cashier || (player.dead <= 0 && dist(player, REGISTER) < REGISTER.r + 8);
+  const front = queue[0];
+  if (front && front.atFront && serving) {
+    front.served -= dt;
+    if (front.served <= 0 && COUNTER.meat > 0 && front.got + front.pending < front.want) {
+      front.served = 0.2;
+      COUNTER.meat--; front.pending++;
+      const c = front;
+      fly('meat', counterSlot(COUNTER.meat), () => ({ x: c.x, y: c.y, z: 30 + c.got * 5 }), 0.25, () => { c.pending--; c.got++; sfx('drop'); }, 40);
+    }
+    if (front.got >= front.want && front.pending === 0) {
+      const amount = front.got * S.price;
+      front.state = 'leave';
+      const ex = SPAWN_CUST[Math.floor(Math.random() * SPAWN_CUST.length)];
+      front.lx = clamp(ex.x, 30, W - 30); front.ly = H - 25;
+      S.sold += front.got;
+      const n = Math.min(5, Math.ceil(amount / 5));
+      for (let i = 0; i < n; i++) {
+        const last = i === n - 1;
+        setTimeout(() => fly('cash', { x: REGISTER.x, y: REGISTER.y, z: 40 }, () => ({ x: CASHPILE.x, y: CASHPILE.y, z: 10 }), 0.35,
+          last ? () => { CASHPILE.amount += amount; sfx('coin'); } : null, 50), i * 70);
+      }
+      addText(REGISTER.x, REGISTER.y, 80, '+' + amount + ' $', '#7CFC7C', 24);
+    }
+  }
+  for (const c of customers) {
+    if (c.state === 'leave') { steer(c, c.lx, c.ly, 110, dt); if (Math.hypot(c.lx - c.x, c.ly - c.y) < 12) c.remove = true; }
+  }
+  customers = customers.filter(c => !c.remove);
+}
+
+function nearestBear(e, maxD = 1e9, avoid) {
+  let best = null, bd = maxD;
+  for (const b of bears) {
+    if (b.dead) continue;
+    let d = dist(e, b);
+    if (avoid && avoid.includes(b)) d += 250;
+    if (d < bd) { bd = d; best = b; }
+  }
+  return best;
+}
+function updateHunters(dt) {
+  for (const h of hunters) {
+    h.cd -= dt; h.swing = Math.max(0, h.swing - dt);
+    if (h.state === 'work') {
+      // Fleisch am Boden aufsammeln
+      let meat = null, md = 260;
+      for (const it of items) { if (it.claimed || it.t < 0.4) continue; const d = dist(h, it); if (d < md) { md = d; meat = it; } }
+      if (meat && h.carry < 10) {
+        if (md < 30) {
+          meat.claimed = true; meat.gone = true;
+          fly('meat', { x: meat.x, y: meat.y, z: 0 }, () => ({ x: h.x, y: h.y, z: 40 + h.carry * 5.5 }), 0.25, () => { h.carry++; }, 30);
+        } else steer(h, meat.x, meat.y, 150, dt);
+        continue;
+      }
+      if (h.carry >= 8) { h.state = 'deliver'; continue; }
+      const others = hunters.filter(o => o !== h).map(o => o.target).filter(Boolean);
+      if (!h.target || h.target.dead) h.target = nearestBear(h, 1e9, others);
+      const b = h.target;
+      if (!b) { if (h.carry > 0) h.state = 'deliver'; continue; }
+      const d = dist(h, b);
+      if (d > 50 * b.type.size) steer(h, b.x, b.y, 150, dt);
+      else {
+        h.moving = false;
+        h.face = isoX(b.x - h.x, b.y - h.y) > 0 ? 1 : -1;
+        if (h.cd <= 0) { h.cd = 0.6; h.swing = 0.25; damageBear(b, 8, h); }
+      }
+    } else if (h.state === 'deliver') {
+      if (steer(h, DROP.x + 25, DROP.y - 10, 150, dt) || dist(h, DROP) < DROP.r) {
+        h.moving = false;
+        if (h.cd <= 0 && h.carry > 0) {
+          h.cd = 0.07; h.carry--;
+          const slot = COUNTER.meat + countFlyers('meatToCounter');
+          fly('meat', { x: h.x, y: h.y, z: 40 + h.carry * 5.5 }, () => counterSlot(slot), 0.3, () => { COUNTER.meat++; }, 50).tag = 'meatToCounter';
+        }
+        if (h.carry <= 0) { h.state = 'work'; h.target = null; }
+      }
+    }
+  }
+}
+
+function updateLumber(dt) {
+  for (const l of lumberjacks) {
+    l.cd -= dt; l.swing = Math.max(0, l.swing - dt);
+    if (l.state === 'work') {
+      if (l.carry >= 6) { l.state = 'deliver'; continue; }
+      if (!l.target || l.target.logs <= 0) {
+        let best = null, bd = 1e9;
+        for (const t of trees) {
+          if (t.logs <= 0) continue;
+          const d = Math.hypot(t.x - l.x, t.y - l.y) + (t.y > 200 ? 0 : 0);
+          if (d < bd) { bd = d; best = t; }
+        }
+        l.target = best;
+      }
+      const t = l.target;
+      if (!t) continue;
+      if (dist(l, t) > 42) steer(l, t.x, Math.min(t.y + 30, FENCE_Y - 40), 140, dt);
+      else {
+        l.moving = false;
+        l.face = isoX(t.x - l.x, t.y - l.y) > 0 ? 1 : -1;
+        if (l.cd <= 0) {
+          l.cd = 0.6; l.swing = 0.25; chopTree(t);
+          fly('wood', { x: t.x, y: t.y, z: 40 }, () => ({ x: l.x, y: l.y, z: 40 + l.carry * 7 }), 0.3, () => { l.carry++; }, 30);
+          if (t.logs <= 0) l.target = null;
+        }
+      }
+    } else {
+      if (steer(l, WOODPILE.x + 30, WOODPILE.y - 20, 140, dt)) {
+        l.moving = false;
+        if (l.cd <= 0 && l.carry > 0) {
+          l.cd = 0.1; l.carry--;
+          fly('wood', { x: l.x, y: l.y, z: 40 + l.carry * 7 }, () => ({ x: WOODPILE.x, y: WOODPILE.y, z: 10 }), 0.3, () => { WOODPILE.n++; }, 40);
+        }
+        if (l.carry <= 0) { l.state = 'work'; l.target = null; }
+      }
+    }
+  }
+}
+
+// Schienen
+let railLen = 0; const railSeg = [];
+(function () { for (let i = 0; i < RAILS.length - 1; i++) { const a = RAILS[i], b = RAILS[i + 1]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]); railSeg.push({ a, b, l, s0: railLen }); railLen += l; } })();
+function railPos(s) {
+  s = clamp(s, 0, railLen);
+  for (const g of railSeg) if (s <= g.s0 + g.l) { const t = (s - g.s0) / g.l; return { x: lerp(g.a[0], g.b[0], t), y: lerp(g.a[1], g.b[1], t), dir: g }; }
+  const g = railSeg[railSeg.length - 1]; return { x: g.b[0], y: g.b[1], dir: g };
+}
+function updateCart(dt) {
+  if (!cart) return;
+  if (cart.wait > 0) {
+    cart.wait -= dt;
+    if (cart.wait <= 0) {
+      if (cart.s <= 0) { cart.load = 3; cart.dir = 1; }
+      else {
+        const pos = railPos(railLen);
+        for (let i = 0; i < cart.load; i++) {
+          setTimeout(() => fly('gold', { x: pos.x, y: pos.y, z: 20 }, () => ({ x: GOLDPILE.x, y: GOLDPILE.y, z: 10 }), 0.3, () => { GOLDPILE.n++; }, 40), i * 120);
+        }
+        cart.load = 0; cart.dir = -1;
+      }
+    }
+    return;
+  }
+  cart.s += cart.dir * 85 * dt;
+  if (cart.s >= railLen) { cart.s = railLen; cart.wait = 1.2; }
+  if (cart.s <= 0) { cart.s = 0; cart.wait = 2.5; }
+}
+
+function updateTrees(dt) {
+  for (const t of trees) {
+    t.shake = Math.max(0, t.shake - dt);
+    if (t.logs <= 0) { t.regrow -= dt; if (t.regrow <= 0) t.logs = 3; }
+  }
+}
+function updateFlyers(dt) {
+  for (const f of flyers) {
+    f.t += dt / f.dur;
+    const k = Math.min(1, f.t);
+    const to = f.toFn();
+    const e = k * k * (3 - 2 * k);
+    f.x = lerp(f.fx, to.x, e); f.y = lerp(f.fy, to.y, e);
+    f.z = lerp(f.fz, to.z, e) + Math.sin(Math.PI * k) * f.arc;
+    if (f.t >= 1) { f.done = true; if (f.onArrive) f.onArrive(); }
+  }
+  flyers = flyers.filter(f => !f.done);
+}
+function updateFx(dt) {
+  for (const q of parts) {
+    q.t += dt; q.vz -= 700 * dt; q.z += q.vz * dt; q.x += q.vx * dt; q.y += q.vy * dt;
+    if (q.z < 0) { q.z = 0; q.vz = 0; q.vx *= 0.8; q.vy *= 0.8; }
+  }
+  parts = parts.filter(q => q.t < q.life);
+  for (const t of texts) t.t += dt;
+  texts = texts.filter(t => t.t < 1.1);
+}
+
+/* =========================================================
+   Zeichnen – Helfer
+   ========================================================= */
+function P(x, y, z = 0) { return [isoX(x, y), isoY(x, y) - z]; }
+function polyW(pts, fill, stroke, lw = 2) {
+  ctx.beginPath();
+  pts.forEach((p, i) => { const [a, b] = P(p[0], p[1], p[2] || 0); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); });
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+}
+function rectW(x0, y0, x1, y1, fill, stroke, lw, z = 0) { polyW([[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]], fill, stroke, lw); }
+function boxW(x0, y0, x1, y1, h, top, left, right, z0 = 0) {
+  polyW([[x0, y1, z0], [x1, y1, z0], [x1, y1, z0 + h], [x0, y1, z0 + h]], left);
+  polyW([[x1, y0, z0], [x1, y1, z0], [x1, y1, z0 + h], [x1, y0, z0 + h]], right);
+  polyW([[x0, y0, z0 + h], [x1, y0, z0 + h], [x1, y1, z0 + h], [x0, y1, z0 + h]], top);
+}
+function ellipseW(x, y, r, fill, stroke, lw = 2, dash) {
+  const [a, b] = P(x, y);
+  ctx.beginPath(); ctx.ellipse(a, b, r * 1.2247, r * 0.7071, 0, 0, Math.PI * 2);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; if (dash) ctx.setLineDash(dash); ctx.stroke(); ctx.setLineDash([]); }
+}
+function shadow(x, y, r, a = 0.18) { ellipseW(x, y, r, `rgba(40,60,100,${a})`); }
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+// Gegenstände (flach, für Stapel) in Bildschirmkoordinaten
+function drawItem(type, sx, sy, s = 1) {
+  ctx.save(); ctx.translate(sx, sy); ctx.scale(s, s);
+  if (type === 'meat') {
+    ctx.fillStyle = '#a8323a'; roundRect(-12, -3, 24, 7, 3.5); ctx.fill();
+    ctx.fillStyle = '#e4606b'; roundRect(-12, -6, 24, 7, 3.5); ctx.fill();
+    ctx.strokeStyle = '#ffd6da'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(-7, -3); ctx.quadraticCurveTo(0, -6, 7, -2.5); ctx.stroke();
+    ctx.fillStyle = '#fff4e6'; ctx.beginPath(); ctx.arc(8, -2.5, 2, 0, 7); ctx.fill();
+  } else if (type === 'wood') {
+    ctx.fillStyle = '#8a5530'; roundRect(-13, -5, 26, 9, 4); ctx.fill();
+    ctx.fillStyle = '#e8b777'; ctx.beginPath(); ctx.ellipse(11, -0.5, 3.2, 4.5, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#a0683d'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(11, -0.5, 1.5, 2.3, 0, 0, 7); ctx.stroke();
+  } else if (type === 'gold') {
+    ctx.fillStyle = '#c99413';
+    ctx.beginPath(); ctx.moveTo(-12, 3); ctx.lineTo(12, 3); ctx.lineTo(9, -4); ctx.lineTo(-9, -4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffd84a';
+    ctx.beginPath(); ctx.moveTo(-9, -4); ctx.lineTo(9, -4); ctx.lineTo(7, -8); ctx.lineTo(-7, -8); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(-4, -7.5, 5, 2);
+  } else if (type === 'cash') {
+    ctx.fillStyle = '#2e8b3a'; roundRect(-13, -4, 26, 7, 2); ctx.fill();
+    ctx.fillStyle = '#5ccf5c'; roundRect(-13, -7, 26, 7, 2); ctx.fill();
+    ctx.fillStyle = '#b8f5b0'; ctx.beginPath(); ctx.ellipse(0, -3.5, 4, 2.5, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#2e8b3a'; ctx.font = 'bold 6px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('$', 0, -3.4);
+  }
+  ctx.restore();
+}
+
+function drawTree(t) {
+  const [sx, sy] = P(t.x, t.y);
+  const s = t.s;
+  shadow(t.x, t.y, 22 * s, 0.14);
+  if (t.logs <= 0) {
+    ctx.fillStyle = '#6b3f22'; ctx.beginPath(); ctx.ellipse(sx, sy - 4, 9 * s, 5 * s, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#e8c38f'; ctx.beginPath(); ctx.ellipse(sx, sy - 7, 9 * s, 4.5 * s, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(sx - 2, sy - 8, 4 * s, 2 * s, 0, 0, 7); ctx.fill();
+    return;
+  }
+  const off = t.shake > 0 ? Math.sin(t.shake * 70) * 4 : 0;
+  ctx.fillStyle = '#7a4a2a'; ctx.fillRect(sx - 4 * s, sy - 16 * s, 8 * s, 16 * s);
+  for (let i = 0; i < 3; i++) {
+    const w = (40 - i * 9) * s, yb = sy - (12 + i * 22) * s, th = (36 - i * 3) * s, cx = sx + off * (i + 1) / 3;
+    ctx.fillStyle = '#4c80d1';
+    ctx.beginPath(); ctx.moveTo(cx - w / 2, yb); ctx.lineTo(cx, yb - th); ctx.lineTo(cx, yb + 5 * s); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#86b5f2';
+    ctx.beginPath(); ctx.moveTo(cx + w / 2, yb); ctx.lineTo(cx, yb - th); ctx.lineTo(cx, yb + 5 * s); ctx.closePath(); ctx.fill();
+    // Schnee
+    ctx.fillStyle = '#f4f9ff';
+    ctx.beginPath(); ctx.moveTo(cx, yb - th); ctx.lineTo(cx - w * 0.17, yb - th * 0.62); ctx.lineTo(cx, yb - th * 0.7); ctx.lineTo(cx + w * 0.17, yb - th * 0.62); ctx.closePath(); ctx.fill();
+    for (let k = -2; k <= 2; k++) {
+      ctx.beginPath(); ctx.arc(cx + k * w * 0.2, yb + 1 * s - Math.abs(k) * 1.6 * s, 3.4 * s, 0, 7); ctx.fill();
+    }
+  }
+}
+
+function drawBear(b) {
+  const [sx, sy] = P(b.x, b.y);
+  const s = b.type.size * 1.2 * (0.4 + 0.6 * b.spawnT);
+  const alpha = b.dead ? Math.max(0, 1 - b.deadT / 1.2) : 1;
+  ctx.save(); ctx.globalAlpha = alpha;
+  shadow(b.x, b.y, 19 * s, 0.16);
+  ctx.translate(sx, sy);
+  if (b.dead) { ctx.translate(0, -4); ctx.scale(1, 0.55); }
+  const lunge = b.lunge > 0 ? Math.sin(b.lunge / 0.2 * Math.PI) * 8 : 0;
+  ctx.scale(b.face * s, s);
+  ctx.translate(lunge, 0);
+  const lw = Math.sin(b.walkT) * 4;
+  const white = '#f6f8fc', shade = '#cfd8e6';
+  // Beine
+  ctx.fillStyle = shade; ctx.strokeStyle = '#a9b7cb'; ctx.lineWidth = 1.2;
+  [[-18, lw], [-8, -lw], [10, -lw], [20, lw]].forEach(([x, o]) => { roundRect(x - 4 + o * 0.4, -18, 9, 18, 4); ctx.fill(); ctx.stroke(); });
+  ctx.fillStyle = '#8795a8';
+  [[-18, lw], [-8, -lw], [10, -lw], [20, lw]].forEach(([x, o]) => { ctx.fillRect(x - 3 + o * 0.4, -3, 7, 3); });
+  // Körper
+  ctx.fillStyle = white; ctx.strokeStyle = '#b9c6d8'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.ellipse(0, -26, 30, 17, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = shade; ctx.beginPath(); ctx.ellipse(-3, -17, 24, 7, 0, 0, Math.PI); ctx.fill();
+  if (b.type.name === 'spiky') {
+    ctx.fillStyle = '#56606e';
+    for (let i = 0; i < 8; i++) {
+      const x = -22 + i * 6.5, y = -38 + Math.abs(i - 3.5) * 1.6;
+      ctx.beginPath(); ctx.moveTo(x - 3, y + 6); ctx.lineTo(x - 7, y - 12 + (i % 2) * 4); ctx.lineTo(x + 3, y + 4); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = '#8894a4';
+    for (let i = 0; i < 6; i++) { const x = -18 + i * 7; ctx.beginPath(); ctx.moveTo(x, -34); ctx.lineTo(x - 5, -44 + (i % 2) * 3); ctx.lineTo(x + 3, -35); ctx.closePath(); ctx.fill(); }
+  }
+  // Kopf
+  ctx.fillStyle = white; ctx.strokeStyle = '#b9c6d8';
+  ctx.beginPath(); ctx.ellipse(27, -31, 13, 11, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(38, -28, 7, 5.5, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(20, -41, 4, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(44, -29, 2.6, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(30, -34, 1.8, 0, 7); ctx.fill();
+  if (b.hitT > 0) {
+    ctx.globalAlpha = alpha * 0.55; ctx.fillStyle = '#ff4d4d';
+    ctx.beginPath(); ctx.ellipse(0, -26, 31, 18, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(27, -31, 14, 12, 0, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+  if (!b.dead && b.hp < b.type.hp) {
+    const w = 50 * b.type.size, y = sy - 78 * b.type.size;
+    ctx.fillStyle = 'rgba(40,40,50,.7)'; roundRect(sx - w / 2 - 2, y - 2, w + 4, 9, 4); ctx.fill();
+    ctx.fillStyle = '#e53935'; roundRect(sx - w / 2, y, w * Math.max(0, b.hp / b.type.hp), 5, 2.5); ctx.fill();
+  }
+}
+
+function drawAxe(len, swingA) {
+  ctx.save(); ctx.rotate(swingA);
+  ctx.fillStyle = '#7a4a2a'; ctx.fillRect(-1.5, -len, 3, len);
+  ctx.fillStyle = '#b8c2cf';
+  ctx.beginPath(); ctx.moveTo(1, -len + 2); ctx.quadraticCurveTo(12, -len - 4, 13, -len + 10); ctx.lineTo(1, -len + 9); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#e9eef5'; ctx.fillRect(10, -len + 1, 3, 9);
+  ctx.restore();
+}
+
+function drawHuman(e, o) {
+  const [sx, sy] = P(e.x, e.y);
+  const sc = o.scale || 1;
+  shadow(e.x, e.y, 13 * sc, 0.22);
+  ctx.save(); ctx.translate(sx, sy); ctx.scale(sc, sc);
+  const f = e.face || 1;
+  const step = e.moving ? Math.sin(e.walkT) : 0;
+  const bob = e.moving ? Math.abs(Math.cos(e.walkT)) * 1.5 : 0;
+  // Beine
+  ctx.fillStyle = '#2d3b55';
+  roundRect(-7 + step * 3, -14, 6, 14, 3); ctx.fill();
+  roundRect(1 - step * 3, -14, 6, 14, 3); ctx.fill();
+  ctx.fillStyle = '#6b4a2e';
+  roundRect(-8 + step * 3, -3, 8, 4, 2); ctx.fill(); roundRect(0 - step * 3, -3, 8, 4, 2); ctx.fill();
+  ctx.translate(0, -bob);
+  // Mantel
+  const coat = o.coat;
+  ctx.fillStyle = coat;
+  roundRect(-11, -38, 22, 28, 8); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,.15)'; roundRect(f > 0 ? -11 : 1, -38, 10, 28, 6); ctx.fill();
+  ctx.fillStyle = '#f3f3f3'; ctx.fillRect(-11, -13, 22, 3);
+  // Arm hinten mit Werkzeug
+  if (o.tool) {
+    ctx.save(); ctx.translate(f * 8, -26); ctx.scale(f, 1);
+    const sw = o.swing > 0 ? (1 - o.swing / 0.25) : 0;
+    drawAxe(20, o.swing > 0 ? -1.4 + sw * 2.6 : 0.5);
+    ctx.restore();
+  }
+  // Kopf mit Fellkapuze
+  ctx.fillStyle = '#f7f1e6'; ctx.beginPath(); ctx.arc(0, -45, 11, 0, 7); ctx.fill();
+  ctx.fillStyle = coat; ctx.beginPath(); ctx.arc(0, -46, 9.5, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#f5cfa8'; ctx.beginPath(); ctx.arc(f * 2, -43, 6.5, 0, 7); ctx.fill();
+  ctx.fillStyle = '#2b2b2b';
+  ctx.beginPath(); ctx.arc(f * 2 + f * 2.5, -44, 1.1, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(f * 2 - f * 1.5, -44, 1.1, 0, 7); ctx.fill();
+  if (o.hurt) { ctx.fillStyle = 'rgba(255,60,60,.45)'; ctx.beginPath(); ctx.arc(0, -30, 20, 0, 7); ctx.fill(); }
+  ctx.restore();
+  // Stapel auf dem Rücken
+  if (o.carry > 0) {
+    const n = o.carry;
+    for (let i = 0; i < n; i++) {
+      const sway = (o.sway || 0) * i * i * 0.012;
+      drawItem(o.carryType || 'meat', sx - f * 3 + sway, sy - (48 + i * (o.carryType === 'wood' ? 7 : 5.5)) * sc - (e.moving ? Math.abs(Math.cos(e.walkT)) * 1.5 : 0));
+    }
+  }
+}
+
+function drawCounter() {
+  const c = COUNTER;
+  shadow((c.x0 + c.x1) / 2, (c.y0 + c.y1) / 2, 50, 0.15);
+  boxW(c.x0, c.y0, c.x1, c.y1, 26, '#c48a55', '#9a6436', '#7b4d29');
+  // Bretter
+  ctx.strokeStyle = 'rgba(90,50,20,.35)'; ctx.lineWidth = 1.2;
+  for (let i = 1; i < 4; i++) { const x = c.x0 + (c.x1 - c.x0) * i / 4; const [a, b] = P(x, c.y0, 26); const [a2, b2] = P(x, c.y1, 26); ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(a2, b2); ctx.stroke(); }
+  // Fleischstapel
+  const n = Math.min(c.meat, 90);
+  for (let i = 0; i < n; i++) { const s = counterSlot(i); const [a, b] = P(s.x, s.y, s.z); drawItem('meat', a, b); }
+  if (c.meat > 90) { const [a, b] = P(c.x0 + 55, c.y0, 30 + 30 * 5 + 20); label(a, b, c.meat, '#fff'); }
+}
+function drawRegister() {
+  const r = REGISTER;
+  boxW(r.x + 10, r.y - 22, r.x + 38, r.y + 8, 22, '#8d98a8', '#6c7788', '#56606f');
+  boxW(r.x + 16, r.y - 16, r.x + 32, r.y, 10, '#4a5261', '#3a414e', '#2f3540', 22);
+  const [a, b] = P(r.x + 24, r.y - 8, 38);
+  ctx.fillStyle = '#7CFC7C'; ctx.fillRect(a - 5, b - 3, 10, 4);
+}
+function drawPile(pile, type, count) {
+  const cols = [[0, 0], [22, 0], [0, 22], [22, 22], [-22, 0], [0, -22], [-22, 22], [22, -22], [-22, -22]];
+  const per = type === 'cash' ? 8 : 6;
+  const n = Math.min(count, cols.length * per);
+  for (let i = 0; i < n; i++) {
+    const c = cols[Math.floor(i / per) % cols.length], h = i % per;
+    const [a, b] = P(pile.x + c[0] - 11, pile.y + c[1] - 11, h * (type === 'wood' ? 7 : 5));
+    drawItem(type, a, b);
+  }
+}
+function label(sx, sy, text, color = '#fff', size = 18) {
+  ctx.font = `900 ${size}px -apple-system, "Segoe UI", sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(30,40,60,.8)'; ctx.strokeText(text, sx, sy);
+  ctx.fillStyle = color; ctx.fillText(text, sx, sy);
+}
+const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+function drawPad(p) {
+  const half = p.big ? PAD_HALF * 1.5 : PAD_HALF;
+  const x0 = p.x - half, y0 = p.y - half, x1 = p.x + half, y1 = p.y + half;
+  rectW(x0, y0, x1, y1, 'rgba(70,80,96,.78)');
+  // Fortschritt
+  let tot = 0, paid = 0;
+  for (const r of ['cash', 'wood', 'gold']) { tot += p.cost[r] || 0; paid += p.paid[r] || 0; }
+  const k = tot ? paid / tot : 0;
+  if (k > 0) rectW(x0, y1 - (y1 - y0) * k, x1, y1, 'rgba(92,207,92,.75)');
+  const pulse = 0.6 + 0.4 * Math.sin(gameTime * 4);
+  ctx.setLineDash([8, 6]); rectW(x0 + 4, y0 + 4, x1 - 4, y1 - 4, null, `rgba(255,255,255,${pulse})`, 3); ctx.setLineDash([]);
+  const [sx, sy] = P(p.x, p.y);
+  ctx.font = `${p.big ? 44 : 30}px ${EMOJI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(p.icon, sx, sy - 12);
+  const rem = padRemaining(p);
+  const cost = [];
+  if (rem.cash > 0) cost.push(['💵', rem.cash]);
+  if (rem.wood > 0) cost.push(['🪵', rem.wood]);
+  if (rem.gold > 0) cost.push(['🪙', rem.gold]);
+  ctx.font = '900 17px -apple-system, "Segoe UI", sans-serif';
+  const widths = cost.map(c => 22 + ctx.measureText(String(c[1])).width + 8);
+  let cx = sx - widths.reduce((a, b) => a + b, 0) / 2;
+  cost.forEach((c, i) => {
+    ctx.font = `16px ${EMOJI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(c[0], cx + 9, sy + 16);
+    const tw = widths[i] - 30;
+    label(cx + 22 + tw / 2, sy + 17, String(c[1]), '#fff', 17);
+    cx += widths[i];
+  });
+}
+function drawPadName(p) {
+  const [sx, sy] = P(p.x, p.y);
+  label(sx, sy - 44 - (p.big ? 12 : 0), p.name, '#ffe98a', 15);
+}
+function drawFenceSeg(x) {
+  // Holzpfosten, rot-orange mit Schneekappe
+  const h = 38;
+  const [a, b] = P(x, FENCE_Y);
+  ctx.fillStyle = '#c9553b'; ctx.fillRect(a - 4, b - h, 8, h);
+  ctx.fillStyle = '#e8775a'; ctx.fillRect(a - 4, b - h, 4, h);
+  ctx.fillStyle = '#f4f9ff'; ctx.beginPath(); ctx.moveTo(a - 4, b - h); ctx.lineTo(a, b - h - 8); ctx.lineTo(a + 4, b - h); ctx.closePath(); ctx.fill();
+}
+function drawGateDoor(x, open) {
+  const y0 = FENCE_Y, y1 = FENCE_Y + 55, h = 36;
+  polyW([[x, y0, 0], [x, y1, 0], [x, y1, h], [x, y0, h]], '#c0392b', '#7a4a2a', 3);
+  ctx.strokeStyle = '#8b5a2b'; ctx.lineWidth = 3;
+  let [a, b] = P(x, y0, 0), [c, d] = P(x, y1, h);
+  ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke();
+  [a, b] = P(x, y1, 0); [c, d] = P(x, y0, h);
+  ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke();
+}
+function drawTent(t) {
+  const [sx, sy] = P(t.x, t.y);
+  shadow(t.x, t.y, 38, 0.15);
+  ctx.fillStyle = t.c;
+  ctx.beginPath(); ctx.moveTo(sx - 44, sy + 6); ctx.lineTo(sx, sy - 58); ctx.lineTo(sx + 6, sy + 14); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,.18)';
+  ctx.beginPath(); ctx.moveTo(sx + 6, sy + 14); ctx.lineTo(sx, sy - 58); ctx.lineTo(sx + 44, sy + 2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = t.c; ctx.globalAlpha = 0.85;
+  ctx.beginPath(); ctx.moveTo(sx + 6, sy + 14); ctx.lineTo(sx, sy - 58); ctx.lineTo(sx + 44, sy + 2); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#3a2a1e'; ctx.beginPath(); ctx.moveTo(sx - 10, sy + 9); ctx.lineTo(sx, sy - 22); ctx.lineTo(sx + 5, sy + 12); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#f4f9ff'; ctx.beginPath(); ctx.moveTo(sx - 12, sy - 40); ctx.lineTo(sx, sy - 58); ctx.lineTo(sx + 12, sy - 42); ctx.closePath(); ctx.fill();
+}
+function drawCrate(c) {
+  shadow(c.x, c.y, 18, 0.15);
+  boxW(c.x - 12, c.y - 12, c.x + 12, c.y + 12, 22, '#c9965e', '#a2703e', '#86592f');
+}
+function drawMine() {
+  // Felsen
+  const rocks = [[180, 1080, 48], [230, 1070, 36], [165, 1135, 34], [240, 1125, 30]];
+  for (const [x, y, r] of rocks) {
+    const [a, b] = P(x, y);
+    shadow(x, y, r, 0.18);
+    ctx.fillStyle = '#9aa3ae'; ctx.beginPath(); ctx.ellipse(a, b - r * 0.55, r * 1.05, r * 0.8, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#c3c9d1'; ctx.beginPath(); ctx.ellipse(a - r * 0.25, b - r * 0.8, r * 0.6, r * 0.45, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#f4f9ff'; ctx.beginPath(); ctx.ellipse(a - r * 0.1, b - r * 1.18, r * 0.45, r * 0.18, 0, 0, 7); ctx.fill();
+  }
+  if (S.built.has('mine')) {
+    const [a, b] = P(262, 1112);
+    ctx.fillStyle = '#2b2f36'; ctx.beginPath(); ctx.ellipse(a, b - 18, 18, 22, 0, Math.PI, 0); ctx.lineTo(a + 18, b); ctx.lineTo(a - 18, b); ctx.fill();
+    ctx.strokeStyle = '#8b5a2b'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(a - 20, b); ctx.lineTo(a - 20, b - 30); ctx.lineTo(a + 20, b - 30); ctx.lineTo(a + 20, b); ctx.stroke();
+    ctx.fillStyle = '#ffd84a'; ctx.beginPath(); ctx.arc(a - 30, b - 40, 5, 0, 7); ctx.fill();
+  }
+}
+function drawRails() {
+  for (const g of railSeg) {
+    const dx = (g.b[0] - g.a[0]) / g.l, dy = (g.b[1] - g.a[1]) / g.l;
+    const nx = -dy, ny = dx;
+    for (let s = 0; s < g.l; s += 16) {
+      const x = g.a[0] + dx * s, y = g.a[1] + dy * s;
+      polyW([[x + nx * 14 - dx * 3, y + ny * 14 - dy * 3], [x + nx * 14 + dx * 3, y + ny * 14 + dy * 3], [x - nx * 14 + dx * 3, y - ny * 14 + dy * 3], [x - nx * 14 - dx * 3, y - ny * 14 - dy * 3]], '#a0693c');
+    }
+    for (const o of [-9, 9]) {
+      const [a, b] = P(g.a[0] + nx * o - dx * 3, g.a[1] + ny * o - dy * 3), [c, d] = P(g.b[0] + nx * o + dx * 3, g.b[1] + ny * o + dy * 3);
+      ctx.strokeStyle = '#4b4f58'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke();
+    }
+  }
+}
+function drawCart() {
+  const p = railPos(cart.s);
+  shadow(p.x, p.y, 18, 0.2);
+  boxW(p.x - 14, p.y - 14, p.x + 14, p.y + 14, 18, '#3b3f47', '#6f7782', '#555c66', 4);
+  if (cart.load > 0) for (let i = 0; i < cart.load; i++) { const [a, b] = P(p.x - 4 + i * 4, p.y, 22 + i * 3); drawItem('gold', a, b, 0.8); }
+}
+function drawHut() {
+  const h = HUT;
+  shadow((h.x0 + h.x1) / 2, (h.y0 + h.y1) / 2, 55, 0.15);
+  boxW(h.x0, h.y0, h.x1, h.y1, 40, '#9a6436', '#a86e3b', '#855428');
+  // Dach
+  const mx = (h.x0 + h.x1) / 2, e = 8;
+  const ym = (h.y0 + h.y1) / 2;
+  polyW([[h.x0 - e, h.y0 - e, 40], [h.x1 + e, h.y0 - e, 40], [h.x1 + e, ym, 70], [h.x0 - e, ym, 70]], '#dfe8f4', '#c7d3e3', 2);
+  polyW([[h.x0 - e, h.y1 + e, 40], [h.x1 + e, h.y1 + e, 40], [h.x1 + e, ym, 70], [h.x0 - e, ym, 70]], '#f7fbff', '#c7d3e3', 2);
+  polyW([[h.x1 + e, h.y0 - e, 40], [h.x1 + e, h.y1 + e, 40], [h.x1 + e, (h.y0 + h.y1) / 2, 70]], '#7b4d29');
+  const [a, b] = P(mx, h.y1, 0);
+  ctx.fillStyle = '#4a2f1a'; ctx.fillRect(a - 9, b - 26, 16, 22);
+}
+function drawFurnace() {
+  const [sx, sy] = P(FURNACE.x, FURNACE.y);
+  shadow(FURNACE.x, FURNACE.y, 70, 0.2);
+  ctx.fillStyle = '#5b606b'; ctx.fillRect(sx - 60, sy - 90, 120, 90);
+  ctx.beginPath(); ctx.ellipse(sx, sy, 60, 24, 0, 0, Math.PI); ctx.fill();
+  ctx.fillStyle = '#767c88'; ctx.beginPath(); ctx.ellipse(sx, sy - 90, 60, 24, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#3c4048'; ctx.beginPath(); ctx.ellipse(sx, sy - 90, 44, 16, 0, 0, 7); ctx.fill();
+  // Steinfugen
+  ctx.strokeStyle = 'rgba(0,0,0,.2)'; ctx.lineWidth = 2;
+  for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.ellipse(sx, sy - i * 22, 60, 24, 0, 0.1, Math.PI - 0.1); ctx.stroke(); }
+  // Feuer
+  const fl = Math.sin(gameTime * 12) * 3;
+  const g = ctx.createRadialGradient(sx, sy - 35, 4, sx, sy - 35, 40);
+  g.addColorStop(0, '#fff3a0'); g.addColorStop(0.5, '#ff9a2e'); g.addColorStop(1, 'rgba(255,80,0,0)');
+  ctx.fillStyle = '#2a1a10'; ctx.beginPath(); ctx.ellipse(sx, sy - 30, 24, 28, 0, Math.PI, 0); ctx.lineTo(sx + 24, sy - 8); ctx.lineTo(sx - 24, sy - 8); ctx.fill();
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(sx, sy - 28 + fl, 22, 24, 0, 0, 7); ctx.fill();
+  const g2 = ctx.createRadialGradient(sx, sy - 100, 5, sx, sy - 100, 70);
+  g2.addColorStop(0, 'rgba(255,190,80,.55)'); g2.addColorStop(1, 'rgba(255,150,40,0)');
+  ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(sx, sy - 100, 70, 0, 7); ctx.fill();
+  // Flammen oben
+  for (let i = 0; i < 5; i++) {
+    const x = sx - 30 + i * 15, hh = 22 + Math.sin(gameTime * 9 + i * 1.7) * 8;
+    ctx.fillStyle = i % 2 ? '#ffb347' : '#ff7b24';
+    ctx.beginPath(); ctx.moveTo(x - 8, sy - 92); ctx.quadraticCurveTo(x, sy - 92 - hh * 1.4, x + 8, sy - 92); ctx.closePath(); ctx.fill();
+  }
+}
+
+/* =========================================================
+   Zeichnen – Szene
+   ========================================================= */
+let camX = 0, camY = 0;
+const flakes = [];
+for (let i = 0; i < 90; i++) flakes.push({ x: Math.random(), y: Math.random(), s: rand(1, 3), v: rand(20, 55), w: rand(0, 6) });
+
+function currentGoal() {
+  const p = player;
+  if (p.dead > 0) return null;
+  const vis = pads.filter(padVisible);
+  if (p.meat >= p.cap) return { text: 'Rucksack voll! Bring das Fleisch zur Theke', x: DROP.x, y: DROP.y };
+  if (S.sold === 0) {
+    if (COUNTER.meat === 0 && p.meat === 0 && p.incoming === 0) {
+      const b = nearestBear(p); if (b) return { text: 'Jage die Eisbären für Fleisch!', x: b.x, y: b.y, bear: true };
+    }
+    if (p.meat > 0 && COUNTER.meat < 3) return { text: 'Bring das Fleisch zur Theke', x: DROP.x, y: DROP.y };
+    if (COUNTER.meat > 0) return { text: 'Stell dich an die Kasse, um zu verkaufen', x: REGISTER.x, y: REGISTER.y };
+  }
+  // bezahlbares Bau-Feld?
+  for (const pad of vis) {
+    const r = padRemaining(pad);
+    if (S.cash >= r.cash && S.wood >= r.wood && S.gold >= r.gold) return { text: 'Baue: ' + pad.name, x: pad.x, y: pad.y, pad: true };
+  }
+  if (CASHPILE.amount >= 15 || (CASHPILE.amount > 0 && S.sold < 15))
+    return { text: 'Sammle das Geld ein', x: CASHPILE.x, y: CASHPILE.y };
+  if (GOLDPILE.n >= 3) return { text: 'Hol das Gold aus der Mine', x: GOLDPILE.x, y: GOLDPILE.y };
+  if (WOODPILE.n >= 6 && vis.some(v => padRemaining(v).wood > S.wood)) return { text: 'Hol das Holz vom Holzlager', x: WOODPILE.x, y: WOODPILE.y };
+  if (vis.some(v => padRemaining(v).wood > S.wood + WOODPILE.n) && S.cash >= Math.min(...vis.map(v => padRemaining(v).cash))) {
+    let t = null, td = 1e9; for (const tr of trees) { if (tr.logs <= 0) continue; const d = dist(p, tr); if (d < td) { td = d; t = tr; } }
+    if (t) return { text: 'Fälle Bäume im Wald für Holz', x: t.x, y: t.y, tree: true };
+  }
+  if (vis.some(v => padRemaining(v).gold > S.gold) && S.built.has('mine') && GOLDPILE.n > 0) return { text: 'Hol das Gold aus der Mine', x: GOLDPILE.x, y: GOLDPILE.y };
+  if (!cashier && COUNTER.meat > 0 && customers.some(c => c.atFront)) return { text: 'Stell dich an die Kasse', x: REGISTER.x, y: REGISTER.y };
+  if (p.meat >= Math.min(8, p.cap)) return { text: 'Bring das Fleisch zur Theke', x: DROP.x, y: DROP.y };
+  const b = nearestBear(p); if (b) return { text: 'Jage Eisbären', x: b.x, y: b.y, bear: true };
+  return null;
+}
+
+let goal = null, goalTimer = 0;
+function render() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#e9f0fa'; ctx.fillRect(0, 0, cv.width, cv.height);
+
+  // Kamera folgt dem Spieler
+  const tx = isoX(player.x, player.y), ty = isoY(player.x, player.y) - 30;
+  camX = lerp(camX, tx, 0.12); camY = lerp(camY, ty, 0.12);
+  ctx.setTransform(DPR * ZOOM, 0, 0, DPR * ZOOM, DPR * (CW / 2 - camX * ZOOM), DPR * (CH / 2 - camY * ZOOM));
+  const viewW = CW / ZOOM, viewH = CH / ZOOM;
+  const inView = (x, y, m = 120) => { const a = isoX(x, y), b = isoY(x, y); return Math.abs(a - camX) < viewW / 2 + m && Math.abs(b - camY) < viewH / 2 + m + 60; };
+
+  // Boden
+  rectW(-600, -600, W + 600, H + 600, '#eef3fb');
+  rectW(0, 0, W, FENCE_Y, '#f4f7fc');
+  rectW(0, FENCE_Y, W, H, '#f1f5fb');
+  // Erdwege (lachsfarben wie im Vorbild)
+  const dirt = '#e9b596', dirtEdge = '#dca183';
+  rectW(GATE_X0 + 15, FENCE_Y - 70, GATE_X1 - 15, FENCE_Y + 40, dirt);
+  rectW(440, FENCE_Y + 40, 800, 1000, dirt);
+  rectW(430, 1000, 560, H, dirt);
+  rectW(800, 720, 1070, 910, dirt);
+  if (S.built.has('lumber')) rectW(1000, 700, 1080, 860, dirt);
+  if (S.built.has('mine') || padVisible(pads.find(q => q.id === 'mine'))) rectW(260, 1060, 540, 1260, dirt);
+  if (S.built.has('furnace')) ellipseW(FURNACE.x, FURNACE.y, 110, dirtEdge);
+  // Schneefunkeln
+  ctx.fillStyle = 'rgba(160,185,225,.35)';
+  for (const d of snowDots) { if (!inView(d.x, d.y, 20)) continue; const [a, b] = P(d.x, d.y); ctx.fillRect(a, b, d.s, d.s); }
+
+  // Bodenmarkierungen
+  ellipseW(DROP.x, DROP.y, DROP.r, 'rgba(255,255,255,.35)', '#ffffff', 3, [10, 7]);
+  { const [a, b] = P(DROP.x, DROP.y); drawItem('meat', a, b + 2, 1.3); }
+  ellipseW(REGISTER.x, REGISTER.y, REGISTER.r, cashier ? 'rgba(92,207,92,.25)' : 'rgba(255,255,255,.35)', '#ffffff', 3, [10, 7]);
+  { const [a, b] = P(REGISTER.x, REGISTER.y); label(a, b, '$', '#7CFC7C', 22); }
+  if (S.built.has('mine')) drawRails();
+  for (const p of pads) if (padVisible(p) && inView(p.x, p.y)) drawPad(p);
+
+  // Zielmarkierung am Boden
+  if (goal && !goal.bear) {
+    const r = 46 + Math.sin(gameTime * 5) * 5;
+    ellipseW(goal.x, goal.y, r, null, 'rgba(255,215,0,.9)', 3);
+  }
+
+  // Tiefensortierte Objekte
+  const objs = [];
+  const add = (x, y, fn) => objs.push({ k: x + y, fn });
+  for (const t of trees) if (inView(t.x, t.y)) add(t.x, t.y, () => drawTree(t));
+  for (const t of decoTrees) if (inView(t.x, t.y)) add(t.x, t.y, () => drawTree(t));
+  for (let x = 6; x < W; x += 16) { if (x > GATE_X0 && x < GATE_X1) continue; if (inView(x, FENCE_Y)) add(x, FENCE_Y, () => drawFenceSeg(x)); }
+  add(GATE_X0, FENCE_Y + 30, () => drawGateDoor(GATE_X0));
+  add(GATE_X1, FENCE_Y + 30, () => drawGateDoor(GATE_X1));
+  for (const b of bears) if (inView(b.x, b.y)) add(b.x, b.y, () => drawBear(b));
+  for (const it of items) if (inView(it.x, it.y)) add(it.x, it.y, () => { shadow(it.x, it.y, 10, 0.15); const [a, b] = P(it.x, it.y, it.z); drawItem(it.type, a, b); });
+  add((COUNTER.x0 + COUNTER.x1) / 2, (COUNTER.y0 + COUNTER.y1) / 2, drawCounter);
+  add(REGISTER.x + 38, REGISTER.y + 8, drawRegister);
+  add(CASHPILE.x, CASHPILE.y, () => drawPile(CASHPILE, 'cash', Math.ceil(CASHPILE.amount / 5)));
+  if (S.built.has('lumber')) { add((HUT.x0 + HUT.x1) / 2, (HUT.y0 + HUT.y1) / 2, drawHut); add(WOODPILE.x, WOODPILE.y, () => drawPile(WOODPILE, 'wood', WOODPILE.n)); }
+  if (S.built.has('mine')) add(GOLDPILE.x, GOLDPILE.y, () => drawPile(GOLDPILE, 'gold', GOLDPILE.n));
+  add(MINE.x + 60, MINE.y + 40, drawMine);
+  if (cart) { const cp = railPos(cart.s); add(cp.x, cp.y, drawCart); }
+  if (S.built.has('furnace')) add(FURNACE.x + 40, FURNACE.y + 40, drawFurnace);
+  for (const t of tents) if (inView(t.x, t.y)) add(t.x, t.y, () => drawTent(t));
+  for (const c of crates) add(c.x, c.y, () => drawCrate(c));
+  for (const c of customers) if (inView(c.x, c.y)) add(c.x, c.y, () => {
+    drawHuman(c, { coat: c.coat, carry: c.got, carryType: 'meat' });
+    if (c.state === 'queue' && c.atFront) {
+      const [a, b] = P(c.x, c.y);
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#4a5568'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(a, b - 90 - c.got * 5, 24, 0, 7); ctx.fill(); ctx.stroke();
+      drawItem('meat', a, b - 94 - c.got * 5);
+      label(a, b - 80 - c.got * 5, String(c.want - c.got), '#23344f', 14);
+    }
+  });
+  if (cashier) add(cashier.x, cashier.y, () => drawHuman(cashier, { coat: '#8e44ad' }));
+  for (const h of hunters) add(h.x, h.y, () => drawHuman(h, { coat: h.coat, tool: true, swing: h.swing, carry: h.carry, carryType: 'meat' }));
+  for (const l of lumberjacks) add(l.x, l.y, () => drawHuman(l, { coat: l.coat, tool: true, swing: l.swing, carry: l.carry, carryType: 'wood' }));
+  if (player.dead <= 0) add(player.x, player.y, () => {
+    const p = player;
+    if (p.orbit > 0) ellipseW(p.x, p.y, 62, null, 'rgba(60,70,90,.35)', 2);
+    // Äxte hinter dem Spieler
+    drawOrbit(true);
+    drawHuman(p, { coat: '#2f7de1', tool: true, swing: p.swing, carry: p.meat, carryType: 'meat', sway: p.sway * 30, hurt: p.hurtT > 0, scale: 1.1 });
+    drawOrbit(false);
+  });
+  objs.sort((a, b) => a.k - b.k);
+  for (const o of objs) o.fn();
+
+  for (const p of pads) if (padVisible(p) && inView(p.x, p.y)) drawPadName(p);
+  // Fliegende Gegenstände, Partikel, Texte
+  for (const f of flyers) { const [a, b] = P(f.x, f.y, f.z); drawItem(f.type, a, b); }
+  for (const q of parts) { const [a, b] = P(q.x, q.y, q.z); ctx.globalAlpha = 1 - q.t / q.life; ctx.fillStyle = q.color; ctx.beginPath(); ctx.arc(a, b, q.r, 0, 7); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  for (const t of texts) { const [a, b] = P(t.x, t.y, t.z + t.t * 50); ctx.globalAlpha = Math.min(1, 2 - t.t * 2); label(a, b, t.text, t.color, t.size); }
+  ctx.globalAlpha = 1;
+
+  // Lebensbalken des Spielers
+  if (player.dead <= 0 && player.hp < player.maxHp) {
+    const [a, b] = P(player.x, player.y, 0);
+    const y = b + 16, w = 60;
+    ctx.fillStyle = 'rgba(30,40,55,.7)'; roundRect(a - w / 2 - 2, y - 2, w + 4, 10, 5); ctx.fill();
+    ctx.fillStyle = player.hp > 35 ? '#5ccf5c' : '#ff5a3c'; roundRect(a - w / 2, y, w * player.hp / player.maxHp, 6, 3); ctx.fill();
+  }
+
+  // Zielpfeil
+  if (goal) {
+    const [a, b] = P(goal.x, goal.y, (goal.bear ? 85 : goal.pad ? 95 : 60) + Math.abs(Math.sin(gameTime * 5)) * 12);
+    ctx.fillStyle = '#ffd400'; ctx.strokeStyle = '#6b5200'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(a, b + 18); ctx.lineTo(a - 16, b - 2); ctx.lineTo(a - 7, b - 2); ctx.lineTo(a - 7, b - 20); ctx.lineTo(a + 7, b - 20); ctx.lineTo(a + 7, b - 2); ctx.lineTo(a + 16, b - 2); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // Richtungspfeil am Spieler, wenn das Ziel weit weg ist
+    const d = Math.hypot(goal.x - player.x, goal.y - player.y);
+    if (d > 180 && player.dead <= 0) {
+      const [px, py] = P(player.x, player.y);
+      const [gx, gy] = P(goal.x, goal.y);
+      const ang = Math.atan2(gy - py, gx - px);
+      ctx.save(); ctx.translate(px + Math.cos(ang) * 60, py + Math.sin(ang) * 36); ctx.rotate(ang);
+      ctx.fillStyle = 'rgba(255,212,0,.95)'; ctx.strokeStyle = '#6b5200'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-8, -11); ctx.lineTo(-3, 0); ctx.lineTo(-8, 11); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // Bildschirm-Ebene
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  // Schneefall
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  for (const f of flakes) {
+    const x = ((f.x * CW + Math.sin(gameTime + f.w) * 12) % CW + CW) % CW, y = (f.y * CH) % CH;
+    ctx.beginPath(); ctx.arc(x, y, f.s, 0, 7); ctx.fill();
+  }
+  // Joystick
+  if (joy.active) {
+    ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.strokeStyle = 'rgba(40,60,90,.35)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(joy.ox, joy.oy, JOY_R, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.arc(joy.ox + joy.dx, joy.oy + joy.dy, 28, 0, 7); ctx.fill(); ctx.stroke();
+  }
+  if (player.dead > 0) { ctx.fillStyle = 'rgba(180,20,20,.15)'; ctx.fillRect(0, 0, CW, CH); }
+}
+function drawOrbit(back) {
+  const p = player;
+  if (p.orbit <= 0) return;
+  for (let k = 0; k < p.orbit; k++) {
+    const a = p.orbitA + k * Math.PI * 2 / p.orbit;
+    const ox = p.x + Math.cos(a) * 62, oy = p.y + Math.sin(a) * 62;
+    const isBack = ox + oy < p.x + p.y;
+    if (isBack !== back) continue;
+    const [sx, sy] = P(ox, oy, 22);
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(gameTime * 14 + k);
+    drawAxe(16, 0);
+    ctx.restore();
+  }
+}
+
+/* =========================================================
+   HUD
+   ========================================================= */
+const hud = { cash: document.getElementById('hCash'), wood: document.getElementById('hWood'), meat: document.getElementById('hMeat'),
+  meatMax: document.getElementById('hMeatMax'), gold: document.getElementById('hGold'), pMeat: document.getElementById('pMeat'),
+  hint: document.getElementById('hint') };
+let lastHud = '';
+function popPill(id) { const el = document.getElementById(id); el.classList.add('pop'); setTimeout(() => el.classList.remove('pop'), 110); }
+function updateHud() {
+  const key = [S.cash, S.wood, player.meat, player.cap, S.gold, goal ? goal.text : ''].join('|');
+  if (key === lastHud) return; lastHud = key;
+  hud.cash.textContent = S.cash; hud.wood.textContent = S.wood; hud.gold.textContent = S.gold;
+  hud.meat.textContent = player.meat; hud.meatMax.textContent = '/' + player.cap;
+  hud.pMeat.classList.toggle('full', player.meat >= player.cap);
+  hud.hint.textContent = goal ? goal.text : '';
+}
+
+/* =========================================================
+   Hauptschleife & Menüs
+   ========================================================= */
+let last = performance.now();
+function frame(now) {
+  let dt = (now - last) / 1000; last = now;
+  if (dt > 0.05) dt = 0.05;
+  if (running && !paused) {
+    update(dt);
+    goalTimer -= dt;
+    if (goalTimer <= 0) { goalTimer = 0.25; goal = currentGoal(); }
+  }
+  if (running) { render(); updateHud(); }
+  requestAnimationFrame(frame);
+}
+
+const $ = id => document.getElementById(id);
+function startGame(fresh) {
+  initAudio();
+  newState();
+  if (fresh) { clearSave(); winShown = false; } else load();
+  camX = isoX(player.x, player.y); camY = isoY(player.x, player.y); goal = null;
+  $('menu').classList.add('hidden');
+  running = true; paused = false; lastHud = '';
+}
+function togglePause() {
+  if (!running) return;
+  paused = !paused;
+  $('pause').classList.toggle('hidden', !paused);
+  if (paused) save();
+}
+$('bPlay').addEventListener('click', () => startGame(false));
+$('bNew').addEventListener('click', () => startGame(true));
+$('bPause').addEventListener('click', togglePause);
+$('bResume').addEventListener('click', togglePause);
+$('bReset').addEventListener('click', () => {
+  if (!confirm('Wirklich neu anfangen? Der Fortschritt geht verloren.')) return;
+  $('pause').classList.add('hidden'); startGame(true);
+});
+$('bWinOk').addEventListener('click', () => { $('win').classList.add('hidden'); paused = false; });
+$('bSound').addEventListener('click', () => { soundOn = !soundOn; $('bSound').textContent = soundOn ? '🔊' : '🔇'; initAudio(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && running) save(); });
+window.addEventListener('pagehide', () => { if (running) save(); });
+
+if (hasSave()) { $('bPlay').textContent = 'Weiterspielen'; $('bNew').classList.remove('hidden'); }
+// Hintergrund im Menü
+newState(); running = false;
+(function menuBg() {
+  camX = isoX(player.x, player.y); camY = isoY(player.x, player.y);
+  render();
+})();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
