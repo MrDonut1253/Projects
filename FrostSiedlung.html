@@ -1357,7 +1357,15 @@ function playerDown() {
   if (boss) {
     const D = BOSSES[boss.boss.id];
     if (boss.boss.random) bossLeaves(boss, `${D.name} lacht und verschwindet …`);
-    else { boss.hp = Math.min(boss.type.hp, boss.hp + boss.type.hp * 0.25); boss.x = D.center.x; boss.y = D.center.y; addText(boss.x, boss.y, 160, '„Komm wieder, wenn du stärker bist!“', '#ffe98a', 20); }
+    else {
+      // Pflicht-Boss: nach jeder Niederlage des Spielers etwas schwächer (bis auf 55 %), damit man nie feststeckt
+      const B = boss.boss, w = Math.max(0.55, (B.weak || 1) - 0.09), k = w / (B.weak || 1);
+      B.weak = w;
+      boss.type = { ...boss.type, hp: Math.round(boss.type.hp * k), dmg: Math.max(1, Math.round(boss.type.dmg * k)) };
+      boss.hp = Math.min(boss.type.hp, boss.hp + boss.type.hp * 0.25); boss.x = D.center.x; boss.y = D.center.y;
+      addText(boss.x, boss.y, 160, '„Komm wieder, wenn du stärker bist!“', '#ffe98a', 20);
+      if (k < 1) banner(`${D.icon} ${D.name} ist erschöpft – er wird schwächer. Versuch es nochmal!`, 'info');
+    }
   }
 }
 
@@ -2069,12 +2077,14 @@ function startBossIntro(id, random) {
   sfx('alarm'); shake(0.6);
 }
 function summonBoss(id, random) {
-  const D = BOSSES[id], lvl = bossLvl(id);
-  const hp = Math.round((D.base + 140 * progress()) * (1 + 0.6 * lvl) * hpScale());
+  // Stärke-Stufe: Pflichtkämpfe wachsen höchstens um eine Stufe pro Expedition (sonst kann man feststecken),
+  // freiwillige Rückkehrer dürfen bis zu drei Stufen darüber liegen
+  const D = BOSSES[id], lvl = Math.min(bossLvl(id), EXP() + (random ? 3 : 0));
+  const hp = Math.round((D.base + 140 * progress()) * (1 + 0.5 * lvl) * hpScale());
   const b = spawnAnimal(D.zone, true, D.type);
   b.type = { ...TYPES[D.type], hp, dmg: Math.round(TYPES[D.type].dmg * (1 + 0.15 * lvl) * dmgScale()) }; b.hp = hp;
   b.x = D.spawn.x; b.y = D.spawn.y; b.spawnT = 0;
-  b.boss = { id, state: 'intro', t: 1.8, atkCd: 3, dashCd: 7, phase: 1, away: 0, dashV: null, hitDone: false, random, shots: 0 };
+  b.boss = { id, state: 'intro', t: 1.8, atkCd: 3, dashCd: 7, phase: 1, away: 0, dashV: null, hitDone: false, random, shots: 0, lvl, weak: 1 };
   burst(b.x, b.y, 40, id === 'alex' ? '#e8f6ff' : id === 'philip' ? '#ffcc40' : '#ffd84a', 40, 260);
   shake(1);
   bossSay(b, D.intro, 3.5);
@@ -2186,7 +2196,7 @@ function updateBoss(b, dt) {
   } else if (dp < 70 && b.atkCd <= 0) { b.atkCd = 1.2 / fast; b.lunge = 0.25; hurtPlayer(b.type.dmg); }
 }
 function bossAttack(b, D, B, fast) {
-  const p = player, dmgL = (1 + 0.15 * bossLvl(D.id)) * dmgScale();
+  const p = player, dmgL = (1 + 0.15 * (B.lvl ?? bossLvl(D.id))) * dmgScale() * (B.weak || 1);
   const area = areaOf(D.zone);
   b.lunge = 0.3; B.shots++;
   if (D.id === 'benedict') {
@@ -3847,7 +3857,7 @@ function updateOverlays() {
   const boss = running ? animals.find(b => b.boss && !b.dead && !b.gone) : null;
   const bb = $('bossbar');
   bb.classList.toggle('hidden', !boss);
-  if (boss) { $('bossHp').style.width = Math.max(0, boss.hp / boss.type.hp * 100).toFixed(1) + '%'; const D = BOSSES[boss.boss.id]; $('bossName').textContent = `${D.icon} ${D.name} · Stufe ${bossLvl(D.id) + 1}`; }
+  if (boss) { $('bossHp').style.width = Math.max(0, boss.hp / boss.type.hp * 100).toFixed(1) + '%'; const D = BOSSES[boss.boss.id]; $('bossName').textContent = `${D.icon} ${D.name} · Stufe ${(boss.boss.lvl ?? bossLvl(D.id)) + 1}`; }
   const p = player;
   let v = 0, col = '200,20,20';
   if (running) {
