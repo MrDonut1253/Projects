@@ -205,7 +205,7 @@
   <div class="info panel" style="padding:16px 24px">Jage Eisbären, verkaufe Fleisch und Fisch an die Überlebenden, verteidige dein Tor in der Nacht und baue die Siedlung immer weiter aus.<br>
     Ziehe mit dem Finger irgendwo über den Bildschirm, um zu laufen. Angreifen, Holz hacken, Angeln und Einsammeln passiert automatisch.<br>
     Drei Kapitel, Expeditionen, Fähigkeiten, Erfolge und Trophäen warten auf dich.<br>
-    <i style="opacity:.75">Gerüchte erzählen von einem goldenen Tresor, versteckt in der hintersten Waldecke …</i></div>
+    <i style="opacity:.75">Doch drei Bosse versperren dir den Weg: Philip Krüger, Alexander Karbowiak und Benedict Million …</i></div>
   <button class="big-btn" id="bPlay">Spielen</button>
   <button class="big-btn grey hidden" id="bNew">Neues Spiel</button>
   <div class="small">Der Fortschritt wird automatisch gespeichert.<br>Tipp: Über „Teilen → Zum Home-Bildschirm“ bleibt der Spielstand auf dem iPad dauerhaft erhalten.</div>
@@ -361,7 +361,7 @@ const PAD_DEFS = [
   { id: 'board', name: 'Auftragsbrett', icon: '📜', x: 300, y: 850, levels: [L({ cash: 120, wood: 10 }, ['grill'])] },
   { id: 'husky', name: 'Husky-Begleiter', icon: '🐕', x: 970, y: 1030, levels: [L({ cash: 250, wood: 20 }, ['tower1'])] },
   { id: 'spear', name: 'Speerwurf', icon: '🔱', x: 1250, y: 1095, levels: [L({ cash: 300, wood: 20 }, ['tower1']), L({ cash: 1500, wood: 40, gold: 20 }, ['furnace']), L({ cash: 5000, wood: 80, gold: 50 }, ['east'])] },
-  { id: 'furnace', name: 'Großer Ofen', icon: '🔥', x: FURNACE.x, y: FURNACE.y, big: true, levels: [L({ cash: 800, wood: 60, gold: 30 }, ['hunter2', 'axes:2', 'tower1'])] },
+  { id: 'furnace', name: 'Großer Ofen', icon: '🔥', x: FURNACE.x, y: FURNACE.y, big: true, levels: [L({ cash: 800, wood: 60, gold: 30 }, ['hunter2', 'axes:2', 'tower1', 'boss_philip'])] },
   // ---- Kapitel 2 ----
   { id: 'east', name: 'Neues Gebiet: Eissee', icon: '🗺️', x: 1340, y: 1090, levels: [L({ cash: 2500, wood: 60 }, ['furnace'])] },
   { id: 'mine2', name: 'Größere Lore', icon: '🛒', x: 300, y: 990, levels: [L({ cash: 2000, wood: 40 }, ['furnace', 'mine'])] },
@@ -377,7 +377,7 @@ const PAD_DEFS = [
   { id: 'smokehouse', name: 'Räucherei', icon: '♨️', x: SMOKEHOUSE.x, y: SMOKEHOUSE.y, levels: [L({ cash: 4000, wood: 70, gold: 30 }, ['fishmarket'])] },
   { id: 'house6', name: 'Blockhütte', icon: '🏠', x: HOUSES[5].x, y: HOUSES[5].y, levels: [L({ cash: 7000, wood: 100 }, ['house5', 'fishmarket'])] },
   { id: 'house7', name: 'Blockhütte', icon: '🏠', x: HOUSES[6].x, y: HOUSES[6].y, levels: [L({ cash: 9000, wood: 120, gold: 40 }, ['house6'])] },
-  { id: 'radio', name: 'Funkturm (Rettung!)', icon: '📡', x: RADIO.x, y: RADIO.y, big: true, levels: [L({ cash: 20000, wood: 200, gold: 120 }, ['smokehouse', 'tower3', 'hunter3', 'house6'])] },
+  { id: 'radio', name: 'Funkturm (Rettung!)', icon: '📡', x: RADIO.x, y: RADIO.y, big: true, levels: [L({ cash: 20000, wood: 200, gold: 120 }, ['smokehouse', 'tower3', 'hunter3', 'house6', 'boss_alex'])] },
   // ---- Kapitel 3: Gletscher ----
   { id: 'glacier', name: 'Neues Gebiet: Gletscher', icon: '🏔️', x: 640, y: 1285, levels: [L({ cash: 25000, wood: 250, gold: 120 }, ['radio'])] },
   { id: 'drill1', name: 'Kristallbohrer', icon: '⛏️', x: 420, y: 1420, levels: [L({ cash: 8000, wood: 100 }, ['glacier'])] },
@@ -389,7 +389,7 @@ const PAD_DEFS = [
   { id: 'house8', name: 'Blockhütte', icon: '🏠', x: 1880, y: 1440, levels: [L({ cash: 30000, wood: 300 }, ['glacier'])] },
   { id: 'house9', name: 'Blockhütte', icon: '🏠', x: 2100, y: 1440, levels: [L({ cash: 60000, wood: 400, gold: 100 }, ['house8', 'forge:2'])] },
   { id: 'observatory', name: 'Nordlicht-Observatorium', icon: '🔭', x: OBSERVATORY.x, y: OBSERVATORY.y, big: true,
-    levels: [L({ cash: 150000, wood: 800, gold: 400, crystal: 800 }, ['forge:3', 'drill2', 'tower4', 'hunter4'])] },
+    levels: [L({ cash: 150000, wood: 800, gold: 400, crystal: 800 }, ['forge:3', 'drill2', 'tower4', 'hunter4', 'boss_benedict'])] },
 ];
 const PAD_HALF = 38;
 const TOTAL_LEVELS = PAD_DEFS.reduce((a, p) => a + p.levels.length, 0);
@@ -403,6 +403,8 @@ const TYPES = {
   wolf: { name: 'wolf', kind: 'wolf', hp: 22, dmg: 5, speed: 165, size: 1, meat: 2 },
   yeti: { name: 'yeti', kind: 'yeti', hp: 650, dmg: 22, speed: 85, size: 1.6, meat: 16, gold: 10 },
   boss: { name: 'boss', kind: 'boss', hp: 2000, dmg: 20, speed: 95, size: 1.5, meat: 12, gold: 30 },
+  philip: { name: 'philip', kind: 'philip', hp: 2000, dmg: 18, speed: 90, size: 1.5, meat: 12, gold: 20 },
+  alex: { name: 'alex', kind: 'alex', hp: 2000, dmg: 16, speed: 110, size: 1.5, meat: 12, gold: 25 },
   frostwolf: { name: 'frostwolf', kind: 'wolf', hp: 60, dmg: 10, speed: 180, size: 1.05, meat: 3 },
   mammoth: { name: 'mammoth', kind: 'mammoth', hp: 480, dmg: 20, speed: 70, size: 1.9, meat: 10, crystal: 2 },
   mking: { name: 'mking', kind: 'mking', hp: 6000, dmg: 35, speed: 78, size: 2.6, meat: 30, gold: 25, crystal: 40 },
@@ -425,7 +427,7 @@ function newState() {
     cash: 0, wood: 0, gold: 0, lv: {},
     stats: { time: 0, kills: 0, sold: 0, fish: 0, yeti: 0, raids: 0, woodGot: 0, goldGot: 0, benedict: 0, killsBy: { bear: 0, wolf: 0, yeti: 0, boss: 0 } },
     raid: { timer: 70, active: false, no: 0 }, yetiTimer: 45, win1: false, win2: false,
-    day: 30, quests: [], chestCd: 0, bossIntro: 0, weather: { storm: false, t: 0, next: 240 }, crystal: 0, mkingTimer: 200,
+    day: 30, quests: [], chestCd: 700, bossIntro: 0, weather: { storm: false, t: 0, next: 240 }, crystal: 0, mkingTimer: 200,
   };
   Object.assign(S.stats, { cashEarned: 0, crystals: 0, quests: 0 });
   for (const sh of SHOP_LIST) { sh.count = 0; sh.pile.amount = 0; sh.cashier = null; sh.timer = 1; }
@@ -577,6 +579,8 @@ function applySave(d) {
   M = Object.assign(defaultMeta(), d.meta || {});
   M.totals = Object.assign({ killsBy: {} }, M.totals); M.totals.killsBy = M.totals.killsBy || {};
   if (!d.meta && d.stats && d.stats.benedict) M.benedictLvl = d.stats.benedict;
+  M.bossLvl = Object.assign({ philip: 0, alex: 0, benedict: 0 }, M.bossLvl || {});
+  if (M.benedictLvl && !M.bossLvl.benedict) M.bossLvl.benedict = M.benedictLvl;
   S.cash = d.cash | 0; S.wood = d.wood | 0; S.gold = d.gold | 0; S.crystal = d.crystal | 0;
   CRYSTALPILE.n = d.crystalPile | 0; if (d.mkingTimer) S.mkingTimer = d.mkingTimer;
   Object.assign(S.stats, d.stats || {});
@@ -595,8 +599,9 @@ function applySave(d) {
   if (d.yetiTimer) S.yetiTimer = d.yetiTimer;
   S.win1 = !!d.win1; S.win2 = !!d.win2;
   if (typeof d.day === 'number') S.day = d.day % DAY_LEN;
+  for (const k of ['boss_philip', 'boss_alex', 'boss_benedict']) if (d.lv && d.lv[k]) S.lv[k] = 1;
   if (Array.isArray(d.quests)) S.quests = d.quests.filter(q => QUEST_TYPES[q.type]);
-  S.chestCd = d.chestCd || 0;
+  S.chestCd = d.chestCd > 0 && d.chestCd < 2000 ? d.chestCd : 700;
   S.stats.killsBy = Object.assign({ bear: 0, wolf: 0, yeti: 0, boss: 0 }, S.stats.killsBy || {});
   if (lv('board') && S.quests.length < 3) fillQuests();
   gate.max = gateMax(lv('gate')); gate.hp = Math.min(gate.hp, gate.max);
@@ -958,7 +963,7 @@ function killAnimal(b) {
   if (k === 'mammoth') rollTrophy('mammutzahn', 0.08);
   if (k === 'mking') { rollTrophy('eiskrone', 0.3); S.mkingTimer = 480; banner('🏆 Der Mammutkönig ist besiegt!', 'good'); }
   for (let i = 0; i < (b.type.crystal || 0); i++) dropItem('crystal', b.x, b.y, 30);
-  if (k === 'boss') { defeatBenedict(b); return; }
+  if (b.boss) { defeatBoss(b); return; }
   for (let i = 0; i < b.type.meat; i++) dropItem('meat', b.x, b.y);
   for (let i = 0; i < (b.type.gold || 0); i++) dropItem('gold', b.x, b.y, 30);
   if (b.type.kind === 'yeti') {
@@ -993,6 +998,7 @@ function update(dt) {
   updateWeather(dt);
   updatePet(dt);
   updateHazards(dt);
+  updateShots(dt);
   updateChest(dt);
   updateQuests(dt);
   updateFlyers(dt);
@@ -1051,7 +1057,8 @@ function updatePlayer(dt) {
   const mv = Math.hypot(v.x, v.y);
   p.moving = mv > 0.05;
   if (p.moving) {
-    const sp = p.speed * (S.weather.storm ? 0.8 : 1);
+    if (p.slowT > 0) p.slowT -= dt;
+    const sp = p.speed * (S.weather.storm ? 0.8 : 1) * (p.slowT > 0 ? p.slowK : 1);
     moveEntity(p, v.x * sp * dt, v.y * sp * dt);
     p.walkT += dt * 12 * mv;
     if (Math.abs(v.sx) > 0.1) p.face = v.sx > 0 ? 1 : -1;
@@ -1297,8 +1304,13 @@ function playerDown() {
   for (const t of p.stack) dropItem(t, p.x, p.y, 40);
   p.stack = [];
   for (const b of animals) b.aggro = 0;
-  const boss = animals.find(b => b.boss && !b.dead);
-  if (boss) benedictLeaves(boss, 'Benedict Million lacht und verschwindet mit seinem Gold …');
+  shots = [];
+  const boss = animals.find(b => b.boss && !b.dead && !b.gone);
+  if (boss) {
+    const D = BOSSES[boss.boss.id];
+    if (boss.boss.random) bossLeaves(boss, `${D.name} lacht und verschwindet …`);
+    else { boss.hp = Math.min(boss.type.hp, boss.hp + boss.type.hp * 0.25); boss.x = D.center.x; boss.y = D.center.y; addText(boss.x, boss.y, 160, '„Komm wieder, wenn du stärker bist!“', '#ffe98a', 20); }
+  }
 }
 
 function updateItems(dt) {
@@ -1648,7 +1660,7 @@ function updateFx(dt) {
    Dauerhafter Fortschritt (bleibt über Expeditionen erhalten)
    ========================================================= */
 function defaultMeta() {
-  return { stars: 0, starsTotal: 0, expedition: 0, perks: {}, xp: 0, level: 1, sp: 0, skills: {}, ach: {}, trophies: {}, totals: { killsBy: {} }, benedictLvl: 0 };
+  return { stars: 0, starsTotal: 0, expedition: 0, perks: {}, xp: 0, level: 1, sp: 0, skills: {}, ach: {}, trophies: {}, totals: { killsBy: {} }, benedictLvl: 0, bossLvl: { philip: 0, alex: 0, benedict: 0 } };
 }
 let M = defaultMeta();
 const EXP = () => M.expedition;
@@ -1698,6 +1710,8 @@ const TROPHIES = [
   { id: 'kristallherz', name: 'Kristallherz', icon: '💠', desc: '+10 % doppelte Kristalle', hint: 'Tief in einem Kristall pulsiert etwas.' },
   { id: 'goldbarren', name: 'Riesengoldbarren', icon: '🧈', desc: '+1 Gold pro Lorenfahrt', hint: 'Die Lore bringt manchmal Überraschungen mit.' },
   { id: 'eiskrone', name: 'Eiskrone', icon: '❄️', desc: '+10 % Schaden', hint: 'Der Mammutkönig trägt eine Krone aus Eis.' },
+  { id: 'bierkrug', name: 'Philips Bierkrug', icon: '🍺', desc: '+10 % Lebenspunkte', hint: 'Philip Krüger lässt manchmal seinen Krug fallen.' },
+  { id: 'handschuh', name: 'Alexanders Handschuh', icon: '🧤', desc: '+10 % Speerschaden', hint: 'Alexander Karbowiak verliert beim Werfen einen Handschuh.' },
   { id: 'polarstern', name: 'Polarstern', icon: '🌟', desc: '+10 % Polarsterne', hint: 'Erreiche die fünfte Expedition.' },
   { id: 'nordlicht', name: 'Nordlicht-Kristall', icon: '🌌', desc: '+10 % Erfahrung', hint: 'Baue das Observatorium.' },
 ];
@@ -1723,6 +1737,8 @@ function ach(id, name, stars, cur, goal) { ACH.push({ id, name, stars, cur, goal
 [[10, 2], [50, 5], [200, 10]].forEach(([g, s]) => ach('raid' + g, `Wehre ${g} Nachtangriffe ab`, s, () => tot('raids'), g));
 [[1, 1], [10, 3], [50, 8]].forEach(([g, s]) => ach('yeti' + g, `Besiege ${g} Yeti${g > 1 ? 's' : ''}`, s, () => totKill('yeti'), g));
 [[1, 3], [5, 6], [25, 15], [100, 30]].forEach(([g, s]) => ach('bene' + g, g === 1 ? 'Besiege Benedict Million' : `Besiege Benedict Million ${g}-mal`, s, () => totKill('boss'), g));
+[[1, 3], [5, 6], [25, 15]].forEach(([g, s]) => ach('phil' + g, g === 1 ? 'Besiege Philip Krüger' : `Besiege Philip Krüger ${g}-mal`, s, () => totKill('philip'), g));
+[[1, 3], [5, 6], [25, 15]].forEach(([g, s]) => ach('alex' + g, g === 1 ? 'Besiege Alexander Karbowiak' : `Besiege Alexander Karbowiak ${g}-mal`, s, () => totKill('alex'), g));
 [[1, 1], [50, 4], [500, 10]].forEach(([g, s]) => ach('mam' + g, `Erlege ${g} Mammut${g > 1 ? 's' : ''}`, s, () => totKill('mammoth'), g));
 [[1, 5], [10, 15]].forEach(([g, s]) => ach('mking' + g, g === 1 ? 'Besiege den Mammutkönig' : `Besiege den Mammutkönig ${g}-mal`, s, () => totKill('mking'), g));
 [[10, 2], [25, 4], [50, 8], [75, 12], [100, 20]].forEach(([g, s]) => ach('lvl' + g, `Erreiche Stufe ${g}`, s, () => M.level, g));
@@ -1764,7 +1780,7 @@ function gainXP(n) {
 }
 function killXP(b) {
   const k = b.type.kind;
-  return k === 'boss' ? 400 * (1 + M.benedictLvl) : k === 'mking' ? 800 : k === 'yeti' ? 150 : k === 'mammoth' ? 60 : k === 'wolf' ? (b.type.name === 'frostwolf' ? 10 : 4) : b.type.name === 'spiky' ? 9 : 5;
+  return b.boss ? 400 * (1 + bossLvl(b.boss.id)) : k === 'mking' ? 800 : k === 'yeti' ? 150 : k === 'mammoth' ? 60 : k === 'wolf' ? (b.type.name === 'frostwolf' ? 10 : 4) : b.type.name === 'spiky' ? 9 : 5;
 }
 
 /* ---------- Werte-Multiplikatoren ---------- */
@@ -1787,14 +1803,14 @@ function scaledType(name) {
 }
 function refreshStats() {
   const p = player, b = p.base;
-  const hpMax = Math.round(b.hp * (1 + 0.1 * sk('ausdauer')) * (hasT('silberpelz') ? 1.05 : 1));
+  const hpMax = Math.round(b.hp * (1 + 0.1 * sk('ausdauer')) * (hasT('silberpelz') ? 1.05 : 1) * (hasT('bierkrug') ? 1.1 : 1));
   if (hpMax !== p.maxHp) { p.hp = Math.max(1, p.hp * hpMax / (p.maxHp || hpMax)); p.maxHp = hpMax; }
   p.cap = b.cap + 2 * sk('sammler') + 3 * pk('ruecken') + (hasT('mammutzahn') ? 3 : 0);
   p.speed = b.speed * (1 + 0.025 * sk('tempo') + 0.04 * pk('fuesse')) * (hasT('zylinder') ? 1.05 : 1);
   const dm = (1 + 0.06 * sk('kraft')) * (1 + 0.1 * pk('arme')) * forgeMult() * (hasT('wolfszahn') ? 1.05 : 1) * (hasT('eiskrone') ? 1.1 : 1);
   p.dmg = Math.round(b.dmg * dm);
   p.orbitDmg = Math.round(b.orbitDmg * dm * (1 + 0.08 * sk('wirbel')) * (hasT('yetihorn') ? 1.1 : 1));
-  p.spearMult = dm * (1 + 0.08 * sk('speer'));
+  p.spearMult = dm * (1 + 0.08 * sk('speer')) * (hasT('handschuh') ? 1.1 : 1);
 }
 function gateMax(n) { return Math.round([200, 400, 700, 1100][n] * (1 + 0.15 * pk('wache')) * (1 + 0.3 * EXP())); }
 
@@ -1946,41 +1962,76 @@ function updateQuests(dt) {
 }
 
 /* =========================================================
-   Geheimer Boss: Benedict Million
+   Bosse: Philip Krüger, Alexander Karbowiak, Benedict Million
    ========================================================= */
 let shakeT = 0;
 function shake(t) { shakeT = Math.max(shakeT, t); }
+const BOSSES = {
+  philip: { id: 'philip', key: 'boss_philip', type: 'philip', name: 'Philip Krüger', icon: '🍺', zone: 'A', gate: 'furnace', guards: 'spiky',
+    spawn: { x: 700, y: 400 }, center: { x: 700, y: 430 }, base: 1100, trophy: 'bierkrug',
+    lines: ['„Prost!“', '„Noch eine Runde?“', '„Die geht auf mich!“', '„Fang!“'], intro: '„Hier kommt keiner vorbei – außer mit Durst!“', angry: '„Jetzt wird’s ungemütlich, Kumpels!“',
+    first: 'Philip Krüger ist besiegt und lässt dich zum Großen Ofen durch.<br><br>Als Trophäe kannst du manchmal <b>Philips Bierkrug</b> finden. Er kommt ab und zu zurück – dann wird er stärker.' },
+  alex: { id: 'alex', key: 'boss_alex', type: 'alex', name: 'Alexander Karbowiak', icon: '❄️', zone: 'B', gate: 'radio', guards: 'wolf',
+    spawn: { x: 1800, y: 420 }, center: { x: 1800, y: 440 }, base: 1250, trophy: 'handschuh',
+    lines: ['„Schneeballschlacht!“', '„Duck dich!“', '„Kalt genug?“', '„Treffer!“'], intro: '„Den Funkturm baust du nur über meine Schneebälle!“', angry: '„Jetzt kommt die Lawine!“',
+    first: 'Alexander Karbowiak gibt sich geschlagen – der Weg zum Funkturm ist frei.<br><br>Er kommt ab und zu für eine Revanche zurück, jedes Mal stärker.' },
+  benedict: { id: 'benedict', key: 'boss_benedict', type: 'boss', name: 'Benedict Million', icon: '👑', zone: 'C', gate: 'observatory', guards: 'frostwolf',
+    spawn: { x: 1150, y: 1860 }, center: { x: 1150, y: 1860 }, base: 1400, trophy: 'monokel',
+    lines: ['„Goldregen!“', '„Geld regiert die Welt!“', '„Das ist mein Revier!“', '„Ihr seid pleite!“'], intro: '„Mein Gold bekommt ihr nie!“', angry: '„Leibwächter, zu mir!“',
+    first: 'Du hast den reichsten Mann des Nordens bezwungen – der Weg zum Observatorium ist frei!<br><br>Als Trophäe trägst du jetzt seine <b>goldene Krone</b>.' },
+};
+const bossLvl = id => (M.bossLvl && M.bossLvl[id]) || 0;
 function bossAlive() { return animals.some(b => b.boss && !b.dead && !b.gone); }
-function updateChest(dt) {
-  if (S.chestCd > 0) S.chestCd -= dt;
-  if (S.bossIntro > 0) { S.bossIntro -= dt; if (S.bossIntro <= 0) summonBenedict(); return; }
-  if (S.chestCd > 0 || bossAlive() || player.dead > 0) return;
-  if (dist(player, CHEST) < 45) {
-    S.bossIntro = 1.8; S.chestCd = 9999;
-    banner('💰 Ein goldener Tresor … er gehört Benedict Million!', 'info');
-    sfx('alarm'); shake(0.6);
+function gateReqs(D) { return PAD_DEFS.find(p => p.id === D.gate).levels[0].req.filter(r => r !== D.key); }
+function bossZoneOpen(D) { return D.zone === 'A' || (D.zone === 'B' && lv('east')) || (D.zone === 'C' && lv('glacier')); }
+let bossCheckT = 0;
+function updateChest(dt) { // Boss-Auftritte steuern
+  if (S.bossIntro > 0) { S.bossIntro -= dt; if (S.bossIntro <= 0) summonBoss(S.bossPending, S.bossRandom); return; }
+  bossCheckT -= dt; if (bossCheckT > 0) return; bossCheckT = 2;
+  if (bossAlive() || player.dead > 0 || S.raid.active) return;
+  // Pflicht-Boss: alle anderen Voraussetzungen für das nächste große Gebäude erfüllt
+  for (const D of Object.values(BOSSES)) {
+    if (lv(D.key) || lv(D.gate) || !bossZoneOpen(D) || !reqMet(gateReqs(D))) continue;
+    if ((S.bossRetry || 0) > 0) { S.bossRetry -= 2; return; }
+    startBossIntro(D.id, false); return;
   }
+  // gelegentliche Rückkehr bereits besiegter Bosse
+  S.chestCd = (S.chestCd || 700) - 2;
+  if (S.chestCd > 0) return;
+  const opts = Object.values(BOSSES).filter(D => bossLvl(D.id) > 0 && bossZoneOpen(D) && lv(D.key));
+  S.chestCd = rand(600, 900);
+  if (opts.length) startBossIntro(pick(opts).id, true);
 }
-function summonBenedict() {
-  const hp = Math.round((1500 + 160 * progress()) * (1 + 0.6 * M.benedictLvl) * hpScale());
-  const b = spawnAnimal('A', true, 'boss');
-  b.type = { ...TYPES.boss, hp, dmg: Math.round(TYPES.boss.dmg * (1 + 0.15 * M.benedictLvl) * dmgScale()) }; b.hp = hp;
-  b.x = 330; b.y = 360; b.spawnT = 0;
-  b.boss = { state: 'intro', t: 1.8, rainCd: 4, dashCd: 7, phase: 1, away: 0, dashV: null, hitDone: false };
-  burst(b.x, b.y, 40, '#ffd84a', 40, 260);
-  banner(`👑 BENEDICT MILLION erscheint! (Stufe ${M.benedictLvl + 1})`); sfx('alarm'); shake(1);
-  addText(b.x, b.y, 160, '„Mein Gold bekommt ihr nie!“', '#ffe98a', 22);
+function startBossIntro(id, random) {
+  const D = BOSSES[id];
+  S.bossIntro = 1.8; S.bossPending = id; S.bossRandom = random;
+  banner(random ? `${D.icon} ${D.name} ist zurück!` : `${D.icon} ${D.name} versperrt den Weg!`);
+  sfx('alarm'); shake(0.6);
 }
-function benedictLeaves(b, msg) {
-  b.gone = true; hazards = [];
-  S.chestCd = 45;
+function summonBoss(id, random) {
+  const D = BOSSES[id], lvl = bossLvl(id);
+  const hp = Math.round((D.base + 140 * progress()) * (1 + 0.6 * lvl) * hpScale());
+  const b = spawnAnimal(D.zone, true, D.type);
+  b.type = { ...TYPES[D.type], hp, dmg: Math.round(TYPES[D.type].dmg * (1 + 0.15 * lvl) * dmgScale()) }; b.hp = hp;
+  b.x = D.spawn.x; b.y = D.spawn.y; b.spawnT = 0;
+  b.boss = { id, state: 'intro', t: 1.8, atkCd: 3, dashCd: 7, phase: 1, away: 0, dashV: null, hitDone: false, random, shots: 0 };
+  burst(b.x, b.y, 40, id === 'alex' ? '#e8f6ff' : id === 'philip' ? '#ffcc40' : '#ffd84a', 40, 260);
+  shake(1);
+  addText(b.x, b.y, 160, D.intro, '#ffe98a', 22);
+}
+function bossLeaves(b, msg) {
+  b.gone = true; hazards = []; shots = [];
   banner(msg, 'info');
 }
-function defeatBenedict(b) {
-  S.stats.benedict++; S.chestCd = 300; hazards = [];
-  const bl = ++M.benedictLvl;
-  rollTrophy('monokel', 0.3);
-  if (bl >= 3) rollTrophy('zylinder', 0.2);
+function defeatBoss(b) {
+  const D = BOSSES[b.boss.id];
+  hazards = []; shots = [];
+  if (!M.bossLvl) M.bossLvl = {};
+  const bl = M.bossLvl[D.id] = bossLvl(D.id) + 1;
+  const firstRun = !lv(D.key);
+  S.lv[D.key] = 1;
+  if (D.id === 'benedict') { S.stats.benedict++; if (bl >= 3) rollTrophy('zylinder', 0.2); }
+  rollTrophy(D.trophy, 0.3);
   const st = 1 + Math.floor(bl / 3); M.stars += st; M.starsTotal += st;
   for (let i = 0; i < b.type.meat; i++) dropItem('meat', b.x, b.y);
   for (let i = 0; i < b.type.gold; i++) dropItem('gold', b.x, b.y, 40);
@@ -1991,33 +2042,34 @@ function defeatBenedict(b) {
     i === n - 1 ? () => { S.cash += reward; popPill('pCash'); sfx('coin'); } : null, 90, i * 0.06);
   burst(b.x, b.y, 50, '#ffd84a', 60, 300);
   shake(0.8);
-  banner(`🏆 Benedict Million besiegt! +${fmt(reward)} $ +${st} ⭐`, 'good');
+  banner(`🏆 ${D.name} besiegt! +${fmt(reward)} $ +${st} ⭐`, 'good');
   sfx('win');
-  if (totKill('boss') === 1) setTimeout(() => showWin('👑 Benedict Million besiegt! 👑',
-    'Du hast den reichsten und gefährlichsten Mann des Nordens bezwungen!<br><br>Als Trophäe trägst du jetzt seine <b>goldene Krone</b>. ' +
-    'Sein Tresor füllt sich wieder – wenn du dich traust, kannst du ihn später erneut herausfordern.'), 1500);
+  if (bl === 1) setTimeout(() => showWin(`${D.icon} ${D.name} besiegt! ${D.icon}`, D.first), 1500);
+  else if (firstRun && !b.boss.random) banner(`🏆 ${D.name} besiegt – der Weg ist frei!`, 'good');
   save();
 }
+let shots = [];
 function updateBoss(b, dt) {
-  const B = b.boss, p = player;
+  const B = b.boss, D = BOSSES[B.id], p = player;
   b.hitT = Math.max(0, b.hitT - dt); b.lunge = Math.max(0, b.lunge - dt); b.atkCd -= dt; b.orbitCd -= dt;
   b.spawnT = Math.min(1, b.spawnT + dt * 1.5);
   if (B.state === 'intro') { B.t -= dt; if (B.t <= 0) B.state = 'fight'; return; }
-  const inArena = p.dead <= 0 && p.y < FENCE_Y - 5;
-  if (!inArena) { B.away += dt; if (B.away > 12) { benedictLeaves(b, 'Benedict Million wird es zu langweilig – er verschwindet.'); return; } }
+  const inArena = p.dead <= 0 && (D.zone === 'C' ? p.y > FENCE2_Y + 5 : p.y < FENCE_Y - 5);
+  if (!inArena) { B.away += dt; if (B.random && B.away > 150) { bossLeaves(b, `${D.name} verschwindet wieder …`); return; } }
   else B.away = 0;
   if (B.phase === 1 && b.hp < b.type.hp * 0.5) {
-    B.phase = 2; banner('💢 Benedict Million wird wütend!'); sfx('alarm'); shake(0.5);
+    B.phase = 2; banner(`💢 ${D.name} wird wütend!`); sfx('alarm'); shake(0.5);
+    const area = areaOf(D.zone);
     for (let i = 0; i < 3; i++) {
-      const w = spawnAnimal('A', false, 'wolf');
-      w.x = clamp(b.x + rand(-70, 70), AREA_A.x0, AREA_A.x1); w.y = clamp(b.y + rand(-70, 70), AREA_A.y0, AREA_A.y1);
+      const w = spawnAnimal(D.zone, false, D.guards);
+      w.x = clamp(b.x + rand(-70, 70), area.x0, area.x1); w.y = clamp(b.y + rand(-70, 70), area.y0, area.y1);
       w.guard = true; w.aggro = 30; w.spawnT = 0;
     }
-    addText(b.x, b.y, 160, '„Leibwächter, zu mir!“', '#ffe98a', 22);
+    addText(b.x, b.y, 160, D.angry, '#ffe98a', 22);
   }
   const fast = B.phase === 2 ? 1.3 : 1;
   const dp = dist(b, p);
-  B.rainCd -= dt; B.dashCd -= dt;
+  B.atkCd -= dt; B.dashCd -= dt;
   if (B.state === 'windup') {
     B.t -= dt;
     if (B.t <= 0) {
@@ -2032,7 +2084,7 @@ function updateBoss(b, dt) {
     b.x += B.dashV.x * dt; b.y += B.dashV.y * dt; clampAnimal(b); b.walkT += dt * 30;
     if (Math.random() < 0.5) burst(b.x, b.y, 5, '#ffffff', 1, 60);
     if (!B.hitDone && p.dead <= 0 && dist(b, p) < 60) {
-      B.hitDone = true; hurtPlayer(30);
+      B.hitDone = true; hurtPlayer(Math.round(b.type.dmg * 1.5));
       const d = Math.max(1, dist(b, p)); p.knock = { x: (p.x - b.x) / d * 500, y: (p.y - b.y) / d * 500, t: 0.2 };
       shake(0.4);
     }
@@ -2040,27 +2092,68 @@ function updateBoss(b, dt) {
     return;
   }
   if (!inArena) {
-    const cx = 520, cy = 420, d = Math.hypot(cx - b.x, cy - b.y);
-    if (d > 10) { b.x += (cx - b.x) / d * 80 * dt; b.y += (cy - b.y) / d * 80 * dt; b.walkT += dt * 8; }
+    const c = D.center, d = Math.hypot(c.x - b.x, c.y - b.y);
+    if (d > 10) { b.x += (c.x - b.x) / d * 80 * dt; b.y += (c.y - b.y) / d * 80 * dt; b.walkT += dt * 8; }
     b.hp = Math.min(b.type.hp, b.hp + b.type.hp * 0.01 * dt);
     return;
   }
-  if (B.rainCd <= 0) {
-    B.rainCd = rand(6, 8) / fast;
+  if (B.atkCd <= 0) { bossAttack(b, D, B, fast); }
+  if (B.dashCd <= 0 && dp > 90 && dp < 450) { B.state = 'windup'; B.t = 0.8; return; }
+  const keep = D.id === 'alex' ? 170 : 58; // Alexander hält Abstand und wirft
+  if (dp > keep) {
+    const s = b.type.speed * fast * (S.weather.storm ? 0.8 : 1);
+    b.x += (p.x - b.x) / dp * s * dt; b.y += (p.y - b.y) / dp * s * dt; clampAnimal(b); b.walkT += dt * s * 0.09;
+  } else if (dp < 70 && b.atkCd <= 0) { b.atkCd = 1.2 / fast; b.lunge = 0.25; hurtPlayer(b.type.dmg); }
+}
+function bossAttack(b, D, B, fast) {
+  const p = player, dmgL = (1 + 0.15 * bossLvl(D.id)) * dmgScale();
+  const area = areaOf(D.zone);
+  b.lunge = 0.3; B.shots++;
+  if (Math.random() < 0.35) addText(b.x, b.y, 160, pick(D.lines), '#ffe98a', 20);
+  if (D.id === 'benedict') {
+    B.atkCd = rand(6, 8) / fast;
     const n = B.phase === 2 ? 8 : 5;
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, r = i === 0 ? 0 : rand(45, 150);
-      hazards.push({ x: clamp(p.x + Math.cos(a) * r, 30, worldW() - 30), y: clamp(p.y + Math.sin(a) * r, 30, FENCE_Y - 20), r: 42, t: 0, delay: 1.3 + i * 0.08, dmg: Math.round(25 * (1 + 0.15 * M.benedictLvl) * dmgScale()), id: ++UID });
+      hazards.push({ x: clamp(p.x + Math.cos(a) * r, area.x0 - 60, area.x1 + 60), y: clamp(p.y + Math.sin(a) * r, area.y0 - 60, area.y1 + 60), r: 42, t: 0, delay: 1.3 + i * 0.08, dmg: Math.round(25 * dmgL), id: ++UID });
     }
-    b.lunge = 0.3;
-    addText(b.x, b.y, 160, pick(['„Goldregen!“', '„Geld regiert die Welt!“', '„Das ist mein Revier!“', '„Ihr seid pleite!“']), '#ffe98a', 20);
     sfx('coin');
+  } else if (D.id === 'philip') {
+    // Bierkrüge im hohen Bogen – landen dort, wo du gerade stehst
+    B.atkCd = (B.phase === 2 ? 1.7 : 2.4) / fast;
+    const n = B.phase === 2 ? 3 : 1;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, r = i === 0 ? 0 : rand(50, 110);
+      hazards.push({ beer: true, fx: b.x, fy: b.y, x: p.x + Math.cos(a) * r + (p.moving ? rand(-20, 20) : 0), y: p.y + Math.sin(a) * r, r: 46, t: 0, delay: 1.0 + i * 0.12, dmg: Math.round(20 * dmgL), id: ++UID });
+    }
+    sfx('arrow');
+  } else {
+    // Schneebälle: gerade und schnell – ausweichen!
+    const big = B.shots % 4 === 0;
+    B.atkCd = (B.phase === 2 ? 1.5 : 1.9) / fast;
+    const n = big ? 1 : B.phase === 2 ? 5 : 2;
+    const base = Math.atan2(p.y - b.y, p.x - b.x);
+    for (let i = 0; i < n; i++) {
+      const a = base + (n > 1 ? (i - (n - 1) / 2) * 0.22 : 0), spd = big ? 300 : 470;
+      shots.push({ x: b.x + Math.cos(a) * 30, y: b.y + Math.sin(a) * 30, z: 45, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, t: 0, life: 1.8, r: big ? 24 : 9, dmg: Math.round((big ? 38 : 16) * dmgL), big });
+    }
+    sfx('arrow');
   }
-  if (B.dashCd <= 0 && dp > 90 && dp < 450) { B.state = 'windup'; B.t = 0.8; return; }
-  if (dp > 58) {
-    const s = b.type.speed * fast * (S.weather.storm ? 0.8 : 1);
-    b.x += (p.x - b.x) / dp * s * dt; b.y += (p.y - b.y) / dp * s * dt; clampAnimal(b); b.walkT += dt * s * 0.09;
-  } else if (b.atkCd <= 0) { b.atkCd = 1.2 / fast; b.lunge = 0.25; hurtPlayer(b.type.dmg); }
+}
+function updateShots(dt) {
+  const p = player;
+  for (const s of shots) {
+    s.t += dt; s.x += s.vx * dt; s.y += s.vy * dt; s.z = Math.max(8, s.z - 12 * dt);
+    if (s.big) s.r = Math.min(34, s.r + 6 * dt);
+    if (p.dead <= 0 && Math.hypot(p.x - s.x, p.y - s.y) < s.r + 14) {
+      s.done = true; hurtPlayer(s.dmg);
+      p.slowT = s.big ? 1.6 : 1.0; p.slowK = s.big ? 0.3 : 0.5;
+      addText(p.x, p.y, 90, s.big ? 'Eingeschneit!' : 'Brrr!', '#bfe6ff', 20);
+      burst(s.x, s.y, s.z, '#ffffff', s.big ? 18 : 8, 150);
+    }
+    if (s.t > s.life) { s.done = true; burst(s.x, s.y, s.z, '#ffffff', 4, 80); }
+  }
+  shots = shots.filter(s => !s.done);
 }
 function updateHazards(dt) {
   for (const h of hazards) {
@@ -2068,9 +2161,13 @@ function updateHazards(dt) {
     if (!h.hit && h.t >= h.delay) {
       h.hit = true;
       if (h.stomp) { burst(h.x, h.y, 5, '#dff4ff', 16, 220); burst(h.x, h.y, 5, '#8fd3ff', 8, 160); shake(0.35); }
+      else if (h.beer) { burst(h.x, h.y, 8, '#ffcc40', 14, 170); burst(h.x, h.y, 10, '#ffffff', 8, 120); burst(h.x, h.y, 6, '#bfe6ff', 5, 150); }
       else { burst(h.x, h.y, 10, '#ffd84a', 10, 160); burst(h.x, h.y, 10, '#fff4b0', 4, 100); }
-      if (player.dead <= 0 && dist(player, h) < h.r) hurtPlayer(h.dmg);
-      sfx(h.stomp ? 'hurt' : 'coin');
+      if (player.dead <= 0 && dist(player, h) < h.r) {
+        hurtPlayer(h.dmg);
+        if (h.beer) { player.slowT = 2.2; player.slowK = 0.55; addText(player.x, player.y, 90, 'Rutschig!', '#ffd84a', 20); }
+      }
+      sfx(h.stomp ? 'hurt' : h.beer ? 'splash' : 'coin');
     }
   }
   hazards = hazards.filter(h => h.t < h.delay + 0.35);
@@ -2084,7 +2181,7 @@ function currentGoal() {
   const vis = pads.filter(padVisible);
   const meatN = p.stack.filter(t => t === 'meat').length, fishN = p.stack.length - meatN;
   const boss = animals.find(b => b.boss && !b.dead && !b.gone);
-  if (boss) return { text: '👑 Besiege Benedict Million!', x: boss.x, y: boss.y, bear: true };
+  if (boss) { const D = BOSSES[boss.boss.id]; return { text: boss.boss.random ? `${D.icon} Besiege ${D.name}!` : `${D.icon} Besiege ${D.name}, um weiterzukommen!`, x: boss.x, y: boss.y, bear: true }; }
   if (p.y > FENCE2_Y) { const mk = animals.find(b => b.type.kind === 'mking' && !b.dead && dist(b, p) < 500); if (mk) return { text: '⚠️ Der Mammutkönig! Kämpfe oder flieh!', x: mk.x, y: mk.y, bear: true }; }
   if (S.raid.active) {
     const r = nearestOf(animals.filter(b => b.raider && !b.dead), p);
@@ -2451,7 +2548,7 @@ function buildWorld() {
   for (const p of PAD_DEFS) makePadObj(p);
 
   // Gegenstände, Partikel usw. (instanziert)
-  for (const t of ['meat', 'steak', 'fish', 'smoked', 'wood', 'gold', 'cash', 'crystal']) {
+  for (const t of ['meat', 'steak', 'fish', 'smoked', 'wood', 'gold', 'cash', 'crystal', 'beer', 'snow']) {
     const im = new THREE.InstancedMesh(itemGeo(t), VC, 1600); im.count = 0; im.castShadow = true; im.frustumCulled = false;
     scene.add(im); itemIM[t] = im;
   }
@@ -2504,6 +2601,8 @@ function itemGeo(t) {
       case 'wood': return [P3(gCyl(4.5, 4.5, 24, 8), '#8a5530', 0, 4.5, 0, 0, 0, PI / 2), P3(gCyl(4.2, 4.2, 0.6, 8), '#e8b777', 12.1, 4.5, 0, 0, 0, PI / 2), P3(gCyl(4.2, 4.2, 0.6, 8), '#e8b777', -12.1, 4.5, 0, 0, 0, PI / 2)];
       case 'gold': return [P3(gBox(20, 4, 10), '#d9a520', 0, 2, 0), P3(gBox(16, 3, 7), '#ffd84a', 0, 5.5, 0), P3(gBox(6, 0.5, 2), '#fffbe0', -3, 7.1, -1)];
       case 'crystal': return [P3(gCone(4.5, 13, 5), '#6fe7ff', 0, 6.5, 0), P3(gCone(3, 9, 5), '#b8f6ff', 4.5, 4.5, 1.5, 0, 0, -0.5), P3(gCone(3, 8, 5), '#4fc9f0', -4, 4, -1, 0, 0, 0.5)];
+      case 'beer': return [P3(gCyl(5, 4.6, 12, 10), '#f2a900', 0, 6, 0), P3(gCyl(5.5, 5.5, 3.5, 10), '#fffdf2', 0, 13.2, 0), P3(gSph(2.4, 6, 4), '#fffdf2', 2, 15, 1), P3(gTor(3.4, 1.2, 4, 10), '#e0b040', 6.5, 6.5, 0)];
+      case 'snow': return [P3(gSph(9, 10, 8), '#ffffff', 0, 0, 0), P3(gSph(4, 6, 4), '#e3f2fd', 3, -4, 5)];
       case 'cash': return [P3(gBox(24, 3, 12), '#2e8b3a', 0, 1.5, 0), P3(gBox(24, 0.6, 12), '#5ccf5c', 0, 3.2, 0), P3(gCyl(3, 3, 0.6, 10), '#b8f5b0', 0, 3.6, 0, 0, 0, 0, 1, 1, 0.8)];
     }
   });
@@ -2780,13 +2879,7 @@ function syncWorld() {
   gateDebris.visible = gate.broken;
   lockFog.visible = !lv('east');
   // Tresor
-  const bossOn = bossAlive() || S.bossIntro > 0;
-  chestObj.visible = true;
-  const open = S.chestCd > 0 && !bossOn;
-  chestLid.rotation.x = open ? -1.3 : (S.bossIntro > 0 ? -0.2 - Math.abs(Math.sin(t * 20)) * 0.3 : 0);
-  chestGlint.visible = !open && !bossOn;
-  at(chestGlint, CHEST.x, CHEST.y, 36 + Math.sin(t * 3) * 4);
-  chestGlint.material.rotation = t * 1.5; const gs = 26 + Math.sin(t * 5) * 8; chestGlint.scale.set(gs, gs, 1);
+  chestObj.visible = false; chestGlint.visible = false;
   // Rauch
   const emit = [];
   for (const k in B3) if (B3[k].userData.smoke) emit.push([B3[k], B3[k].userData.smoke]);
@@ -2906,6 +2999,45 @@ function makeYeti() {
   inner.add(legL, legR, armL, armR);
   return { root, inner, body, legL, legR, armL, armR, meshes: [body, legL, legR, armL, armR], rot: 0, px: null, py: null, biped: true };
 }
+function biped(key, bodyFn, legFn, armFn, legPos, armPos) {
+  const root = new THREE.Group(), inner = new THREE.Group(); root.add(inner);
+  const body = mesh(model(key, bodyFn)); inner.add(body);
+  const legGeo = model(key + 'Leg', legFn), armGeo = model(key + 'Arm', armFn);
+  const legL = mesh(legGeo), legR = mesh(legGeo); legL.position.set(-legPos[0], legPos[1], 0); legR.position.set(legPos[0], legPos[1], 0);
+  const armL = mesh(armGeo), armR = mesh(armGeo); armL.position.set(-armPos[0], armPos[1], 0); armR.position.set(armPos[0], armPos[1], 0);
+  inner.add(legL, legR, armL, armR);
+  return { root, inner, body, legL, legR, armL, armR, meshes: [body, legL, legR, armL, armR], rot: 0, px: null, py: null, biped: true };
+}
+function makePhilip() {
+  const m = biped('philip', () => {
+    const a = [
+      P3(gBox(26, 30, 18), '#c62828', 0, 38, 0), P3(gSph(1, 10, 8), '#c62828', 0, 33, 6, 0, 0, 0, 13, 13, 10),
+      P3(gBox(26.6, 2, 18.6), '#7f1d1d', 0, 30, 0), P3(gBox(26.6, 2, 18.6), '#7f1d1d', 0, 39, 0), P3(gBox(26.6, 2, 18.6), '#7f1d1d', 0, 48, 0),
+      P3(gBox(2, 30.6, 18.6), '#7f1d1d', -7, 38, 0), P3(gBox(2, 30.6, 18.6), '#7f1d1d', 7, 38, 0),
+      P3(gBox(3, 30, 1.5), '#2e5e2e', -6.5, 38, 15.6), P3(gBox(3, 30, 1.5), '#2e5e2e', 6.5, 38, 15.6), P3(gBox(24, 9, 17), '#4e342e', 0, 20, 0),
+      P3(gSph(10, 12, 10), '#f1c9a5', 0, 63, 1), P3(gSph(1, 8, 6), '#8d5a2b', 0, 57, 6, 0, 0, 0, 9, 6.5, 5.5),
+      P3(gSph(2, 6, 4), '#e8a08a', 0, 63, 11), P3(gBox(2.2, 2.2, 1), '#222', -3.5, 66, 10), P3(gBox(2.2, 2.2, 1), '#222', 3.5, 66, 10),
+      P3(gSph(10.6, 12, 8), '#2e7d32', 0, 68, 0, 0, 0, 0, 1, 0.75, 1), P3(gTor(10, 2.2, 5, 16), '#e8f5e9', 0, 66, 0, PI / 2), P3(gSph(3.5, 8, 6), '#ffffff', 0, 77, 0),
+    ];
+    return a;
+  }, () => [P3(gBox(9, 20, 10), '#4e342e', 0, -10, 0), P3(gBox(10, 4, 14), '#3e2723', 0, -20, 2)],
+  () => [P3(gCyl(5, 4.5, 22, 8), '#c62828', 0, -11, 0), P3(gSph(4.2, 8, 6), '#f1c9a5', 0, -24, 0)], [6.5, 20], [16.5, 50]);
+  const mug = mesh(itemGeo('beer')); mug.scale.setScalar(1.3); mug.position.set(0, -32, 2); m.armR.add(mug); m.meshes.push(mug);
+  return m;
+}
+function makeAlex() {
+  const m = biped('alex', () => [
+    P3(gBox(24, 30, 16), '#1e88e5', 0, 38, 0), P3(gBox(24.6, 3, 16.6), '#ffffff', 0, 45, 0), P3(gBox(24.6, 2, 16.6), '#0d47a1', 0, 24, 0),
+    P3(gBox(1, 28, 0.6), '#0d47a1', 0, 38, 8.4), P3(gTor(9, 3, 5, 14), '#e53935', 0, 53, 0, PI / 2), P3(gBox(5, 14, 2), '#e53935', 5, 46, 9.5, 0, 0, 0.2),
+    P3(gBox(22, 8, 15), '#37474f', 0, 19, 0),
+    P3(gSph(10, 12, 10), '#f1c9a5', 0, 63, 1), P3(gBox(2.2, 2.2, 1), '#222', -3.5, 64, 10), P3(gBox(2.2, 2.2, 1), '#222', 3.5, 64, 10), P3(gBox(5, 1, 1), '#b0735a', 0, 59, 10.4),
+    P3(gBox(21, 3, 3), '#212121', 0, 69, 8), P3(gBox(7, 4.5, 2), '#ff9800', -4.5, 69, 9.5), P3(gBox(7, 4.5, 2), '#ff9800', 4.5, 69, 9.5),
+    P3(gSph(10.6, 12, 8), '#e3f2fd', 0, 70, 0, 0, 0, 0, 1, 0.8, 1), P3(gTor(10.1, 1.8, 5, 16), '#1e88e5', 0, 71, 0, PI / 2), P3(gSph(3.8, 8, 6), '#e53935', 0, 80, 0),
+  ], () => [P3(gBox(9, 18, 10), '#37474f', 0, -9, 0), P3(gBox(10, 5, 14), '#263238', 0, -19, 2)],
+  () => [P3(gCyl(5, 4.5, 22, 8), '#1e88e5', 0, -11, 0), P3(gSph(4.6, 8, 6), '#ffffff', 0, -24, 0)], [6, 18], [16, 50]);
+  const ball = mesh(itemGeo('snow')); ball.scale.setScalar(0.7); ball.position.set(0, -30, 3); m.armL.add(ball); m.meshes.push(ball);
+  return m;
+}
 function makeBenedict() {
   const root = new THREE.Group(), inner = new THREE.Group(); root.add(inner);
   const body = mesh(model('benedict', () => [
@@ -3005,9 +3137,9 @@ function renderEntities(dt) {
   // Tiere
   for (const b of animals) {
     const kind = b.type.kind;
-    const m = ensureModel(b, () => kind === 'bear' ? makeBear(b.type.name === 'spiky', b.raider) : kind === 'wolf' ? makeWolf(b.guard, false, b.type.name === 'frostwolf') : kind === 'yeti' ? makeYeti() : kind === 'mammoth' ? makeMammoth(false) : kind === 'mking' ? makeMammoth(true) : makeBenedict());
+    const m = ensureModel(b, () => kind === 'bear' ? makeBear(b.type.name === 'spiky', b.raider) : kind === 'wolf' ? makeWolf(b.guard, false, b.type.name === 'frostwolf') : kind === 'yeti' ? makeYeti() : kind === 'mammoth' ? makeMammoth(false) : kind === 'mking' ? makeMammoth(true) : kind === 'philip' ? makePhilip() : kind === 'alex' ? makeAlex() : makeBenedict());
     at(m.root, b.x, b.y);
-    const s = (kind === 'bear' ? b.type.size * 1.1 : kind === 'yeti' ? 1.25 : kind === 'boss' ? 1.85 : kind === 'mking' ? 1.6 : kind === 'wolf' ? b.type.size : 1) * (0.3 + 0.7 * b.spawnT);
+    const s = (kind === 'bear' ? b.type.size * 1.1 : kind === 'yeti' ? 1.25 : kind === 'boss' || kind === 'philip' || kind === 'alex' ? 1.85 : kind === 'mking' ? 1.6 : kind === 'wolf' ? b.type.size : 1) * (0.3 + 0.7 * b.spawnT);
     m.root.scale.setScalar(s);
     const dp = dist(b, p);
     const attacking = !b.dead && p.dead <= 0 && dp < 80 * b.type.size;
@@ -3094,8 +3226,10 @@ function renderItems() {
   for (const it of items) pushItem(it.type, it.x, it.y, it.z, it.x * 0.1);
   for (const h of hazards) {
     const k = (h.t - (h.delay - 0.5)) / 0.5;
+    if (h.beer) { const q = Math.min(1, h.t / h.delay); pushItem('beer', lerp(h.fx, h.x, q), lerp(h.fy, h.y, q), 70 + Math.sin(PI * q) * 170 - 60 * q, h.t * 9); continue; }
     if (k > 0 && k < 1 && !h.stomp) for (let i = 0; i < 5; i++) pushItem('gold', h.x + Math.cos(i * 1.3) * 18, h.y + Math.sin(i * 1.3) * 18, 320 * (1 - k) + i * 12, i + gameTime * 8, 0.9);
   }
+  for (const sh of shots) pushItem('snow', sh.x, sh.y, sh.z, sh.t * 8, sh.r / 9);
   flushItems();
 }
 function pilePos(pile, type, count) {
@@ -3291,6 +3425,11 @@ function renderLabels() {
     if (p.dead <= 0 && p.hp < p.maxHp)
       label3('php', `<div class="hp me" style="width:60px"><i style="width:${(p.hp / p.maxHp * 100).toFixed(0)}%;background:${p.hp > p.maxHp * 0.35 ? '#5ccf5c' : '#ff5a3c'}"></i></div>`, p.x, p.y, 0, '', 20);
     if (lv('radio') && !lv('glacier')) label3('lock2', `<div class="lockt">🔒 Gletscher</div><div class="locks">Schalte das Gebiet im Lager frei</div>`, 700, 1560, 80, '');
+    for (const D of Object.values(BOSSES)) {
+      if (lv(D.key) || lv(D.gate) || !reqMet(gateReqs(D))) continue;
+      const gp = PAD_DEFS.find(q => q.id === D.gate);
+      label3('gate_' + D.id, `<div class="lockt" style="font-size:22px">🔒 ${PAD_DEFS.find(q => q.id === D.gate).name}</div><div class="locks">Besiege zuerst ${D.icon} ${D.name}!</div>`, gp.x, gp.y, 20, '');
+    }
     if (!lv('east')) label3('lock', `<div class="lockt">🔒 Eissee</div><div class="locks">${lv('furnace') ? 'Schalte das Gebiet im Lager frei' : 'Wird nach dem Großen Ofen freigeschaltet'}</div>`, 1850, 700, 80, '');
   }
   for (const [k, L] of LB) {
@@ -3365,7 +3504,7 @@ function updateOverlays() {
   const boss = running ? animals.find(b => b.boss && !b.dead && !b.gone) : null;
   const bb = $('bossbar');
   bb.classList.toggle('hidden', !boss);
-  if (boss) { $('bossHp').style.width = Math.max(0, boss.hp / boss.type.hp * 100).toFixed(1) + '%'; $('bossName').textContent = `👑 Benedict Million · Stufe ${M.benedictLvl + 1}`; }
+  if (boss) { $('bossHp').style.width = Math.max(0, boss.hp / boss.type.hp * 100).toFixed(1) + '%'; const D = BOSSES[boss.boss.id]; $('bossName').textContent = `${D.icon} ${D.name} · Stufe ${bossLvl(D.id) + 1}`; }
   const p = player;
   let v = 0, col = '200,20,20';
   if (running) {
@@ -3390,7 +3529,7 @@ function renderStats() {
   const rows = [
     ['Spielzeit', fmtTime(st.time)], ['Ausbauten', `${progress()} / ${TOTAL_LEVELS}`], ['Siedlungshäuser', `${housesBuilt()} / ${HOUSES.length}`],
     ['Tiere erlegt', st.kills], ['Ware verkauft', st.sold], ['Fische gefangen', st.fish], ['Angriffe abgewehrt', st.raids], ['Yetis besiegt', st.yeti],
-    ['Aufträge erfüllt', st.quests || 0], ['Geheimer Boss', totKill('boss') ? `👑 Benedict Million ×${totKill('boss')}` : '???'],
+    ['Aufträge erfüllt', st.quests || 0], ['Bosse besiegt', `🍺 ${totKill('philip')} · ❄️ ${totKill('alex')} · 👑 ${totKill('boss')}`],
     ['Expedition', EXP() + 1], ['Spielerstufe', M.level], ['Polarsterne', M.stars], ['Erfolge', `${Object.keys(M.ach).length} / ${ACH.length}`], ['Trophäen', `${Object.keys(M.trophies).length} / ${TROPHIES.length}`], ['Gesamtspielzeit', fmtTime(tot('time'))],
     ['Zuletzt gespeichert', lastSaveOk ? new Date(lastSaveOk).toLocaleTimeString('de-DE') : '–'],
   ];
