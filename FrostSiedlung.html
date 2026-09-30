@@ -2377,35 +2377,112 @@ function gPrism(len, h, d) {
 }
 function P3(geo, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) { return { geo, color, x, y, z, rx, ry, rz, sx, sy, sz }; }
 // Mehrere Formen zu einer Geometrie mit Vertex-Farben verschmelzen (flache Low-Poly-Schattierung)
+// Zusätzlich pro Teil: geglättete Normalen (sn) und Strichstärke (sw) für die Tusche-Umrisse
 function merge(parts) {
   let n = 0; const prep = [];
   for (const p of parts) {
     const g = p.geo.index ? p.geo.toNonIndexed() : p.geo.clone();
     _e.set(p.rx, p.ry, p.rz); _q.setFromEuler(_e); _p.set(p.x, p.y, p.z); _s.set(p.sx, p.sy, p.sz);
     _m4.compose(_p, _q, _s); g.applyMatrix4(_m4);
-    if (g.attributes.normal) g.deleteAttribute('normal');
-    if (g.attributes.uv) g.deleteAttribute('uv');
-    g.computeVertexNormals();
-    prep.push([g, new THREE.Color(p.color)]); n += g.attributes.position.count;
+    for (const k of Object.keys(g.attributes)) if (k !== 'position') g.deleteAttribute(k);
+    g.computeVertexNormals(); g.computeBoundingBox();
+    const bb = g.boundingBox, dx = bb.max.x - bb.min.x, dy = bb.max.y - bb.min.y, dz = bb.max.z - bb.min.z;
+    // winzige Details (Pupillen, Knöpfe, Brillenbügel) bekommen keinen Umriss, dünne nur einen feinen
+    const w = p.ink !== undefined ? p.ink : Math.max(dx, dy, dz) < 5 ? 0 : clamp(Math.min(dx, dy, dz) / 3, 0.2, 1);
+    prep.push([g, new THREE.Color(p.color), w]); n += g.attributes.position.count;
   }
-  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3);
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3), sn = new Float32Array(n * 3), sw = new Float32Array(n);
   let o = 0;
-  for (const [g, c] of prep) {
+  for (const [g, c, w] of prep) {
     const cnt = g.attributes.position.count;
     pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3);
-    for (let i = 0; i < cnt; i++) { col[(o + i) * 3] = c.r; col[(o + i) * 3 + 1] = c.g; col[(o + i) * 3 + 2] = c.b; }
+    smoothNormals(g.attributes.position.array, g.attributes.normal.array, cnt, sn, o);
+    for (let i = 0; i < cnt; i++) { col[(o + i) * 3] = c.r; col[(o + i) * 3 + 1] = c.g; col[(o + i) * 3 + 2] = c.b; sw[o + i] = w; }
     o += cnt; g.dispose();
   }
   const out = new THREE.BufferGeometry();
   out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
   out.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  out.setAttribute('sn', new THREE.BufferAttribute(sn, 3));
+  out.setAttribute('sw', new THREE.BufferAttribute(sw, 1));
   out.computeBoundingSphere();
   return out;
 }
+// über gleiche Positionen gemittelte Normalen, damit der Umriss an Kanten nicht aufreißt
+function smoothNormals(pos, nor, cnt, out, o) {
+  const acc = new Map(), keys = new Array(cnt);
+  for (let i = 0; i < cnt; i++) {
+    const k = Math.round(pos[i * 3] * 40) + ',' + Math.round(pos[i * 3 + 1] * 40) + ',' + Math.round(pos[i * 3 + 2] * 40);
+    keys[i] = k;
+    let e = acc.get(k); if (!e) acc.set(k, e = [0, 0, 0, new Set()]);
+    const nk = Math.round(nor[i * 3] * 50) * 10000 + Math.round(nor[i * 3 + 1] * 50) * 100 + Math.round(nor[i * 3 + 2] * 50);
+    if (!e[3].has(nk)) { e[3].add(nk); e[0] += nor[i * 3]; e[1] += nor[i * 3 + 1]; e[2] += nor[i * 3 + 2]; }
+  }
+  for (let i = 0; i < cnt; i++) {
+    const e = acc.get(keys[i]), l = Math.hypot(e[0], e[1], e[2]), j = (o + i) * 3;
+    if (l > 1e-3) { out[j] = e[0] / l; out[j + 1] = e[1] / l; out[j + 2] = e[2] / l; }
+    else { out[j] = nor[i * 3]; out[j + 1] = nor[i * 3 + 1]; out[j + 2] = nor[i * 3 + 2]; }
+  }
+}
+function ensureInkAttr(geo) {
+  if (geo.attributes.sn) return geo;
+  if (!geo.attributes.normal) geo.computeVertexNormals();
+  const cnt = geo.attributes.position.count, sn = new Float32Array(cnt * 3);
+  smoothNormals(geo.attributes.position.array, geo.attributes.normal.array, cnt, sn, 0);
+  geo.setAttribute('sn', new THREE.BufferAttribute(sn, 3));
+  geo.setAttribute('sw', new THREE.BufferAttribute(new Float32Array(cnt).fill(1), 1));
+  return geo;
+}
+/* ---------- South-Park-Tusche: schwarze Umrisse um die beleuchteten 3D-Modelle ----------
+   Rückseiten-Hülle, im Blickraum entlang der geglätteten Normalen aufgebläht –
+   dadurch bleibt die Strichstärke auf dem Bildschirm konstant (Licht und Schatten bleiben unverändert). */
+const INK_PX = 3.4, INK_W = { value: 0.0015 }, INK_IMS = [];
+let INK = null;
+function inkMat() {
+  if (INK) return INK;
+  INK = new THREE.MeshBasicMaterial({ color: '#17131c', side: THREE.BackSide });
+  INK.onBeforeCompile = sh => {
+    sh.uniforms.uInk = INK_W;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec3 sn;\nattribute float sw;\nuniform float uInk;')
+      .replace('#include <project_vertex>', `vec4 mvPosition = vec4( transformed, 1.0 );
+        vec3 inkN = sn;
+        float inkS = length( modelMatrix[ 0 ].xyz );
+        #ifdef USE_INSTANCING
+          mvPosition = instanceMatrix * mvPosition;
+          inkN = mat3( instanceMatrix ) * inkN;
+          inkS *= length( instanceMatrix[ 0 ].xyz );
+        #endif
+        mvPosition = modelViewMatrix * mvPosition;
+        inkN = normalize( mat3( modelViewMatrix ) * inkN );
+        mvPosition.xyz += inkN * ( uInk * sw * step( 0.02, inkS ) * -mvPosition.z );
+        gl_Position = projectionMatrix * mvPosition;`);
+  };
+  INK.customProgramCacheKey = () => 'sp-ink';
+  return INK;
+}
+function inkify(m) {
+  const k = new THREE.Mesh(ensureInkAttr(m.geometry), inkMat());
+  k.castShadow = false; k.receiveShadow = false; k.raycast = () => { }; k.renderOrder = 1;   // nach den Körpern zeichnen: Verdecktes fällt früh weg
+  m.add(k); m.userData.ink = k;
+  return m;
+}
+function inkIM(im) {
+  const k = new THREE.InstancedMesh(ensureInkAttr(im.geometry), inkMat(), im.instanceMatrix.count);
+  k.instanceMatrix = im.instanceMatrix; k.count = im.count; k.frustumCulled = im.frustumCulled;
+  k.castShadow = false; k.receiveShadow = false; k.renderOrder = 1;
+  (im.parent || scene).add(k); INK_IMS.push([im, k]);
+  return im;
+}
+function syncInk() {
+  for (const [im, k] of INK_IMS) { k.count = im.count; k.visible = im.visible && im.count > 0; }
+}
 function model(name, fn) { return MODELS[name] || (MODELS[name] = merge(fn())); }
 function mesh(geo, material, shadow = true) {
-  const m = new THREE.Mesh(geo, material || VC); m.castShadow = shadow; m.receiveShadow = true; return m;
+  const m = new THREE.Mesh(geo, material || VC); m.castShadow = shadow; m.receiveShadow = true;
+  if (!material || !material.isMeshBasicMaterial) inkify(m);
+  return m;
 }
 function mat(color) { return MATS[color] || (MATS[color] = new THREE.MeshLambertMaterial({ color, flatShading: true })); }
 function glow(color) { return GLOWS[color] || (GLOWS[color] = new THREE.MeshBasicMaterial({ color })); }
@@ -2461,6 +2538,7 @@ function resize3D() {
   CW = window.innerWidth; CH = window.innerHeight;
   renderer.setSize(CW, CH);
   camera.aspect = CW / CH; camera.updateProjectionMatrix();
+  INK_W.value = INK_PX * 2 * Math.tan(camera.fov * PI / 360) / CH;
 }
 window.addEventListener('resize', () => resize3D());
 window.addEventListener('orientationchange', () => setTimeout(resize3D, 250));
@@ -2526,7 +2604,7 @@ function buildWorld() {
     for (let x = 6; x < W_B; x += 16) { if (x > GATE_X0 && x < GATE_X1) continue; posts2.push(x); }
     const im = new THREE.InstancedMesh(model('post2', () => [P3(gBox(7, 38, 7), '#5f86b3', 0, 19, 0), P3(gBox(3, 38, 7.4), '#7aa3cf', -2, 19, 0), P3(gCone(5.2, 9, 4), '#f4f9ff', 0, 42.5, 0, 0, PI / 4)]), VC, posts2.length);
     posts2.forEach((x, i) => { _m4.makeTranslation(x, 0, FENCE2_Y); im.setMatrixAt(i, _m4); });
-    im.castShadow = true; fence2Group.add(im);
+    im.castShadow = true; fence2Group.add(im); inkIM(im);
     const rp = [];
     for (const [a, b] of [[0, GATE_X0 - 6], [GATE_X1 + 6, W_B]]) for (const h of [12, 28]) rp.push(P3(gBox(b - a, 3, 3), '#4a6e96', (a + b) / 2, h, FENCE2_Y + 4));
     for (const x of [GATE_X0, GATE_X1]) rp.push(P3(gBox(12, 54, 12), '#4a6e96', x, 27, FENCE2_Y), P3(gCone(9, 12, 4), '#f4f9ff', x, 60, FENCE2_Y, 0, PI / 4));
@@ -2542,7 +2620,7 @@ function buildWorld() {
   ]), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: '#1a6a86' }), crystals.length);
   crystalIM.castShadow = true;
   crystalRockIM = new THREE.InstancedMesh(model('crystalRock', () => [P3(gIco(16, 0), '#8a96a8', 0, 6, 0, 0, 0, 0, 1.3, 0.55, 1.2), P3(gCone(2.5, 6, 5), '#6fe7ff', 3, 13, 2)]), VC, crystals.length);
-  scene.add(crystalIM, crystalRockIM);
+  scene.add(crystalIM, crystalRockIM); inkIM(crystalIM); inkIM(crystalRockIM);
   aurora = new THREE.Group();
   const auroraTex = canvasTex(256, 128, (g, w, h) => {
     for (let x = 0; x < w; x++) {
@@ -2583,11 +2661,11 @@ function buildWorld() {
   treeIM = new THREE.InstancedMesh(tgeo, VC, trees.length); treeIM.castShadow = true; treeIM.receiveShadow = true;
   stumpIM = new THREE.InstancedMesh(model('stump', () => [P3(gCyl(7, 8, 7, 8), '#6b3f22', 0, 3.5, 0), P3(gCyl(6.5, 6.5, 0.8, 8), '#e8c38f', 0, 7.2, 0), P3(gSph(3, 6, 4), '#ffffff', -2, 8, 1, 0, 0, 0, 1, 0.5, 1)]), VC, trees.length);
   stumpIM.castShadow = true;
-  scene.add(treeIM, stumpIM);
+  scene.add(treeIM, stumpIM); inkIM(treeIM); inkIM(stumpIM);
   decoIM = new THREE.InstancedMesh(tgeo, VC, decoTrees.length);
   decoTrees.forEach((t, i) => { _e.set(0, t.x * 0.01, 0); _q.setFromEuler(_e); _m4.compose(_p.set(t.x, 0, t.y), _q, _s.set(t.s, t.s, t.s)); decoIM.setMatrixAt(i, _m4); });
   decoIM.receiveShadow = true;
-  scene.add(decoIM);
+  scene.add(decoIM); inkIM(decoIM);
 
   // Zaun
   const posts = [];
@@ -2595,7 +2673,7 @@ function buildWorld() {
   const postIM = new THREE.InstancedMesh(model('post', () => [
     P3(gBox(7, 38, 7), '#d4603f', 0, 19, 0), P3(gBox(3, 38, 7.4), '#e8775a', -2, 19, 0), P3(gCone(5.2, 9, 4), '#f4f9ff', 0, 42.5, 0, 0, PI / 4)]), VC, posts.length);
   posts.forEach((x, i) => { _m4.makeTranslation(x, 0, FENCE_Y); postIM.setMatrixAt(i, _m4); });
-  postIM.castShadow = true; postIM.receiveShadow = true; scene.add(postIM);
+  postIM.castShadow = true; postIM.receiveShadow = true; scene.add(postIM); inkIM(postIM);
   const railParts = [];
   for (const [a, b] of [[0, GATE_X0 - 6], [GATE_X1 + 6, W_B]]) for (const h of [12, 28]) railParts.push(P3(gBox(b - a, 3, 3), '#a8432d', (a + b) / 2, h, FENCE_Y - 4));
   for (const x of [GATE_X0, GATE_X1]) {
@@ -2652,7 +2730,7 @@ function buildWorld() {
   // Gegenstände, Partikel usw. (instanziert)
   for (const t of ['meat', 'steak', 'fish', 'smoked', 'wood', 'gold', 'cash', 'crystal', 'beer', 'snow']) {
     const im = new THREE.InstancedMesh(itemGeo(t), VC, 1600); im.count = 0; im.castShadow = true; im.frustumCulled = false;
-    scene.add(im); itemIM[t] = im;
+    scene.add(im); inkIM(im); itemIM[t] = im;
   }
   partIM = new THREE.InstancedMesh(gBox(1, 1, 1), new THREE.MeshBasicMaterial({ color: '#ffffff' }), 700);
   partIM.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(700 * 3), 3); partIM.count = 0; partIM.frustumCulled = false; scene.add(partIM);
@@ -2661,7 +2739,7 @@ function buildWorld() {
   hazIM = new THREE.InstancedMesh(gCyl(1, 1, 1, 28), new THREE.MeshBasicMaterial({ color: '#ff3b30', transparent: true, opacity: 0.35, depthWrite: false }), 30);
   hazIM.count = 0; hazIM.frustumCulled = false; scene.add(hazIM);
   arrowIM = new THREE.InstancedMesh(model('arrow', () => [P3(gBox(1.6, 1.6, 22), '#7a4a2a', 0, 0, 0), P3(gCone(2.2, 6, 4), '#9aa3ae', 0, 0, 13, PI / 2), P3(gBox(0.4, 3, 5), '#ffffff', 0, 0, -9)]), VC, 80);
-  arrowIM.count = 0; arrowIM.frustumCulled = false; scene.add(arrowIM);
+  arrowIM.count = 0; arrowIM.frustumCulled = false; scene.add(arrowIM); inkIM(arrowIM);
 
   // Schneefall
   const N = 1400; snowPos = new Float32Array(N * 3);
@@ -2994,16 +3072,48 @@ function syncWorld() {
 }
 
 /* ---------- Figuren ---------- */
+// South-Park-Augen: zwei große weiße Ovale, die sich in der Mitte fast berühren, oben leicht nach außen gekippt,
+// mit kleinen schwarzen Punkt-Pupillen. Sie folgen der Kopfrundung (turn) und bekommen einen Tusche-Rand.
+function spEyes(y, z, o = {}) {
+  const w = o.w || 3.3, h = o.h || 3.9, sp = o.sp || w * 0.94, turn = o.turn ?? 0.3, tilt = o.tilt ?? 0.16, d = o.d || 1.5;
+  const pr = o.pr || w * 0.27, pin = o.pin ?? w * 0.3, a = [];
+  for (const s of [-1, 1]) {
+    const ay = s * turn, ex = s * sp;
+    const e = P3(gSph(1, 12, 8), o.white || '#ffffff', ex, y, z, 0, ay, -s * tilt, w, h, d);
+    if (o.ink !== undefined) e.ink = o.ink;
+    const lx = -s * pin, lz = d * 0.9, ly = o.py ?? 0.25;
+    a.push(e, P3(gSph(pr, 7, 5), o.pupil || '#111111', ex + lx * Math.cos(ay) + lz * Math.sin(ay), y + ly, z - lx * Math.sin(ay) + lz * Math.cos(ay), 0, ay, 0, 1, 1, 0.55));
+  }
+  return a;
+}
+// einfacher South-Park-Mund: kurzer Strich mit leicht hochgezogenen Mundwinkeln
+function spMouth(y, z, w = 3.6, c = '#3b1f1a', smile = 0.35) {
+  return [P3(gBox(w, 0.75, 0.8), c, 0, y, z), P3(gBox(1.3, 0.7, 0.8), c, -w / 2 - 0.4, y + 0.3, z - 0.15, 0, 0, -smile), P3(gBox(1.3, 0.7, 0.8), c, w / 2 + 0.4, y + 0.3, z - 0.15, 0, 0, smile)];
+}
+function noInk(...parts) { for (const q of parts) q.ink = 0; return parts; }
+function hashStr(t) { let h = 7; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0; return h; }
+const SP_ACCENT = ['#e53935', '#ffd23f', '#f5f5f5', '#ff8a3d', '#e53935', '#4fc3f7'];
 const models3 = [];
 let frameId = 0;
 function track(m) { models3.push(m); scene.add(m.root); return m; }
 function makeHuman(coat, o = {}) {
   const root = new THREE.Group(), inner = new THREE.Group(); root.add(inner);
-  const body = mesh(model('hbody' + coat, () => [
-    P3(gBox(20, 23, 14), coat, 0, 25, 0), P3(gBox(21, 3, 15), '#f3f3f3', 0, 14.5, 0), P3(gBox(21, 2.5, 15), '#5a3a20', 0, 23, 0),
-    P3(gSph(9.5, 10, 8), coat, 0, 45, -1.5), P3(gSph(6.8, 10, 8), '#f5cfa8', 0, 44, 3.4), P3(gTor(7.2, 2.2, 5, 12), '#f7f1e6', 0, 44.5, 3.2),
-    P3(gBox(1.6, 1.8, 1), '#2b2b2b', -2.4, 45, 10), P3(gBox(1.6, 1.8, 1), '#2b2b2b', 2.4, 45, 10),
-  ]));
+  const hs = hashStr(coat), style = o.style || (hs % 5 < 3 ? 'beanie' : 'hood'), acc = o.accent || SP_ACCENT[(hs >> 3) % SP_ACCENT.length];
+  const body = mesh(model('hbody' + coat + style + acc, () => {
+    const a = [P3(gBox(20, 23, 14), coat, 0, 25, 0), P3(gBox(21, 3, 15), '#f3f3f3', 0, 14.5, 0), P3(gBox(21, 2.5, 15), '#5a3a20', 0, 23, 0)];
+    if (style === 'beanie') {
+      // runder Kopf, Bommelmütze mit Krempe, die Krempe sitzt direkt auf den Augen
+      a.push(P3(gSph(1, 14, 10), '#f5cfa8', 0, 46, 0.5, 0, 0, 0, 11.6, 10.6, 10.6),
+        P3(gSph(1, 14, 8), coat, 0, 50, -0.3, 0, 0, 0, 11.9, 9.5, 11.2), P3(gCyl(12.3, 12.5, 3.6, 16), acc, 0, 50.2, -0.1, 0, 0, 0, 1, 1, 0.95),
+        P3(gSph(3.4, 8, 6), acc, 0, 60.4, -0.3),
+        ...spEyes(45.8, 9.8, { w: 3.2, h: 3.9, sp: 3.05, turn: 0.28 }), ...spMouth(40.2, 9.5, 3.2));
+    } else {
+      // Parka mit enger Kapuze und Fellrand – nur die Augen schauen heraus
+      a.push(P3(gSph(1, 14, 10), coat, 0, 46.5, -1, 0, 0, 0, 12.2, 11.4, 11.4), P3(gSph(8.6, 12, 10), '#f5cfa8', 0, 45.5, 4.5),
+        P3(gTor(8.3, 2.2, 5, 16), '#8a5a35', 0, 45.5, 7.9), ...spEyes(46.2, 11.7, { w: 2.9, h: 3.6, sp: 2.8, turn: 0.26 }));
+    }
+    return a;
+  }));
   const legGeo = model('hleg', () => [P3(gBox(6, 13, 7), '#2d3b55', 0, -6.5, 0), P3(gBox(7, 3, 9), '#6b4a2e', 0, -12.5, 1.2)]);
   const legL = mesh(legGeo), legR = mesh(legGeo); legL.position.set(-4, 14, 0); legR.position.set(4, 14, 0);
   const armGeo = model('harm' + coat, () => [P3(gBox(5, 16, 5), coat, 0, -7, 0), P3(gSph(3, 6, 4), '#f5cfa8', 0, -16, 0)]);
@@ -3013,7 +3123,7 @@ function makeHuman(coat, o = {}) {
   if (o.tool === 'axe') { tool = mesh(model('axeTool', () => [P3(gCyl(1.3, 1.3, 24, 6), '#7a4a2a', 0, 0, 10, PI / 2), P3(gBox(1.8, 9, 8), '#b8c2cf', 0, 4, 20), P3(gBox(2, 2, 8.5), '#eef2f7', 0, 8.5, 20)])); tool.position.set(0, -16, 0); armR.add(tool); }
   if (o.tool === 'bow') { tool = mesh(model('bowTool', () => [P3(gTor(12, 1.2, 4, 10, PI), '#7a4a2a', 0, 0, 6, 0, PI / 2, 0), P3(gBox(0.4, 24, 0.4), '#dddddd', 0, 0, 6)])); tool.position.set(0, -16, 0); armL.add(tool); }
   if (o.tool === 'rod') { tool = mesh(model('rodTool', () => [P3(gCyl(0.9, 1.3, 46, 5), '#6b4a2e', 0, 16, 16, 1.0, 0, 0)])); tool.position.set(0, -16, 0); armR.add(tool); }
-  const m = { root, inner, body, legL, legR, armL, armR, tool, meshes: [body, legL, legR, armL, armR], rot: 0, px: null, py: null, kind: 'human' };
+  const m = { root, inner, body, legL, legR, armL, armR, tool, meshes: [body, legL, legR, armL, armR], rot: 0, px: null, py: null, kind: 'human', headTop: style === 'beanie' ? 62 : 58 };
   return m;
 }
 function addCrown(m) {
@@ -3023,7 +3133,7 @@ function addCrown(m) {
     a.push(P3(gSph(1.8, 6, 4), '#e53935', 0, 3, 7.3));
     return a;
   }));
-  c.position.set(0, 53, -1); m.inner.add(c); m.crown = c;
+  c.position.set(0, 58.5, -0.3); m.inner.add(c); m.crown = c;
 }
 function quadruped(bodyKey, bodyFn, legKey, legFn, legPos) {
   const root = new THREE.Group(), inner = new THREE.Group(); root.add(inner);
@@ -3038,7 +3148,7 @@ function makeBear(spiky, raider) {
     const a = [
       P3(gSph(1, 12, 9), w, 0, 26, 0, 0, 0, 0, 17, 17, 29), P3(gSph(1, 10, 7), '#dde4ee', 0, 20, 2, 0, 0, 0, 15, 10, 24),
       P3(gSph(11, 10, 8), w, 0, 32, 26), P3(gSph(1, 8, 6), w, 0, 28.5, 35.5, 0, 0, 0, 6, 5, 7), P3(gSph(2.4, 6, 4), '#222', 0, 30, 42.5),
-      P3(gSph(1.6, 6, 4), raider ? '#e53935' : '#222', -4.5, 35, 34.5), P3(gSph(1.6, 6, 4), raider ? '#e53935' : '#222', 4.5, 35, 34.5),
+      ...spEyes(35.6, 35.1, { w: 2.7, h: 3.2, sp: 2.6, turn: 0.34, d: 1.3, pupil: raider ? '#e53935' : '#111111', pr: 0.8 }),
       P3(gSph(3.6, 6, 4), w, -7, 41.5, 23), P3(gSph(3.6, 6, 4), w, 7, 41.5, 23), P3(gSph(4, 6, 4), w, 0, 29, -28),
     ];
     if (spiky) for (let i = 0; i < 12; i++) { const z = -20 + (i >> 1) * 7, x = (i % 2 ? 5 : -5); a.push(P3(gCone(3, 14, 5), i % 3 ? '#56606e' : '#8894a4', x, 42 - Math.abs(z) * 0.18, z, -0.6, 0, x * 0.05)); }
@@ -3054,7 +3164,7 @@ function makeWolf(guard, husky, frost) {
       P3(gSph(1, 10, 8), fur, 0, 21, 0, 0, 0, 0, 10, 10, 22), P3(gSph(1, 8, 6), dark, 0, 26, -2, 0, 0, 0, 8, 5, 18), P3(gSph(1, 8, 6), light, 0, 17, 2, 0, 0, 0, 8, 5, 16),
       P3(gSph(8, 8, 6), fur, 0, 27, 20), P3(gCone(4.5, 12, 6), husky ? light : fur, 0, 25, 30, PI / 2), P3(gSph(1.8, 5, 4), '#222', 0, 25, 36.5),
       P3(gCone(3, 7, 4), dark, -4, 35, 18), P3(gCone(3, 7, 4), dark, 4, 35, 18),
-      P3(gSph(1.4, 5, 4), husky ? '#4fc3f7' : frost ? '#e8fbff' : '#ffd24a', -3.5, 29, 26.5), P3(gSph(1.4, 5, 4), husky ? '#4fc3f7' : frost ? '#e8fbff' : '#ffd24a', 3.5, 29, 26.5),
+      ...spEyes(29.7, 26.3, { w: 2.2, h: 2.7, sp: 2.1, turn: 0.4, d: 1.2, pr: 0.72, ink: 0.55, pupil: husky ? '#1e88e5' : frost ? '#1b4f7a' : '#8a6400' }),
       husky ? P3(gTor(6, 2.5, 4, 8, PI * 1.3), fur, 0, 32, -20, 0, PI / 2, 0) : P3(gCyl(2.5, 4, 22, 6), fur, 0, 26, -28, -0.9),
     ];
     if (guard) a.push(P3(gTor(7, 1.8, 4, 10), '#ffd84a', 0, 25, 13, 0.3));
@@ -3072,7 +3182,7 @@ function makeMammoth(king) {
       P3(gSph(17, 10, 8), fur, 0, 52, 36), P3(gSph(1, 8, 6), dark, -15, 54, 30, 0, 0, 0, 4, 11, 9), P3(gSph(1, 8, 6), dark, 15, 54, 30, 0, 0, 0, 4, 11, 9),
       P3(gCyl(5, 6.5, 18, 8), fur, 0, 36, 50, 0.3), P3(gCyl(4, 5, 16, 8), fur, 0, 23, 54, 0.1), P3(gCyl(3.5, 4, 10, 8), dark, 0, 13, 56, -0.5),
       P3(gCyl(1.5, 3.6, 36, 6), '#f4ecd8', -9, 32, 52, 1.25, 0, -0.35), P3(gCyl(1.5, 3.6, 36, 6), '#f4ecd8', 9, 32, 52, 1.25, 0, 0.35),
-      P3(gSph(1.8, 5, 4), '#111', -9, 57, 48), P3(gSph(1.8, 5, 4), '#111', 9, 57, 48),
+      ...spEyes(58, 50.6, { w: 3.4, h: 4.2, sp: 3.2, turn: 0.22, d: 1.6 }),
     ];
     if (king) {
       a.push(P3(gCyl(10, 9, 7, 10), '#bfe9ff', 0, 72, 34));
@@ -3090,7 +3200,8 @@ function makeYeti() {
     P3(gSph(1, 12, 10), '#f3f7fd', 0, 52, 0, 0, 0, 0, 27, 32, 21), P3(gSph(1, 10, 8), '#dbe7f5', 0, 48, 9, 0, 0, 0, 16, 21, 12),
     P3(gSph(16, 10, 8), '#f3f7fd', 0, 88, 4), P3(gSph(1, 10, 8), '#86a9d6', 0, 86, 13, 0, 0, 0, 11, 10, 6),
     P3(gCone(3.5, 16, 6), '#8a8f99', -10, 101, 2, 0, 0, 0.5), P3(gCone(3.5, 16, 6), '#8a8f99', 10, 101, 2, 0, 0, -0.5),
-    P3(gSph(1.8, 6, 4), '#c62828', -4.5, 89, 18.5), P3(gSph(1.8, 6, 4), '#c62828', 4.5, 89, 18.5), P3(gBox(9, 3, 2), '#2b3446', 0, 81, 18.5),
+    ...spEyes(90, 17.5, { w: 3.8, h: 4.5, sp: 3.6, turn: 0.3, pupil: '#c62828', pr: 1.05 }),
+    P3(gBox(6.5, 1.5, 1.4), '#2b3446', -3.9, 95.3, 17.4, 0, 0, -0.35), P3(gBox(6.5, 1.5, 1.4), '#2b3446', 3.9, 95.3, 17.4, 0, 0, 0.35), P3(gBox(9, 3, 2), '#2b3446', 0, 81, 18.5),
     P3(gBox(1.5, 2.5, 1), '#ffffff', -2.5, 82, 19.4), P3(gBox(1.5, 2.5, 1), '#ffffff', 2.5, 82, 19.4),
   ]));
   inner.add(body);
@@ -3117,9 +3228,9 @@ function makePhilip() {
       P3(gBox(26.6, 2, 18.6), '#7f1d1d', 0, 30, 0), P3(gBox(26.6, 2, 18.6), '#7f1d1d', 0, 39, 0), P3(gBox(26.6, 2, 18.6), '#7f1d1d', 0, 48, 0),
       P3(gBox(2, 30.6, 18.6), '#7f1d1d', -7, 38, 0), P3(gBox(2, 30.6, 18.6), '#7f1d1d', 7, 38, 0),
       P3(gBox(3, 30, 1.5), '#2e5e2e', -6.5, 38, 15.6), P3(gBox(3, 30, 1.5), '#2e5e2e', 6.5, 38, 15.6), P3(gBox(24, 9, 17), '#4e342e', 0, 20, 0),
-      P3(gSph(10, 12, 10), '#f1c9a5', 0, 63, 1), P3(gSph(1, 8, 6), '#8d5a2b', 0, 57, 6, 0, 0, 0, 9, 6.5, 5.5),
-      P3(gSph(2, 6, 4), '#e8a08a', 0, 63, 11), P3(gBox(2.2, 2.2, 1), '#222', -3.5, 66, 10), P3(gBox(2.2, 2.2, 1), '#222', 3.5, 66, 10),
-      P3(gSph(10.6, 12, 8), '#2e7d32', 0, 68, 0, 0, 0, 0, 1, 0.75, 1), P3(gTor(10, 2.2, 5, 16), '#e8f5e9', 0, 66, 0, PI / 2), P3(gSph(3.5, 8, 6), '#ffffff', 0, 77, 0),
+      P3(gSph(1, 16, 12), '#f1c9a5', 0, 64, 1, 0, 0, 0, 12, 11, 11), P3(gSph(1, 12, 8), '#8d5a2b', 0, 58, 6.5, 0, 0, 0, 10.5, 7.5, 6.2),
+      P3(gSph(1.8, 8, 6), '#e8a08a', 0, 60.4, 12.3), ...spEyes(65.3, 10.7, { w: 3.3, h: 3.9, sp: 3.1, turn: 0.3 }),
+      P3(gSph(1, 16, 10), '#2e7d32', 0, 70, 0.5, 0, 0, 0, 12.3, 9.2, 11.6), P3(gTor(11.2, 2.4, 6, 20), '#e8f5e9', 0, 70, 0.6, PI / 2), P3(gSph(3.8, 10, 8), '#ffffff', 0, 80.4, 0.5),
     ];
     return a;
   }, () => [P3(gBox(9, 20, 10), '#4e342e', 0, -10, 0), P3(gBox(10, 4, 14), '#3e2723', 0, -20, 2)],
@@ -3132,19 +3243,49 @@ function makeAlex() {
     P3(gBox(24, 30, 16), '#1e88e5', 0, 38, 0), P3(gBox(24.6, 3, 16.6), '#ffffff', 0, 45, 0), P3(gBox(24.6, 2, 16.6), '#0d47a1', 0, 24, 0),
     P3(gBox(1, 28, 0.6), '#0d47a1', 0, 38, 8.4), P3(gTor(9, 3, 5, 14), '#e53935', 0, 53, 0, PI / 2), P3(gBox(5, 14, 2), '#e53935', 5, 46, 9.5, 0, 0, 0.2),
     P3(gBox(22, 8, 15), '#37474f', 0, 19, 0),
-    P3(gSph(10, 12, 10), '#f1c9a5', 0, 63, 1), P3(gBox(2.2, 2.2, 1), '#222', -3.5, 64, 10), P3(gBox(2.2, 2.2, 1), '#222', 3.5, 64, 10), P3(gBox(5, 1, 1), '#b0735a', 0, 59, 10.4),
-    P3(gBox(21, 3, 3), '#212121', 0, 69, 8), P3(gBox(7, 4.5, 2), '#ff9800', -4.5, 69, 9.5), P3(gBox(7, 4.5, 2), '#ff9800', 4.5, 69, 9.5),
-    P3(gSph(10.6, 12, 8), '#e3f2fd', 0, 70, 0, 0, 0, 0, 1, 0.8, 1), P3(gTor(10.1, 1.8, 5, 16), '#1e88e5', 0, 71, 0, PI / 2), P3(gSph(3.8, 8, 6), '#e53935', 0, 80, 0),
+    P3(gSph(1, 16, 12), '#f1c9a5', 0, 63.5, 1, 0, 0, 0, 11.8, 10.8, 10.8), ...spEyes(63.2, 10.6, { w: 3.3, h: 3.9, sp: 3.1, turn: 0.3 }), ...spMouth(57.4, 10.1, 3.4, '#8a4b3c', 0.3),
+    P3(gBox(24, 3, 3), '#212121', 0, 70.2, 8.2), P3(gBox(7, 4.8, 2), '#ff9800', -4.4, 70.2, 9.6, 0, -0.3, 0), P3(gBox(7, 4.8, 2), '#ff9800', 4.4, 70.2, 9.6, 0, 0.3, 0),
+    P3(gSph(1, 16, 10), '#e3f2fd', 0, 72, 0.3, 0, 0, 0, 12, 8.6, 11.4), P3(gTor(11, 1.9, 6, 20), '#1e88e5', 0, 72.6, 0.3, PI / 2), P3(gSph(3.9, 10, 8), '#e53935', 0, 81.8, 0.3),
   ], () => [P3(gBox(9, 18, 10), '#37474f', 0, -9, 0), P3(gBox(10, 5, 14), '#263238', 0, -19, 2)],
   () => [P3(gCyl(5, 4.5, 22, 8), '#1e88e5', 0, -11, 0), P3(gSph(4.6, 8, 6), '#ffffff', 0, -24, 0)], [6, 18], [16, 50]);
   const ball = mesh(itemGeo('snow')); ball.scale.setScalar(0.7); ball.position.set(0, -30, 3); m.armL.add(ball); m.meshes.push(ball);
   return m;
 }
+// Kopf von Herrn Faudt im South-Park-Stil: große Ovalaugen hinter der schmalen, randlosen Brille,
+// längliches Gesicht, markante Nase, braune, an den Schläfen zurückgehende Haare – etwas größer (South-Park-Proportionen)
+function faudtHead(skin, skinD, hair, hair2, frame) {
+  const lens = (s, y, len, th) => { const a = s * 0.3; return P3(gBox(len, th, th), frame, s * (2.75 + 1.7 * Math.sin(0.3)), y, 9.3 + 1.7 * Math.cos(0.3), 0, a, 0); };
+  const head = [
+    // Hals und längliches Gesicht
+    P3(gCyl(4.2, 4.6, 5, 10), skin, 0, 60, 0.5),
+    P3(gSph(1, 16, 12), skin, 0, 69.5, 1, 0, 0, 0, 8.6, 10.8, 9.2), P3(gSph(1, 10, 8), skin, 0, 62.8, 3.4, 0, 0, 0, 5.8, 4.4, 6),
+    P3(gSph(1, 8, 6), skin, -8.7, 69, 0.3, 0, 0, 0, 1.7, 3.3, 2.3), P3(gSph(1, 8, 6), skin, 8.7, 69, 0.3, 0, 0, 0, 1.7, 3.3, 2.3),
+    P3(gBox(2.2, 4.4, 2.6), skinD, 0, 66.3, 9.9, -0.22), P3(gSph(1.5, 8, 6), skinD, 0, 64.3, 11),
+    ...spEyes(70.4, 9.3, { w: 2.9, h: 3.0, sp: 2.75, turn: 0.3, tilt: 0.1, d: 1.3, pupil: '#3a2a20', pr: 0.78 }),
+    P3(gBox(3.8, 0.55, 0.6), hair, -3.1, 74.6, 8.7, 0, -0.3, 0.05), P3(gBox(3.8, 0.55, 0.6), hair, 3.1, 74.6, 8.7, 0, 0.3, -0.05),
+    P3(gBox(4.4, 0.5, 0.6), '#b9806c', 0, 61.6, 9.1), P3(gBox(1, 0.5, 0.6), '#b9806c', -2.5, 61.9, 9, 0, 0, 0.45), P3(gBox(1, 0.5, 0.6), '#b9806c', 2.5, 61.9, 9, 0, 0, -0.45),
+    P3(gBox(0.5, 1.8, 0.4), skinD, -4, 63.2, 8.4, 0, 0, 0.2), P3(gBox(0.5, 1.8, 0.4), skinD, 4, 63.2, 8.4, 0, 0, -0.2),
+    // randlose, schmale Brille (ohne Tusche-Rand, damit sie filigran bleibt)
+    ...noInk(
+      P3(gBox(1.2, 0.4, 0.4), frame, 0, 71.3, 11.8),
+      lens(-1, 73.75, 5.9, 0.35), lens(1, 73.75, 5.9, 0.35), lens(-1, 67.05, 5.7, 0.3), lens(1, 67.05, 5.7, 0.3),
+      P3(gBox(0.35, 6.9, 0.35), frame, -6.12, 70.4, 10.03), P3(gBox(0.35, 6.9, 0.35), frame, 6.12, 70.4, 10.03),
+      P3(gBox(0.35, 0.35, 9.8), frame, -7.36, 72.6, 5.25, 0, 0.257, 0), P3(gBox(0.35, 0.35, 9.8), frame, 7.36, 72.6, 5.25, 0, -0.257, 0)),
+    // braune Haare: oben voller, an den Schläfen zurückgehend, Seiten kurz
+    P3(gSph(1, 14, 10), hair, 0, 75.2, -1.2, 0, 0, 0, 9.3, 5.6, 9.6), P3(gSph(1, 12, 8), hair, 0, 71, -4.3, 0, 0, 0, 9.5, 7.8, 6.6),
+    P3(gSph(1, 8, 6), hair, -8.5, 72, -1.5, 0, 0, 0, 1.6, 3.6, 5), P3(gSph(1, 8, 6), hair, 8.5, 72, -1.5, 0, 0, 0, 1.6, 3.6, 5),
+    P3(gSph(1, 8, 6), hair2, 0, 78, 4.2, 0, 0, 0, 4.6, 2.3, 3.8), P3(gSph(1, 8, 6), hair2, -2.8, 79, 0.5, 0, 0, 0, 3.5, 2, 4), P3(gSph(1, 8, 6), hair2, 3, 78.8, 1, 0, 0, 0, 3.2, 2, 3.6),
+  ];
+  // South-Park-Proportionen: Kopf als Ganzes vergrößern (um den Halsansatz) und etwas aus dem Kragen heben
+  const k = 1.12, cy = 59.5;
+  for (const q of head) { q.x *= k; q.y = cy + (q.y - cy) * k + 2.2; q.z *= k; q.sx *= k; q.sy *= k; q.sz *= k; }
+  return head;
+}
 function makeBaron() {
   const sw = '#aaa49b', swd = '#938d84', skin = '#ecc6aa', skinD = '#dcae90', hair = '#5b3f2b', hair2 = '#6f5039', frame = '#c0c6cd';
   const ribs = [];
   for (let i = 0; i < 14; i++) { const an = i / 14 * PI * 2; ribs.push(P3(gBox(0.9, 9, 0.9), swd, Math.sin(an) * 8.3, 56.5, Math.cos(an) * 8.3, 0, an, 0)); }
-  const m = biped('baron3', () => [
+  const m = biped('baron4', () => [
     // melierter Strickpullover mit hohem, geripptem Stehkragen (Troyer)
     P3(gCyl(12, 13, 32, 14), sw, 0, 37, 0), P3(gSph(1, 14, 8), sw, 0, 50, 0, 0, 0, 0, 15, 7, 10),
     ...[25, 30, 35, 40, 45].map(y => P3(gCyl(12.25, 12.7, 0.8, 14), swd, 0, y, 0)),
@@ -3152,26 +3293,7 @@ function makeBaron() {
     P3(gCyl(7.8, 8.8, 9, 14), sw, 0, 56.5, 0), ...ribs, P3(gTor(8, 1.4, 5, 16), sw, 0, 61, 0, PI / 2),
     P3(gBox(5.5, 11, 1.8), sw, 1.4, 54.5, 8.9, 0, 0, -0.08), P3(gBox(0.8, 11, 0.6), swd, -1.3, 54.5, 9.9),
     P3(gCyl(2.1, 2.1, 1, 10), '#8a7a66', 0.8, 53, 10.2, PI / 2), P3(gCyl(1.5, 1.5, 0.9, 10), '#8a7a66', 0.8, 57.5, 10, PI / 2),
-    // Hals und längliches Gesicht
-    P3(gCyl(4.2, 4.6, 5, 10), skin, 0, 60, 0.5),
-    P3(gSph(1, 14, 12), skin, 0, 69.5, 1, 0, 0, 0, 8.6, 10.8, 9.2), P3(gSph(1, 10, 8), skin, 0, 62.8, 3.4, 0, 0, 0, 5.8, 4.4, 6),
-    P3(gSph(1, 8, 6), skin, -8.7, 69, 0.3, 0, 0, 0, 1.7, 3.3, 2.3), P3(gSph(1, 8, 6), skin, 8.7, 69, 0.3, 0, 0, 0, 1.7, 3.3, 2.3),
-    P3(gBox(2.2, 5.8, 2.6), skinD, 0, 68.4, 9.4, -0.22), P3(gSph(1.5, 8, 6), skinD, 0, 65.9, 10.5),
-    P3(gBox(2.6, 1.4, 0.5), '#f5f1ea', -3.4, 70.6, 9), P3(gBox(2.6, 1.4, 0.5), '#f5f1ea', 3.4, 70.6, 9),
-    P3(gBox(1.3, 1.3, 0.5), '#3a2a20', -3.3, 70.6, 9.3), P3(gBox(1.3, 1.3, 0.5), '#3a2a20', 3.3, 70.6, 9.3),
-    P3(gBox(3.8, 0.5, 0.6), hair, -3.4, 73.2, 8.8, 0, 0, 0.05), P3(gBox(3.8, 0.5, 0.6), hair, 3.4, 73.2, 8.8, 0, 0, -0.05),
-    P3(gBox(4.4, 0.5, 0.6), '#b9806c', 0, 63.9, 8.9), P3(gBox(1, 0.5, 0.6), '#b9806c', -2.5, 64.2, 8.8, 0, 0, 0.45), P3(gBox(1, 0.5, 0.6), '#b9806c', 2.5, 64.2, 8.8, 0, 0, -0.45),
-    P3(gBox(0.5, 1.8, 0.4), skinD, -4.3, 65.4, 8.4, 0, 0, 0.2), P3(gBox(0.5, 1.8, 0.4), skinD, 4.3, 65.4, 8.4, 0, 0, -0.2),
-    // randlose, schmale Brille
-    P3(gBox(1.8, 0.4, 0.4), frame, 0, 71, 10.2),
-    P3(gBox(4.6, 0.35, 0.35), frame, -3.5, 72, 10), P3(gBox(4.6, 0.35, 0.35), frame, 3.5, 72, 10),
-    P3(gBox(4.4, 0.3, 0.3), frame, -3.5, 69.4, 9.9), P3(gBox(4.4, 0.3, 0.3), frame, 3.5, 69.4, 9.9),
-    P3(gBox(0.35, 2.9, 0.35), frame, -5.8, 70.7, 9.8), P3(gBox(0.35, 2.9, 0.35), frame, 5.8, 70.7, 9.8),
-    P3(gBox(0.35, 0.35, 9.5), frame, -8.4, 71.6, 5.3), P3(gBox(0.35, 0.35, 9.5), frame, 8.4, 71.6, 5.3),
-    // braune Haare: oben voller, an den Schläfen zurückgehend, Seiten kurz
-    P3(gSph(1, 14, 10), hair, 0, 75.2, -1.2, 0, 0, 0, 9.3, 5.6, 9.6), P3(gSph(1, 12, 8), hair, 0, 71, -4.3, 0, 0, 0, 9.5, 7.8, 6.6),
-    P3(gSph(1, 8, 6), hair, -8.5, 72, -1.5, 0, 0, 0, 1.6, 3.6, 5), P3(gSph(1, 8, 6), hair, 8.5, 72, -1.5, 0, 0, 0, 1.6, 3.6, 5),
-    P3(gSph(1, 8, 6), hair2, 0, 78, 4.2, 0, 0, 0, 4.6, 2.3, 3.8), P3(gSph(1, 8, 6), hair2, -2.8, 79, 0.5, 0, 0, 0, 3.5, 2, 4), P3(gSph(1, 8, 6), hair2, 3, 78.8, 1, 0, 0, 0, 3.2, 2, 3.6),
+    ...faudtHead(skin, skinD, hair, hair2, frame),
   ], () => [P3(gBox(8.5, 21, 9), '#3a3f4a', 0, -10.5, 0), P3(gBox(9, 4, 13), '#2a2a2a', 0, -21, 2)],
   () => [P3(gCyl(4.6, 4.2, 20, 10), sw, 0, -10, 0), P3(gCyl(4.3, 4.3, 2.5, 10), swd, 0, -20.5, 0), P3(gSph(3.9, 8, 6), skin, 0, -24, 0)], [5.5, 21], [15, 52]);
   const staff = mesh(model('baronStaff', () => [P3(gCyl(1.4, 1.4, 50, 6), '#b0bec5', 0, -14, 5, 0.3), P3(gCone(4, 14, 5), '#8fd3ff', 0, 14, -3.5)]));
@@ -3186,9 +3308,10 @@ function makeBenedict() {
     P3(gSph(1.4, 5, 4), '#ffd84a', 0, 50, 15.4), P3(gSph(1.4, 5, 4), '#ffd84a', 0, 44, 15.6), P3(gSph(1.4, 5, 4), '#ffd84a', 0, 38, 15.8),
     P3(gTor(13, 5, 6, 14), '#f7f1e6', 0, 56, 0, PI / 2), P3(gBox(32, 44, 2.5), '#b71c1c', 0, 36, -15, 0.14),
     P3(gTor(8, 1.2, 4, 12), '#ffd84a', 0, 49, 12.5, 0.35),
-    P3(gSph(10, 12, 10), '#f1c9a5', 0, 67, 1), P3(gBox(2.2, 2.2, 1), '#222', -3.5, 69, 10.4), P3(gBox(2.2, 2.2, 1), '#222', 3.5, 69, 10.4),
-    P3(gBox(5, 1.3, 1), '#3b2a1a', -3.6, 72.6, 10, 0, 0, -0.35), P3(gBox(5, 1.3, 1), '#3b2a1a', 3.6, 72.6, 10, 0, 0, 0.35),
-    P3(gBox(12, 2.6, 3), '#5b3a1e', 0, 64.2, 10.2), P3(gTor(2.6, 0.5, 4, 10), '#ffd84a', 3.5, 69, 11),
+    P3(gSph(1, 16, 12), '#f1c9a5', 0, 66.5, 1, 0, 0, 0, 11.5, 10.6, 10.6), ...spEyes(67.6, 10.5, { w: 3.2, h: 3.8, sp: 3.0, turn: 0.3 }),
+    P3(gBox(5.2, 1.4, 1.2), '#3b2a1a', -3.4, 72.9, 9.8, 0, -0.25, -0.3), P3(gBox(5.2, 1.4, 1.2), '#3b2a1a', 3.4, 72.9, 9.8, 0, 0.25, 0.3),
+    P3(gBox(13, 2.6, 3), '#5b3a1e', 0, 62.6, 10.6), P3(gBox(3.2, 2, 2.4), '#5b3a1e', -7.4, 63.4, 9.3, 0, -0.5, 0.5), P3(gBox(3.2, 2, 2.4), '#5b3a1e', 7.4, 63.4, 9.3, 0, 0.5, -0.5),
+    P3(gTor(4.1, 0.55, 5, 18), '#ffd84a', 3.47, 67.6, 12.2, 0, 0.3, 0),
     P3(gCyl(9, 9, 18, 12), '#15151c', 0, 85, 0), P3(gCyl(15, 15, 2, 14), '#15151c', 0, 76, 0), P3(gCyl(9.4, 9.4, 3.5, 12), '#d9a520', 0, 79, 0),
   ]));
   inner.add(body);
@@ -3229,7 +3352,9 @@ function animHuman(m, e, look) {
   if (e.swing > 0) { const k = 1 - e.swing / 0.25; m.armR.rotation.x = -2.7 + k * 2.5; }
   else if (e.fishing || e.rodOn) m.armR.rotation.x = -0.6;
   else m.armR.rotation.x = sw * 0.6;
-  m.inner.position.y = e.moving ? Math.abs(Math.cos(e.walkT)) * 1.6 : 0;
+  // South-Park-Gang: kräftiges Wippen und leichtes seitliches Watscheln
+  m.inner.position.y = e.moving ? Math.abs(Math.cos(e.walkT)) * 2.4 : 0;
+  m.inner.rotation.z = e.moving ? Math.sin(e.walkT) * 0.07 : 0;
 }
 function ensureModel(e, create) {
   if (!e._m) { e._m = create(e); track(e._m); }
@@ -3240,7 +3365,7 @@ function forward(m) { return [Math.sin(m.rot), Math.cos(m.rot)]; }
 function stackOn(m, e, list, baseZ, sway = 0, sc = 1) {
   const [fx, fy] = forward(m); const rx = Math.cos(m.rot), ry = -Math.sin(m.rot);
   let z = baseZ * sc;
-  const bob = e.moving ? Math.abs(Math.cos(e.walkT)) * 1.6 : 0;
+  const bob = e.moving ? Math.abs(Math.cos(e.walkT)) * 2.4 : 0;
   for (let i = 0; i < list.length; i++) {
     const t = list[i], off = sway * i * i * 0.012;
     pushItem(t, e.x - fx * 6 + rx * off, e.y - fy * 6 + ry * off, z + bob, m.rot + PI / 2);
@@ -3266,7 +3391,7 @@ function renderEntities(dt) {
   pm.tool.visible = !p.fishing;
   if (p.fishing) { pm.armR.rotation.x = -0.9; }
   setFlash(pm, p.hurtT > 0.12);
-  if (p.dead <= 0) stackOn(pm, p, p.stack, 56, p.sway * 30, 1);
+  if (p.dead <= 0) stackOn(pm, p, p.stack, 64, p.sway * 30, 1);
   // Wirbelnde Äxte
   for (let k = 0; k < orbitAxes.length; k++) {
     const a = orbitAxes[k], on = k < p.orbit && p.dead <= 0;
@@ -3296,6 +3421,7 @@ function renderEntities(dt) {
     }
     m.inner.position.z = b.lunge > 0 && !m.biped ? Math.sin(b.lunge / 0.2 * PI) * 8 : 0;
     m.inner.rotation.x = 0; m.inner.position.x = 0;
+    m.inner.rotation.z = m.biped && moved && !b.dead ? phase * 0.06 : 0;
     if (b.boss) {
       if (b.boss.state === 'windup') { m.inner.position.x = Math.sin(gameTime * 80) * 2.5; m.inner.rotation.x = -0.15; }
       if (b.boss.state === 'dash') m.inner.rotation.x = 0.35;
@@ -3312,7 +3438,7 @@ function renderEntities(dt) {
     const look = w.kind === 'fisher' ? (w.state === 'work' && !w.moving ? HOLES[w.hole] : null) : (!w.moving && w.target && !w.target.dead ? w.target : null);
     w.rodOn = w.kind === 'fisher' && w.state === 'work' && !w.moving;
     animHuman(m, w, look);
-    stackOn(m, w, Array(w.carry).fill(w.kind === 'hunter' ? 'meat' : w.kind === 'lumber' ? 'wood' : w.kind === 'driller' ? 'crystal' : 'fish'), 56);
+    stackOn(m, w, Array(w.carry).fill(w.kind === 'hunter' ? 'meat' : w.kind === 'lumber' ? 'wood' : w.kind === 'driller' ? 'crystal' : 'fish'), 59);
   }
   for (const sh of SHOP_LIST) if (sh.cashier) {
     const m = ensureModel(sh.cashier, () => makeHuman('#8e44ad'));
@@ -3598,6 +3724,7 @@ function render3D(dt) {
   renderFx(dt);
   updateGoal3D();
   renderLabels();
+  syncInk();
   renderer.render(scene, camera);
 }
 function reset3D() {
