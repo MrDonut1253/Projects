@@ -962,7 +962,7 @@ function showWin(title, text) {
 function shopOpen(sh) { return sh.id === 'meat' || lv('fishmarket') > 0; }
 function shopSprite(sh) { return sh.id === 'meat' ? (lv('grill') ? 'steak' : 'meat') : (lv('smokehouse') ? 'smoked' : 'fish'); }
 function shopPrice(sh) {
-  let p = sh.id === 'meat' ? (lv('grill') ? 12 : 5) : (lv('smokehouse') ? 20 : 9);
+  let p = sh.id === 'meat' ? (lv('grill') ? 12 : 5) : (lv('smokehouse') ? 38 : 17);   // Fisch kommt später, ist dafür deutlich mehr wert
   if (lv('furnace')) p = p * 1.5;
   return Math.round(p * priceMult(sh));
 }
@@ -1195,7 +1195,7 @@ function updatePlayer(dt) {
   }
   if (p.fishing) {
     p.fishT += dt;
-    if (p.fishT >= 1.0 / (1 + 0.12 * sk('angler'))) {
+    if (p.fishT >= 0.6 / (1 + 0.12 * sk('angler'))) {
       p.fishT = 0; p.incoming++; S.stats.fish++; gainXP(2); rollTrophy('goldfisch', 0.005);
       sfx('splash'); burst(p.fishing.x, p.fishing.y, 2, '#bfe6ff', 6, 80);
       fly('fish', { x: p.fishing.x, y: p.fishing.y, z: 0 }, playerTop, 0.35, () => { p.incoming--; p.stack.push('fish'); popPill('pMeat'); sfx('pick'); }, 60);
@@ -1437,7 +1437,7 @@ function updateShops(dt) {
     sh.timer -= dt * (S.weather.storm ? 0.6 : 1);
     const waiting = customers.filter(c => c.shop === sh && c.state === 'queue').length;
     if (sh.timer <= 0 && waiting < 6 && !raidBreach()) {
-      sh.timer = rand(2.2, 3.6) / (1 + 0.3 * houses + 0.4 * helpers) * (lv('furnace') ? 0.8 : 1);
+      sh.timer = rand(2.2, 3.6) / (1 + 0.3 * houses + 0.4 * helpers) * (lv('furnace') ? 0.8 : 1) * (sh.id === 'fish' ? 0.7 : 1);
       const sp = pick(sh.spawns);
       const coats = ['#3b7ddd', '#2f6fc9', '#4a90e2', '#6c5ce7', '#d35454', '#2aa198', '#e08e2b'];
       customers.push({ shop: sh, x: sp.x, y: sp.y, state: 'queue', want: 1 + Math.floor(Math.random() * (4 + Math.min(3, houses / 2))), got: 0, pending: 0,
@@ -1571,13 +1571,13 @@ function updateLumber(l, dt) {
 function updateFisher(f, dt) {
   const hole = HOLES[f.hole];
   if (f.state === 'work') {
-    if (f.carry >= 8) { f.state = 'deliver'; return; }
+    if (f.carry >= 12) { f.state = 'deliver'; return; }
     if (dist(f, hole) > 26) steer(f, hole.x + 18, hole.y + 12, 130 * workerMult(), dt);
     else {
       f.moving = false; f.fishing = hole;
       f.face = isoX(hole.x - f.x, hole.y - f.y) > 0 ? 1 : -1;
       if (f.cd <= 0) {
-        f.cd = 1.5 / workerMult(); if (Math.random() < 0.003) rollTrophy('goldfisch', 1);
+        f.cd = 0.8 / workerMult(); if (Math.random() < 0.003) rollTrophy('goldfisch', 1);
         fly('fish', { x: hole.x, y: hole.y, z: 0 }, () => ({ x: f.x, y: f.y, z: 40 + f.carry * 5.5 }), 0.35, () => { f.carry++; S.stats.fish++; }, 50);
         burst(hole.x, hole.y, 2, '#bfe6ff', 4, 60);
       }
