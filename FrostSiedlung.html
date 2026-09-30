@@ -1174,12 +1174,19 @@ function updatePlayer(dt) {
   for (const sh of SHOP_LIST) {
     if (!shopOpen(sh) || p.pickCd > 0) continue;
     if (dist(p, sh.drop) < sh.drop.r + 10) {
-      const idx = p.stack.lastIndexOf(sh.item);
-      if (idx >= 0) {
+      const have = p.stack.reduce((n, t) => n + (t === sh.item), 0);
+      if (have > 0) {
         p.pickCd = 0.06;
-        const top = { x: p.x, y: p.y, z: 50 + idx * 5.5 };
-        p.stack.splice(idx, 1);
-        deliverToShop(sh, top);
+        const fresh = !p._dl || gameTime - p._dl > 0.3;
+        p._dk = Math.max(fresh ? 1 : p._dk, Math.ceil(have / 9)); p._dl = gameTime;
+        const k = p._dk;
+        for (let j = 0; j < k; j++) {
+          const idx = p.stack.lastIndexOf(sh.item);
+          if (idx < 0) break;
+          const top = { x: p.x, y: p.y, z: 50 + idx * 5.5 };
+          p.stack.splice(idx, 1);
+          deliverToShop(sh, top, j * 0.02);
+        }
       }
     }
   }
@@ -1188,21 +1195,21 @@ function updatePlayer(dt) {
     const pile = sh.pile;
     if (dist(p, pile) < 55 && pile.amount > 0 && p.pickCd <= 0) {
       p.pickCd = 0.05;
-      const chunk = Math.min(pile.amount, Math.max(1, Math.round(pile.amount / 12)));
+      const chunk = takeChunk(pile, 'amount');
       pile.amount -= chunk;
       fly('cash', { x: pile.x, y: pile.y, z: 10 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.cash += chunk; popPill('pCash'); sfx('coin'); });
     }
   }
   if (dist(p, WOODPILE) < 55 && WOODPILE.n > 0 && p.pickCd <= 0) {
-    p.pickCd = 0.05; const n = Math.min(WOODPILE.n, Math.max(1, Math.round(WOODPILE.n / 15))); WOODPILE.n -= n;
+    p.pickCd = 0.05; const n = takeChunk(WOODPILE, 'n'); WOODPILE.n -= n;
     fly('wood', { x: WOODPILE.x, y: WOODPILE.y, z: 10 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.wood += n; S.stats.woodGot += n; popPill('pWood'); sfx('pick'); });
   }
   if (dist(p, CRYSTALPILE) < 55 && CRYSTALPILE.n > 0 && p.pickCd <= 0) {
-    p.pickCd = 0.05; const n = Math.min(CRYSTALPILE.n, Math.max(1, Math.round(CRYSTALPILE.n / 15))); CRYSTALPILE.n -= n;
+    p.pickCd = 0.05; const n = takeChunk(CRYSTALPILE, 'n'); CRYSTALPILE.n -= n;
     fly('crystal', { x: CRYSTALPILE.x, y: CRYSTALPILE.y, z: 10 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.crystal += n; S.stats.crystals += n; popPill('pCrystal'); sfx('coin'); });
   }
   if (dist(p, GOLDPILE) < 55 && GOLDPILE.n > 0 && p.pickCd <= 0) {
-    p.pickCd = 0.05; const n = Math.min(GOLDPILE.n, Math.max(1, Math.round(GOLDPILE.n / 15))); GOLDPILE.n -= n;
+    p.pickCd = 0.05; const n = takeChunk(GOLDPILE, 'n'); GOLDPILE.n -= n;
     fly('gold', { x: GOLDPILE.x, y: GOLDPILE.y, z: 10 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.gold += n; S.stats.goldGot += n; popPill('pGold'); sfx('coin'); });
   }
 
@@ -1218,7 +1225,7 @@ function updatePlayer(dt) {
     let paidSomething = false;
     for (const res of ['cash', 'wood', 'gold', 'crystal']) {
       if (rem[res] <= 0 || S[res] <= 0) continue;
-      const step = Math.min(rem[res], S[res], Math.max(1, Math.ceil((cost[res] || 0) / 30)));
+      const step = Math.min(rem[res], S[res], Math.max(1, Math.ceil((cost[res] || 0) / 16)));
       S[res] -= step; pad.paid[res] += step; paidSomething = true;
       fly(res, { x: p.x, y: p.y, z: 45 }, () => ({ x: pad.x, y: pad.y, z: 0 }), 0.25, null, 40);
     }
@@ -1229,6 +1236,13 @@ function updatePlayer(dt) {
   }
 }
 
+// gleich große Portionen: jeder Haufen ist in ~0,5 s eingesammelt, egal wie groß
+function takeChunk(pile, key, ticks = 9) {
+  const fresh = !pile._last || gameTime - pile._last > 0.3;
+  pile._chunk = Math.max(fresh ? 1 : pile._chunk, Math.ceil(pile[key] / ticks));
+  pile._last = gameTime;
+  return Math.min(pile[key], pile._chunk);
+}
 function mineCrystal(c) {
   c.charges--; c.shake = 0.3; c.dirty = true;
   burst(c.x, c.y, 30, '#8fe3ff', 6, 90);
@@ -1400,10 +1414,12 @@ function updateShops(dt) {
     if (front && front.atFront && serving) {
       front.served -= dt;
       if (front.served <= 0 && sh.count > 0 && front.got + front.pending < front.want) {
-        front.served = 0.2;
-        sh.count--; front.pending++;
-        const c = front;
-        fly(shopSprite(sh), counterSlot(sh, sh.count), () => ({ x: c.x, y: c.y, z: 30 + c.got * 5 }), 0.25, () => { c.pending--; c.got++; sfx('drop'); }, 40);
+        front.served = 0.14;
+        const c = front, k = Math.min(sh.count, Math.max(1, Math.ceil((c.want - c.got - c.pending) / 3)));
+        for (let j = 0; j < k; j++) {
+          sh.count--; c.pending++;
+          fly(shopSprite(sh), counterSlot(sh, sh.count), () => ({ x: c.x, y: c.y, z: 30 + c.got * 5 }), 0.25, () => { c.pending--; c.got++; sfx('drop'); }, 40, j * 0.03);
+        }
       }
       if (front.got >= front.want && front.pending === 0) {
         const amount = front.got * shopPrice(sh);
@@ -1468,8 +1484,8 @@ function updateHunter(h, hunters, dt) {
     if (steer(h, dr.x + 25, dr.y - 10, 150 * workerMult(), dt) || dist(h, dr) < dr.r) {
       h.moving = false;
       if (h.cd <= 0 && h.carry > 0) {
-        h.cd = 0.07; h.carry--;
-        deliverToShop(SHOPS.meat, { x: h.x, y: h.y, z: 40 + h.carry * 5.5 });
+        h.cd = 0.07;
+        for (let k = Math.max(1, Math.ceil(h.carry / 4)); k > 0 && h.carry > 0; k--) { h.carry--; deliverToShop(SHOPS.meat, { x: h.x, y: h.y, z: 40 + h.carry * 5.5 }, k * 0.02); }
       }
       if (h.carry <= 0) { h.state = 'work'; h.target = null; }
     }
@@ -1504,8 +1520,8 @@ function updateLumber(l, dt) {
     if (steer(l, WOODPILE.x + 30, WOODPILE.y - 20, 140 * workerMult(), dt)) {
       l.moving = false;
       if (l.cd <= 0 && l.carry > 0) {
-        l.cd = 0.1; l.carry--;
-        fly('wood', { x: l.x, y: l.y, z: 40 + l.carry * 7 }, () => ({ x: WOODPILE.x, y: WOODPILE.y, z: 10 }), 0.3, () => { WOODPILE.n++; }, 40);
+        l.cd = 0.08;
+        for (let k = Math.max(1, Math.ceil(l.carry / 4)); k > 0 && l.carry > 0; k--) { l.carry--; fly('wood', { x: l.x, y: l.y, z: 40 + l.carry * 7 }, () => ({ x: WOODPILE.x, y: WOODPILE.y, z: 10 }), 0.3, () => { WOODPILE.n++; }, 40, k * 0.02); }
       }
       if (l.carry <= 0) { l.state = 'work'; l.target = null; }
     }
@@ -1532,8 +1548,8 @@ function updateFisher(f, dt) {
     if (steer(f, dr.x + 25, dr.y - 10, 130 * workerMult(), dt) || dist(f, dr) < dr.r) {
       f.moving = false;
       if (f.cd <= 0 && f.carry > 0) {
-        f.cd = 0.08; f.carry--;
-        deliverToShop(SHOPS.fish, { x: f.x, y: f.y, z: 40 + f.carry * 5.5 });
+        f.cd = 0.08;
+        for (let k = Math.max(1, Math.ceil(f.carry / 4)); k > 0 && f.carry > 0; k--) { f.carry--; deliverToShop(SHOPS.fish, { x: f.x, y: f.y, z: 40 + f.carry * 5.5 }, k * 0.02); }
       }
       if (f.carry <= 0) f.state = 'work';
     }
@@ -1561,8 +1577,8 @@ function updateDriller(l, dt) {
     if (steer(l, CRYSTALPILE.x + 30, CRYSTALPILE.y - 20, 140 * workerMult(), dt)) {
       l.moving = false;
       if (l.cd <= 0 && l.carry > 0) {
-        l.cd = 0.1; l.carry--;
-        fly('crystal', { x: l.x, y: l.y, z: 40 + l.carry * 5.5 }, () => ({ x: CRYSTALPILE.x, y: CRYSTALPILE.y, z: 10 }), 0.3, () => { CRYSTALPILE.n++; }, 40);
+        l.cd = 0.08;
+        for (let k = Math.max(1, Math.ceil(l.carry / 4)); k > 0 && l.carry > 0; k--) { l.carry--; fly('crystal', { x: l.x, y: l.y, z: 40 + l.carry * 5.5 }, () => ({ x: CRYSTALPILE.x, y: CRYSTALPILE.y, z: 10 }), 0.3, () => { CRYSTALPILE.n++; }, 40, k * 0.02); }
       }
       if (l.carry <= 0) { l.state = 'work'; l.target = null; }
     }
@@ -1572,10 +1588,13 @@ function updateGrill(dt) {
   if (!grill) return;
   grill.cd -= dt;
   if (grill.q > 0 && grill.cd <= 0) {
-    grill.q--; grill.cd = 0.3;
+    grill.cd = 0.25;
     const sh = SHOPS.meat;
-    const slot = sh.count + countFlyers('to_meat');
-    fly('steak', { x: GRILL.x, y: GRILL.y, z: 28 }, () => counterSlot(sh, slot), 0.35, () => { sh.count++; }, 40).tag = 'to_meat';
+    for (let k = Math.max(1, Math.ceil(grill.q / 5)); k > 0 && grill.q > 0; k--) {
+      grill.q--;
+      const slot = sh.count + countFlyers('to_meat');
+      fly('steak', { x: GRILL.x, y: GRILL.y, z: 28 }, () => counterSlot(sh, slot), 0.35, () => { sh.count++; }, 40, k * 0.03).tag = 'to_meat';
+    }
   }
 }
 function updateTowers(dt) {
