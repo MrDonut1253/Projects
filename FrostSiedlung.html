@@ -178,6 +178,27 @@
     #bossbar { top: calc(env(safe-area-inset-top) + 118px); }
   }
   @media (max-width: 760px) { #quests { width: 180px; } .pill { font-size: 20px; min-width: 90px; } #hint { font-size: 16px; } }
+  /* ---- Layout der Textboxen (überlappungsfrei) ---- */
+  #hint { top: calc(env(safe-area-inset-top) + 68px); max-width: calc(100vw - 540px); min-width: 0; font-size: 19px; padding: 8px 18px; }
+  #quests { top: calc(env(safe-area-inset-top) + 68px); background: rgba(40,52,72,.72); }
+  #bossbar { top: calc(env(safe-area-inset-top) + 114px); width: min(440px, calc(100vw - 540px)); }
+  #banner { top: auto; bottom: calc(env(safe-area-inset-bottom) + 70px); transform: translate(-50%, 0) scale(.85); white-space: normal;
+    max-width: min(640px, 88vw); width: max-content; font-size: 24px; line-height: 1.25; padding: 12px 24px; }
+  #banner.on { transform: translate(-50%, 0) scale(1); }
+  #topbar { flex-wrap: nowrap; }
+  #prog { max-width: 230px; white-space: nowrap; overflow: hidden; }
+  #progTxt { overflow: hidden; text-overflow: ellipsis; }
+  @media (max-aspect-ratio: 1/1), (max-width: 900px) {
+    #hud { top: calc(env(safe-area-inset-top) + 66px); right: 12px; left: 12px; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+    .pill { font-size: 18px; min-width: 0; padding: 4px 10px 4px 6px; border-radius: 10px; }
+    .pill .ic { font-size: 18px; width: 24px; }
+    .pill .max { font-size: 13px; }
+    #hint { top: calc(env(safe-area-inset-top) + 110px); max-width: 94vw; font-size: 16px; }
+    #quests { top: calc(env(safe-area-inset-top) + 158px); width: 190px; }
+    #bossbar { top: calc(env(safe-area-inset-top) + 158px); left: auto; right: 12px; transform: none; width: calc(100vw - 256px); font-size: 17px; }
+    #banner { font-size: 19px; }
+    #prog { min-width: 0; max-width: 34vw; }
+  }
 </style>
 </head>
 <body>
@@ -3482,7 +3503,7 @@ function label3(key, html, x, y, z, cls, dy = 0) {
   const sp = toScreen(x, y, z);
   if (!sp) { if (L.shown) { L.el.style.display = 'none'; L.shown = false; } return L; }
   let lx = sp[0], ly = sp[1] + dy;
-  if (cls === 'sp') { lx = clamp(lx, 160, CW - 160); ly = clamp(ly, Math.min(260, CH * 0.32), CH - 40); }
+  if (cls === 'sp') { const port = CW <= 900 || CH >= CW; lx = clamp(lx, 160, CW - 160); ly = clamp(ly, port ? 270 : 200, CH - 170); }
   L.el.style.transform = `translate(${lx.toFixed(1)}px,${ly.toFixed(1)}px) translate(-50%,-50%)`;
   if (!L.shown) { L.el.style.display = ''; L.shown = true; }
   return L;
