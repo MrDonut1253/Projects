@@ -205,7 +205,7 @@
   <div class="info panel" style="padding:16px 24px">Jage Eisbären, verkaufe Fleisch und Fisch an die Überlebenden, verteidige dein Tor in der Nacht und baue die Siedlung immer weiter aus.<br>
     Ziehe mit dem Finger irgendwo über den Bildschirm, um zu laufen. Angreifen, Holz hacken, Angeln und Einsammeln passiert automatisch.<br>
     Drei Kapitel, Expeditionen, Fähigkeiten, Erfolge und Trophäen warten auf dich.<br>
-    <i style="opacity:.75">Doch Bosse versperren dir den Weg: Philip Krüger, Alexander Karbowiak, Benedict Million – und am Ende wartet der Frostbaron …</i></div>
+    <i style="opacity:.75">Doch Bosse versperren dir den Weg: Philip Krüger, Alexander Karbowiak, Benedict Million – und am Ende wartet Herr Faudt …</i></div>
   <button class="big-btn" id="bPlay">Spielen</button>
   <button class="big-btn grey hidden" id="bNew">Neues Spiel</button>
   <div class="small">Der Fortschritt wird automatisch gespeichert.<br>Tipp: Über „Teilen → Zum Home-Bildschirm“ bleibt der Spielstand auf dem iPad dauerhaft erhalten.</div>
@@ -888,7 +888,7 @@ function applyLevel(id, n, silent) {
         S.win3 = true; sfx('win');
         setTimeout(() => showWin('🔭 Das Nordlicht leuchtet! 🔭',
           'Das Observatorium ist fertig – doch das Nordlicht lockt einen alten Feind an …<br><br>' +
-          'Der <b>Frostbaron</b> will das Nordlicht für sich allein. Besiege ihn im Gletscher, um das Spiel zu vollenden!'), 1000);
+          '<b>Herr Faudt</b>, der Herr über Eis und Frost, will das Nordlicht für sich allein. Besiege ihn im Gletscher, um das Spiel zu vollenden!'), 1000);
       }
       break;
   }
@@ -1713,7 +1713,7 @@ const TROPHIES = [
   { id: 'eiskrone', name: 'Eiskrone', icon: '❄️', desc: '+10 % Schaden', hint: 'Der Mammutkönig trägt eine Krone aus Eis.' },
   { id: 'bierkrug', name: 'Philips Bierkrug', icon: '🍺', desc: '+10 % Lebenspunkte', hint: 'Philip Krüger lässt manchmal seinen Krug fallen.' },
   { id: 'handschuh', name: 'Alexanders Handschuh', icon: '🧤', desc: '+10 % Speerschaden', hint: 'Alexander Karbowiak verliert beim Werfen einen Handschuh.' },
-  { id: 'eiszepter', name: 'Eiszepter', icon: '🔱', desc: '+15 % Schaden aller Helfer', hint: 'Das Zepter des Frostbarons …' },
+  { id: 'eiszepter', name: 'Eiszepter', icon: '🔱', desc: '+15 % Schaden aller Helfer', hint: 'Der Eisstab von Herrn Faudt …' },
   { id: 'polarstern', name: 'Polarstern', icon: '🌟', desc: '+10 % Polarsterne', hint: 'Erreiche die fünfte Expedition.' },
   { id: 'nordlicht', name: 'Nordlicht-Kristall', icon: '🌌', desc: '+10 % Erfahrung', hint: 'Baue das Observatorium.' },
 ];
@@ -1741,7 +1741,7 @@ function ach(id, name, stars, cur, goal) { ACH.push({ id, name, stars, cur, goal
 [[1, 3], [5, 6], [25, 15], [100, 30]].forEach(([g, s]) => ach('bene' + g, g === 1 ? 'Besiege Benedict Million' : `Besiege Benedict Million ${g}-mal`, s, () => totKill('boss'), g));
 [[1, 3], [5, 6], [25, 15]].forEach(([g, s]) => ach('phil' + g, g === 1 ? 'Besiege Philip Krüger' : `Besiege Philip Krüger ${g}-mal`, s, () => totKill('philip'), g));
 [[1, 3], [5, 6], [25, 15]].forEach(([g, s]) => ach('alex' + g, g === 1 ? 'Besiege Alexander Karbowiak' : `Besiege Alexander Karbowiak ${g}-mal`, s, () => totKill('alex'), g));
-[[1, 10], [5, 15], [25, 30]].forEach(([g, s]) => ach('baron' + g, g === 1 ? 'Besiege den Frostbaron' : `Besiege den Frostbaron ${g}-mal`, s, () => totKill('baron'), g));
+[[1, 10], [5, 15], [25, 30]].forEach(([g, s]) => ach('baron' + g, g === 1 ? 'Besiege Herrn Faudt' : `Besiege Herrn Faudt ${g}-mal`, s, () => totKill('baron'), g));
 [[1, 1], [50, 4], [500, 10]].forEach(([g, s]) => ach('mam' + g, `Erlege ${g} Mammut${g > 1 ? 's' : ''}`, s, () => totKill('mammoth'), g));
 [[1, 5], [10, 15]].forEach(([g, s]) => ach('mking' + g, g === 1 ? 'Besiege den Mammutkönig' : `Besiege den Mammutkönig ${g}-mal`, s, () => totKill('mking'), g));
 [[10, 2], [25, 4], [50, 8], [75, 12], [100, 20]].forEach(([g, s]) => ach('lvl' + g, `Erreiche Stufe ${g}`, s, () => M.level, g));
@@ -1982,7 +1982,7 @@ const BOSSES = {
     spawn: { x: 1150, y: 1860 }, center: { x: 1150, y: 1860 }, base: 1400, trophy: 'monokel',
     lines: ['„Goldregen!“', '„Geld regiert die Welt!“', '„Das ist mein Revier!“', '„Ihr seid pleite!“'], intro: '„Mein Gold bekommt ihr nie!“', angry: '„Leibwächter, zu mir!“',
     first: 'Du hast den reichsten Mann des Nordens bezwungen – der Weg zum Observatorium ist frei!<br><br>Als Trophäe trägst du jetzt seine <b>goldene Krone</b>.' },
-  baron: { id: 'baron', key: 'boss_baron', type: 'baron', name: 'Der Frostbaron', icon: '❄️👿', akk: 'den Frostbaron', zone: 'C', gate: null, final: true, guards: 'frostwolf',
+  baron: { id: 'baron', key: 'boss_baron', type: 'baron', name: 'Herr Faudt', icon: '❄️👿', akk: 'Herrn Faudt', zone: 'C', gate: null, final: true, guards: 'frostwolf',
     spawn: { x: 1100, y: 1880 }, center: { x: 1100, y: 1880 }, base: 1700, trophy: 'eiszepter',
     lines: ['„Erstarre!“', '„Das Nordlicht gehört mir!“', '„Spürst du die Kälte?“', '„Niemand entkommt dem Frost!“'], intro: '„Endlich … das Nordlicht wird MIR gehören!“', angry: '„Genug gespielt – jetzt friert alles ein!“',
     first: '' },
@@ -2055,7 +2055,7 @@ function defeatBoss(b) {
   if (D.final && !S.win4) {
     S.win4 = true; M.stars += 10; M.starsTotal += 10;
     setTimeout(() => showWin('🏆 Du hast Frost-Siedlung durchgespielt! 🏆',
-      'Der Frostbaron ist besiegt und das Nordlicht strahlt frei über deiner Siedlung. Alle Überlebenden feiern dich!<br><br>' +
+      'Herr Faudt ist besiegt und das Nordlicht strahlt frei über deiner Siedlung. Alle Überlebenden feiern dich!<br><br>' +
       '<b>+10 ⭐ Bonus.</b> Jetzt beginnt das große Abenteuer: Starte im 📘-Menü eine <b>neue Expedition</b> – das Observatorium bringt dir <b>+50 % Polarsterne</b>. ' +
       'Jede Expedition wird schwerer, aber lohnender. Schaffst du alle Erfolge und Trophäen?'), 1500);
   } else if (bl === 1) setTimeout(() => showWin(`${D.icon} ${D.name} besiegt! ${D.icon}`, D.first), 1500);
@@ -2221,7 +2221,7 @@ function currentGoal() {
   const vis = pads.filter(padVisible);
   const meatN = p.stack.filter(t => t === 'meat').length, fishN = p.stack.length - meatN;
   const boss = animals.find(b => b.boss && !b.dead && !b.gone);
-  const bossGoal = boss ? { text: boss.boss.random ? `${BOSSES[boss.boss.id].icon} Besiege ${BOSSES[boss.boss.id].akk || BOSSES[boss.boss.id].name}!` : BOSSES[boss.boss.id].final ? '❄️👿 Besiege den Frostbaron im Gletscher!' : `${BOSSES[boss.boss.id].icon} Besiege ${BOSSES[boss.boss.id].name}, um weiterzukommen!`, x: boss.x, y: boss.y, bear: true } : null;
+  const bossGoal = boss ? { text: boss.boss.random ? `${BOSSES[boss.boss.id].icon} Besiege ${BOSSES[boss.boss.id].akk || BOSSES[boss.boss.id].name}!` : BOSSES[boss.boss.id].final ? '❄️👿 Besiege Herrn Faudt im Gletscher!' : `${BOSSES[boss.boss.id].icon} Besiege ${BOSSES[boss.boss.id].name}, um weiterzukommen!`, x: boss.x, y: boss.y, bear: true } : null;
   if (bossGoal && dist(p, boss) < 300 && p.hp > p.maxHp * 0.3) return bossGoal;
   if (p.y > FENCE2_Y) { const mk = animals.find(b => b.type.kind === 'mking' && !b.dead && dist(b, p) < 500); if (mk) return { text: '⚠️ Der Mammutkönig! Kämpfe oder flieh!', x: mk.x, y: mk.y, bear: true }; }
   if (S.raid.active) {
