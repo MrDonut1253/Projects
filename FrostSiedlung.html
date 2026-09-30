@@ -2000,15 +2000,15 @@ function shake(t) { shakeT = Math.max(shakeT, t); }
 const BOSSES = {
   philip: { id: 'philip', key: 'boss_philip', type: 'philip', name: 'Philip Krüger', icon: '🍺', zone: 'A', gate: 'furnace', guards: 'spiky',
     spawn: { x: 700, y: 400 }, center: { x: 700, y: 430 }, base: 800, trophy: 'bierkrug',
-    lines: ['„Prost!“', '„Noch eine Runde?“', '„Die geht auf mich!“', '„Fang!“'], intro: '„Hier kommt keiner vorbei – außer mit Durst!“', angry: '„Jetzt wird’s ungemütlich, Kumpels!“',
+    catch: '„Schäre Diggi.“', lines: ['„Prost!“', '„Noch eine Runde?“', '„Die geht auf mich!“', '„Fang!“'], intro: '„Hier kommt keiner vorbei – außer mit Durst!“', angry: '„Jetzt wird’s ungemütlich, Kumpels!“',
     first: 'Philip Krüger ist besiegt und lässt dich zum Großen Ofen durch.<br><br>Als Trophäe kannst du manchmal <b>Philips Bierkrug</b> finden. Er kommt ab und zu zurück – dann wird er stärker.' },
   alex: { id: 'alex', key: 'boss_alex', type: 'alex', name: 'Alexander Karbowiak', icon: '❄️', zone: 'B', gate: 'radio', guards: 'wolf',
     spawn: { x: 1800, y: 420 }, center: { x: 1800, y: 440 }, base: 1100, trophy: 'handschuh',
-    lines: ['„Schneeballschlacht!“', '„Duck dich!“', '„Kalt genug?“', '„Treffer!“'], intro: '„Den Funkturm baust du nur über meine Schneebälle!“', angry: '„Jetzt kommt die Lawine!“',
+    catch: '„Wäre wäre Fahrrad.“', lines: ['„Schneeballschlacht!“', '„Duck dich!“', '„Kalt genug?“', '„Treffer!“'], intro: '„Den Funkturm baust du nur über meine Schneebälle!“', angry: '„Jetzt kommt die Lawine!“',
     first: 'Alexander Karbowiak gibt sich geschlagen – der Weg zum Funkturm ist frei.<br><br>Er kommt ab und zu für eine Revanche zurück, jedes Mal stärker.' },
   benedict: { id: 'benedict', key: 'boss_benedict', type: 'boss', name: 'Benedict Million', icon: '👑', zone: 'C', gate: 'observatory', guards: 'frostwolf',
     spawn: { x: 1150, y: 1860 }, center: { x: 1150, y: 1860 }, base: 1400, trophy: 'monokel',
-    lines: ['„Goldregen!“', '„Geld regiert die Welt!“', '„Das ist mein Revier!“', '„Ihr seid pleite!“'], intro: '„Mein Gold bekommt ihr nie!“', angry: '„Leibwächter, zu mir!“',
+    catch: '„Wählt die CDU!“', lines: ['„Goldregen!“', '„Geld regiert die Welt!“', '„Das ist mein Revier!“', '„Ihr seid pleite!“'], intro: '„Mein Gold bekommt ihr nie!“', angry: '„Leibwächter, zu mir!“',
     first: 'Du hast den reichsten Mann des Nordens bezwungen – der Weg zum Observatorium ist frei!<br><br>Als Trophäe trägst du jetzt seine <b>goldene Krone</b>.' },
   baron: { id: 'baron', key: 'boss_baron', type: 'baron', name: 'Herr Faudt', icon: '❄️👿', akk: 'Herrn Faudt', zone: 'C', gate: null, final: true, guards: 'frostwolf',
     spawn: { x: 1100, y: 1880 }, center: { x: 1100, y: 1880 }, base: 1700, trophy: 'eiszepter',
@@ -2099,7 +2099,11 @@ function updateBoss(b, dt) {
     B.sayCd = (B.sayCd === undefined ? 1.5 : B.sayCd) - dt;
     if (B.sayCd <= 0 && !b.say) {
       B.sayCd = D.say || rand(6, 9);
-      if (!B.bag || !B.bag.length) { B.bag = D.lines.slice(); for (let i = B.bag.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [B.bag[i], B.bag[k]] = [B.bag[k], B.bag[i]]; } }
+      if (!B.bag || !B.bag.length) {
+        B.bag = D.catch ? D.lines.concat([D.catch, D.catch]) : D.lines.slice();
+        for (let i = B.bag.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [B.bag[i], B.bag[k]] = [B.bag[k], B.bag[i]]; }
+        if (D.catch && !B.saidCatch) { B.saidCatch = true; B.bag.splice(B.bag.indexOf(D.catch), 1); B.bag.push(D.catch); }
+      }
       bossSay(b, B.bag.pop(), 3);
     }
   }
