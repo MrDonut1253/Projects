@@ -335,6 +335,10 @@ const FURNACE = { x: 1080, y: 1110 };
 const GRILL = { x: 450, y: 810 };
 const LAKE = { x: 1895, y: 1085, rx: 180, ry: 115 };
 const HOLES = [{ x: 1795, y: 1040 }, { x: 1925, y: 1005 }, { x: 2005, y: 1110 }, { x: 1865, y: 1150 }];
+// kleine Eisseen draußen bei Tieren und Bäumen, jeweils mit zwei Eislöchern zum Angeln
+const PONDS = [{ x: -30, y: 230, r: 78 }, { x: 870, y: 120, r: 72 }, { x: 1900, y: 170, r: 84 }, { x: 2390, y: 440, r: 72 }];
+for (const pd of PONDS) HOLES.push({ x: pd.x - pd.r * 0.35, y: pd.y - 6, pond: true }, { x: pd.x + pd.r * 0.35, y: pd.y + 12, pond: true });
+const POND_B_HOLE = HOLES.findIndex(h => h.pond && h.x > 1800);
 const SMOKEHOUSE = { x: 2050, y: 800 };
 const CHEST = { x: 70, y: 105 };
 const H_C = 2150, FENCE2_Y = 1600, Y_MAX = H_C + WM;
@@ -407,6 +411,7 @@ const PAD_DEFS = [
   { id: 'cashier2', name: 'Fisch-Kassierer', icon: '🧑‍💼', x: 1850, y: 880, levels: [L({ cash: 1500 }, ['fishmarket'])] },
   { id: 'fisher1', name: 'Fischer anheuern', icon: '🎣', x: 1540, y: 1060, levels: [L({ cash: 1200 }, ['fishmarket'])] },
   { id: 'fisher2', name: 'Zweiter Fischer', icon: '🎣', x: 1540, y: 1150, levels: [L({ cash: 2500 }, ['fisher1'])] },
+  { id: 'fisher3', name: 'Eissee-Fischer', icon: '🎣', x: 1990, y: 885, levels: [L({ cash: 3000 }, ['fisher2'])] },
   { id: 'hunter3', name: 'Dritter Jäger', icon: '🏹', x: 1500, y: 725, levels: [L({ cash: 2500 }, ['east'])] },
   { id: 'tower3', name: 'Wachturm', icon: '🗼', x: TOWER_POS.tower3.x, y: TOWER_POS.tower3.y, levels: [L({ cash: 3000, wood: 60, gold: 20 }, ['east'])] },
   { id: 'lumber3', name: 'Dritter Holzfäller', icon: '🪚', x: 1210, y: 860, levels: [L({ cash: 3000 }, ['east'])] },
@@ -499,6 +504,7 @@ function makeTrees() {
     if (y > FENCE_Y - 34 && y < FENCE2_Y + 44) return false;                      // Lager bleibt frei
     if (Math.hypot(CHEST.x - x, CHEST.y - y) < 50) return false;
     if (inset(x, y) < 165 + wob(x, y) * 24) return true;                         // Waldgürtel am Rand, ausgefranste Innenkante
+    for (const pd of PONDS) if (Math.hypot(x - pd.x, y - pd.y) < pd.r + 26) return false;       // Eisseen bleiben frei
     if (x > 1246 + wob(y, x) * 6 && x < 1386 && y < FENCE_Y - 34) return true;    // Streifen zwischen Jagdgebiet und Eissee
     for (const [gx, gy, gr] of GROVES) if (Math.hypot(x - gx, y - gy) < gr + wob(x, y) * 14) return true;   // Wäldchen
     return false;
@@ -909,6 +915,7 @@ function applyLevel(id, n, silent) {
     case 'lumber': case 'lumber2': case 'lumber3': workers.push(makeWorker('lumber', HUT.x0 - 20, HUT.y1 + 20)); break;
     case 'fisher1': workers.push(makeWorker('fisher', 1540, 1060, { hole: 0 })); break;
     case 'fisher2': workers.push(makeWorker('fisher', 1540, 1150, { hole: 2 })); break;
+    case 'fisher3': workers.push(makeWorker('fisher', 1990, 885, { hole: POND_B_HOLE })); break;
     case 'mine': cart = { s: 0, dir: 1, load: 0, wait: 1.5, cap: 3 }; break;
     case 'husky': pet = { x: player.x - 40, y: player.y + 20, walkT: 0, moving: false, face: 1, cd: 0, target: null, side: 1, lunge: 0 }; break;
     case 'board': if (S.quests.length < 3) fillQuests(); if (!silent) banner('📜 Aufträge verfügbar!', 'info'); break;
@@ -1572,13 +1579,13 @@ function updateFisher(f, dt) {
   const hole = HOLES[f.hole];
   if (f.state === 'work') {
     if (f.carry >= 12) { f.state = 'deliver'; return; }
-    if (dist(f, hole) > 26) steer(f, hole.x + 18, hole.y + 12, 130 * workerMult(), dt);
+    if (dist(f, hole) > 26) steer(f, hole.x + 18, hole.y + 12, (hole.pond ? 190 : 130) * workerMult(), dt);
     else {
       f.moving = false; f.fishing = hole;
       f.face = isoX(hole.x - f.x, hole.y - f.y) > 0 ? 1 : -1;
       if (f.cd <= 0) {
         f.cd = 0.8 / workerMult(); if (Math.random() < 0.003) rollTrophy('goldfisch', 1);
-        fly('fish', { x: hole.x, y: hole.y, z: 0 }, () => ({ x: f.x, y: f.y, z: 40 + f.carry * 5.5 }), 0.35, () => { f.carry++; S.stats.fish++; }, 50);
+        for (let k = 0; k < (hole.pond ? 2 : 1); k++) fly('fish', { x: hole.x, y: hole.y, z: 0 }, () => ({ x: f.x, y: f.y, z: 40 + f.carry * 5.5 }), 0.35, () => { f.carry++; S.stats.fish++; }, 50, k * 0.1);
         burst(hole.x, hole.y, 2, '#bfe6ff', 4, 60);
       }
     }
@@ -2722,6 +2729,11 @@ function buildWorld() {
     ice.rotation.x = -PI / 2; ice.scale.set(LAKE.rx, LAKE.ry, 1); at(ice, LAKE.x, LAKE.y, 3.0); ice.receiveShadow = true; scene.add(ice);
     const hi = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.18, depthWrite: false }));
     hi.rotation.x = -PI / 2; hi.scale.set(LAKE.rx * 0.55, LAKE.ry * 0.45, 1); at(hi, LAKE.x - 35, LAKE.y - 15, 3.3); scene.add(hi);
+    for (const pd of PONDS) {   // kleine Eisseen im Jagdgebiet
+      const r2 = rim.clone(); r2.scale.set(pd.r + 12, pd.r * 0.8 + 12, 1); at(r2, pd.x, pd.y, 2.4); scene.add(r2);
+      const i2 = ice.clone(); i2.scale.set(pd.r, pd.r * 0.8, 1); at(i2, pd.x, pd.y, 3.0); scene.add(i2);
+      const h2 = hi.clone(); h2.scale.set(pd.r * 0.5, pd.r * 0.35, 1); at(h2, pd.x - 15, pd.y - 8, 3.3); scene.add(h2);
+    }
     const parts = [];
     for (const [x0, y0, x1, y1] of [[1790, 1125, 1860, 1085], [1955, 1045, 2005, 1025], [1905, 1175, 1975, 1155]]) {
       const l = Math.hypot(x1 - x0, y1 - y0);
