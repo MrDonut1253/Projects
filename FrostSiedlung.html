@@ -142,6 +142,29 @@
   #joy { width: 124px; height: 124px; background: rgba(255,255,255,.25); border: 3px solid rgba(40,60,90,.35); }
   #knob { width: 56px; height: 56px; background: rgba(255,255,255,.85); border: 3px solid rgba(40,60,90,.35); }
   #clock { font-size: 26px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+  #lvl { height: 48px; box-sizing: border-box; border-radius: 14px; background: rgba(40, 52, 72, .55); color: #fff; font-weight: 900; font-size: 16px;
+    padding: 4px 10px; display: flex; flex-direction: column; justify-content: center; pointer-events: none; min-width: 74px; }
+  #lvl .bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.25); margin-top: 4px; overflow: hidden; }
+  #lvl .bar i { display: block; height: 100%; width: 0; background: #b388ff; border-radius: 3px; transition: width .3s; }
+  .btn-sm { position: relative; }
+  .badge { position: absolute; top: -6px; right: -6px; background: #e53935; color: #fff; font-size: 13px; font-weight: 900; border-radius: 10px; padding: 1px 6px; border: 2px solid #fff; }
+  .panel.wide { width: min(760px, 92vw); max-width: none; max-height: 86vh; overflow-y: auto; box-sizing: border-box; text-align: left; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { font: inherit; font-weight: 800; font-size: 16px; border: none; border-radius: 12px; padding: 9px 14px; background: #dfe7f2; color: #23344f; cursor: pointer; }
+  .tabs button.on { background: #2f73c9; color: #fff; }
+  #metaContent h2 { margin: 4px 0; } #metaContent h3 { margin: 16px 0 6px; color: #23344f; }
+  .sub { color: #4a5a75; font-weight: 700; margin-bottom: 10px; }
+  .mrow { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid #e3e9f2; color: #23344f; }
+  .mrow .ri { font-size: 28px; width: 40px; text-align: center; }
+  .mrow .rt { flex: 1; font-size: 16px; } .mrow .rd { font-size: 14px; color: #5a6a85; font-weight: 600; }
+  .mrow .lvlv { color: #2f73c9; font-weight: 900; margin-left: 4px; }
+  .mrow.done { opacity: .55; }
+  .mini { font: inherit; font-weight: 900; font-size: 16px; border: none; border-radius: 12px; padding: 9px 14px; background: linear-gradient(#5fd35f, #2ea02e); color: #fff; cursor: pointer; min-width: 64px; }
+  .mini:disabled, .big-btn:disabled { background: #b8c2d0; box-shadow: none; cursor: default; }
+  .starbox { font-size: 28px; font-weight: 900; color: #b8860b; margin: 8px 0; }
+  .tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .tcard { background: #f1f5fb; border-radius: 14px; padding: 10px; color: #23344f; text-align: center; font-weight: 700; font-size: 14px; }
+  .tcard .ti { font-size: 38px; } .tcard.no { opacity: .6; }
   @media (max-aspect-ratio: 1/1) {
     #hint { top: calc(env(safe-area-inset-top) + 68px); max-width: 64vw; }
     #quests { top: calc(env(safe-area-inset-top) + 118px); }
@@ -155,12 +178,14 @@
 <div id="labels"></div>
 <div id="vig"></div>
 <div id="joy"></div><div id="knob"></div>
-<div id="bossbar" class="hidden">👑 Benedict Million<div class="bar"><i id="bossHp"></i></div></div>
+<div id="bossbar" class="hidden"><span id="bossName">👑 Benedict Million</span><div class="bar"><i id="bossHp"></i></div></div>
 <div id="quests" class="hidden"></div>
 
 <div id="topbar">
   <button class="btn-sm" id="bPause" aria-label="Pause">⏸</button>
   <button class="btn-sm" id="bSound" aria-label="Ton">🔊</button>
+  <button class="btn-sm" id="bMeta" aria-label="Fortschritt">📘<span id="spBadge" class="badge hidden">0</span></button>
+  <div id="lvl"><span id="lvlTxt">Lv 1</span><div class="bar"><i id="xpBar"></i></div></div>
   <div id="prog"><span id="progTxt">Kapitel 1</span><div class="bar"><i id="progBar"></i></div></div>
   <span id="clock"></span>
   <span id="saved">💾</span>
@@ -172,12 +197,14 @@
   <div class="pill" id="pWood"><span class="ic">🪵</span><span id="hWood">0</span></div>
   <div class="pill" id="pMeat"><span class="ic">🎒</span><span id="hMeat">0</span><span class="max" id="hMeatMax">/12</span></div>
   <div class="pill" id="pGold"><span class="ic">🪙</span><span id="hGold">0</span></div>
+  <div class="pill hidden" id="pCrystal"><span class="ic">💎</span><span id="hCrystal">0</span></div>
 </div>
 
 <div class="overlay" id="menu">
   <div class="logo">FROST-SIEDLUNG<small>Überleben im Eis</small></div>
   <div class="info panel" style="padding:16px 24px">Jage Eisbären, verkaufe Fleisch und Fisch an die Überlebenden, verteidige dein Tor in der Nacht und baue die Siedlung immer weiter aus.<br>
     Ziehe mit dem Finger irgendwo über den Bildschirm, um zu laufen. Angreifen, Holz hacken, Angeln und Einsammeln passiert automatisch.<br>
+    Drei Kapitel, Expeditionen, Fähigkeiten, Erfolge und Trophäen warten auf dich.<br>
     <i style="opacity:.75">Gerüchte erzählen von einem goldenen Tresor, versteckt in der hintersten Waldecke …</i></div>
   <button class="big-btn" id="bPlay">Spielen</button>
   <button class="big-btn grey hidden" id="bNew">Neues Spiel</button>
@@ -207,6 +234,14 @@
       <button class="big-btn blue" id="bCodeAction">Kopieren</button>
       <button class="big-btn grey" id="bCodeClose">Zurück</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="metaBox">
+  <div class="panel wide">
+    <div class="tabs" id="metaTabs"><button data-tab="skills">⭐ Fähigkeiten</button><button data-tab="exp">🚀 Expedition</button><button data-tab="ach">🏅 Erfolge</button><button data-tab="col">🏆 Sammlung</button></div>
+    <div id="metaContent"></div>
+    <div class="col"><button class="big-btn grey" id="bMetaClose">Zurück zum Spiel</button></div>
   </div>
 </div>
 
@@ -265,6 +300,12 @@ const LAKE = { x: 1895, y: 1085, rx: 180, ry: 115 };
 const HOLES = [{ x: 1795, y: 1040 }, { x: 1925, y: 1005 }, { x: 2005, y: 1110 }, { x: 1865, y: 1150 }];
 const SMOKEHOUSE = { x: 2050, y: 800 };
 const CHEST = { x: 70, y: 105 };
+const H_C = 2150, FENCE2_Y = 1600;
+const AREA_C = { x0: 160, x1: 2140, y0: FENCE2_Y + 60, y1: H_C - 60 };
+const CRYSTALPILE = { x: 560, y: 1420, n: 0 };
+const MKING_LAIR = { x: 1900, y: 1950 };
+const FORGE = { x: 1150, y: 1450 }, OBSERVATORY = { x: 1550, y: 1450 };
+const worldH = () => lv('glacier') ? H_C : H;
 const TORCHES = [{ x: 615, y: 700 }, { x: 785, y: 700 }, { x: 470, y: 1000 }, { x: 1165, y: 930 }];
 const SNOWMEN = [{ x: 350, y: 1270 }, { x: 1360, y: 770 }, { x: 2240, y: 1280 }];
 const DAY_LEN = 300;
@@ -290,8 +331,9 @@ const SHOP_LIST = [SHOPS.meat, SHOPS.fish];
 const HOUSES = [
   { id: 'house1', x: 1250, y: 1000 }, { id: 'house2', x: 1250, y: 1180 }, { id: 'house3', x: 1100, y: 1255 },
   { id: 'house4', x: 820, y: 1245 }, { id: 'house5', x: 160, y: 880 }, { id: 'house6', x: 2230, y: 960 }, { id: 'house7', x: 1470, y: 1250 },
+  { id: 'house8', x: 1880, y: 1440 }, { id: 'house9', x: 2100, y: 1440 },
 ];
-const TOWER_POS = { tower1: { x: 250, y: 705 }, tower2: { x: 1000, y: 705 }, tower3: { x: 1900, y: 705 } };
+const TOWER_POS = { tower1: { x: 250, y: 705 }, tower2: { x: 1000, y: 705 }, tower3: { x: 1900, y: 705 }, tower4: { x: 900, y: 1560 } };
 
 /* =========================================================
    Ausbauten (Bau-Felder, teils mehrstufig)
@@ -336,6 +378,18 @@ const PAD_DEFS = [
   { id: 'house6', name: 'Blockhütte', icon: '🏠', x: HOUSES[5].x, y: HOUSES[5].y, levels: [L({ cash: 7000, wood: 100 }, ['house5', 'fishmarket'])] },
   { id: 'house7', name: 'Blockhütte', icon: '🏠', x: HOUSES[6].x, y: HOUSES[6].y, levels: [L({ cash: 9000, wood: 120, gold: 40 }, ['house6'])] },
   { id: 'radio', name: 'Funkturm (Rettung!)', icon: '📡', x: RADIO.x, y: RADIO.y, big: true, levels: [L({ cash: 20000, wood: 200, gold: 120 }, ['smokehouse', 'tower3', 'hunter3', 'house6'])] },
+  // ---- Kapitel 3: Gletscher ----
+  { id: 'glacier', name: 'Neues Gebiet: Gletscher', icon: '🏔️', x: 640, y: 1285, levels: [L({ cash: 25000, wood: 250, gold: 120 }, ['radio'])] },
+  { id: 'drill1', name: 'Kristallbohrer', icon: '⛏️', x: 420, y: 1420, levels: [L({ cash: 8000, wood: 100 }, ['glacier'])] },
+  { id: 'drill2', name: 'Zweiter Bohrer', icon: '⛏️', x: 320, y: 1420, levels: [L({ cash: 20000, wood: 200, gold: 50 }, ['drill1'])] },
+  { id: 'hunter4', name: 'Mammutjäger', icon: '🏹', x: 820, y: 1430, levels: [L({ cash: 15000 }, ['glacier'])] },
+  { id: 'tower4', name: 'Eis-Wachturm', icon: '🗼', x: TOWER_POS.tower4.x, y: TOWER_POS.tower4.y, levels: [L({ cash: 15000, wood: 200, gold: 60 }, ['glacier'])] },
+  { id: 'forge', name: 'Kristallschmiede', icon: '⚒️', x: FORGE.x, y: FORGE.y + 82, levels: [L({ cash: 10000, crystal: 20 }, ['glacier']), L({ cash: 25000, crystal: 60 }, ['drill1']),
+    L({ cash: 50000, crystal: 150 }, ['drill2']), L({ cash: 100000, crystal: 300 }, ['tower4']), L({ cash: 200000, crystal: 600 }, ['house9'])] },
+  { id: 'house8', name: 'Blockhütte', icon: '🏠', x: 1880, y: 1440, levels: [L({ cash: 30000, wood: 300 }, ['glacier'])] },
+  { id: 'house9', name: 'Blockhütte', icon: '🏠', x: 2100, y: 1440, levels: [L({ cash: 60000, wood: 400, gold: 100 }, ['house8', 'forge:2'])] },
+  { id: 'observatory', name: 'Nordlicht-Observatorium', icon: '🔭', x: OBSERVATORY.x, y: OBSERVATORY.y, big: true,
+    levels: [L({ cash: 150000, wood: 800, gold: 400, crystal: 800 }, ['forge:3', 'drill2', 'tower4', 'hunter4'])] },
 ];
 const PAD_HALF = 38;
 const TOTAL_LEVELS = PAD_DEFS.reduce((a, p) => a + p.levels.length, 0);
@@ -349,11 +403,15 @@ const TYPES = {
   wolf: { name: 'wolf', kind: 'wolf', hp: 22, dmg: 5, speed: 165, size: 1, meat: 2 },
   yeti: { name: 'yeti', kind: 'yeti', hp: 650, dmg: 22, speed: 85, size: 1.6, meat: 16, gold: 10 },
   boss: { name: 'boss', kind: 'boss', hp: 2000, dmg: 20, speed: 95, size: 1.5, meat: 12, gold: 30 },
+  frostwolf: { name: 'frostwolf', kind: 'wolf', hp: 60, dmg: 10, speed: 180, size: 1.05, meat: 3 },
+  mammoth: { name: 'mammoth', kind: 'mammoth', hp: 480, dmg: 20, speed: 70, size: 1.9, meat: 10, crystal: 2 },
+  mking: { name: 'mking', kind: 'mking', hp: 6000, dmg: 35, speed: 78, size: 2.6, meat: 30, gold: 25, crystal: 40 },
 };
 
 /* =========================================================
    Zustand
    ========================================================= */
+let crystals = [];
 let S, player, animals, trees, items, flyers, arrows, parts, texts, customers, workers, cart, pads, towers, grill, gate, OBST, hazards, pet;
 let decoTrees = [], snowDots = [], tents = [], crates = [];
 let gameTime = 0, running = false, paused = false;
@@ -367,20 +425,22 @@ function newState() {
     cash: 0, wood: 0, gold: 0, lv: {},
     stats: { time: 0, kills: 0, sold: 0, fish: 0, yeti: 0, raids: 0, woodGot: 0, goldGot: 0, benedict: 0, killsBy: { bear: 0, wolf: 0, yeti: 0, boss: 0 } },
     raid: { timer: 70, active: false, no: 0 }, yetiTimer: 45, win1: false, win2: false,
-    day: 30, quests: [], chestCd: 0, bossIntro: 0, weather: { storm: false, t: 0, next: 240 },
+    day: 30, quests: [], chestCd: 0, bossIntro: 0, weather: { storm: false, t: 0, next: 240 }, crystal: 0, mkingTimer: 200,
   };
+  Object.assign(S.stats, { cashEarned: 0, crystals: 0, quests: 0 });
   for (const sh of SHOP_LIST) { sh.count = 0; sh.pile.amount = 0; sh.cashier = null; sh.timer = 1; }
-  WOODPILE.n = 0; GOLDPILE.n = 0;
+  WOODPILE.n = 0; GOLDPILE.n = 0; CRYSTALPILE.n = 0;
   player = {
     x: 700, y: 820, face: 1, walkT: 0, moving: false,
     hp: 100, maxHp: 100, stack: [], incoming: 0, cap: 12, dmg: 10, speed: 235,
     atkCd: 0, swing: 0, hurtT: 0, lastHit: 99, dead: 0,
+    base: { cap: 12, speed: 235, dmg: 10, hp: 100, orbitDmg: 7 }, spearMult: 1,
     orbit: 0, orbitDmg: 7, orbitR: 62, orbitA: 0, sway: 0, payCd: 0, pickCd: 0, fishT: 0, fishing: null, spearCd: 1, knock: null,
   };
   animals = []; items = []; flyers = []; arrows = []; parts = []; texts = []; hazards = []; pet = null;
   customers = []; workers = []; towers = []; cart = null; grill = null;
   gate = { hp: 200, max: 200, broken: false, hitT: 0 };
-  pads = PAD_DEFS.map(p => ({ ...p, paid: { cash: 0, wood: 0, gold: 0 } }));
+  pads = PAD_DEFS.map(p => ({ ...p, paid: { cash: 0, wood: 0, gold: 0, crystal: 0 } }));
   makeTrees();
   rebuildObstacles();
   for (let i = 0; i < 6; i++) spawnAnimal('A', true);
@@ -401,11 +461,24 @@ function makeTrees() {
     else if (zone < 0.8) add(20 + r() * 130, 190 + r() * 440);
     else add(2175 + r() * 110, 380 + r() * 250);
   }
+  for (let i = 0; i < 400; i++) {
+    const zone = r();
+    if (zone < 0.5) add(20 + r() * (W_B - 40), 2010 + r() * 120);
+    else if (zone < 0.75) add(20 + r() * 120, FENCE2_Y + 40 + r() * 380);
+    else add(2170 + r() * 110, FENCE2_Y + 40 + r() * 380);
+  }
+  crystals = [];
+  const rc = mulberry32(77);
+  for (let i = 0; i < 200 && crystals.length < 30; i++) {
+    const x = AREA_C.x0 + 40 + rc() * (AREA_C.x1 - AREA_C.x0 - 80), y = AREA_C.y0 + 40 + rc() * (AREA_C.y1 - AREA_C.y0 - 80);
+    if (crystals.some(c => Math.hypot(c.x - x, c.y - y) < 90) || Math.hypot(x - MKING_LAIR.x, y - MKING_LAIR.y) < 150) continue;
+    crystals.push({ i: crystals.length, x, y, s: 0.8 + rc() * 0.5, charges: 4, regrow: 0, shake: 0, dirty: true });
+  }
   decoTrees = [];
   const r2 = mulberry32(7);
   for (let i = 0; i < 700; i++) {
-    const x = -420 + r2() * (W_B + 840), y = -420 + r2() * (H + 840);
-    if (x > -15 && x < W_B + 15 && y > -15 && y < H + 15) continue;
+    const x = -420 + r2() * (W_B + 840), y = -420 + r2() * (H_C + 840);
+    if (x > -15 && x < W_B + 15 && y > -15 && y < H_C + 15) continue;
     decoTrees.push({ x, y, s: 0.9 + r2() * 0.6, logs: 3, shake: 0 });
   }
   snowDots = [];
@@ -415,8 +488,9 @@ function makeTrees() {
   crates = [{ x: 780, y: 1090 }, { x: 805, y: 1106 }, { x: 772, y: 1122 }];
 }
 
+function areaOf(zone) { return zone === 'B' ? AREA_B : zone === 'C' ? AREA_C : AREA_A; }
 function spawnAnimal(zone, initial, typeName, raider) {
-  const area = zone === 'B' ? AREA_B : AREA_A;
+  const area = areaOf(zone);
   let x, y, tries = 0;
   do {
     x = rand(area.x0 + 20, area.x1 - 20);
@@ -424,11 +498,13 @@ function spawnAnimal(zone, initial, typeName, raider) {
     tries++;
   } while (tries < 30 && player && Math.hypot(player.x - x, player.y - y) < (initial ? 180 : 320));
   if (!typeName) {
-    if (zone === 'B') typeName = Math.random() < 0.8 ? 'wolf' : 'polar';
+    if (zone === 'C') typeName = Math.random() < 0.65 ? 'frostwolf' : 'mammoth';
+    else if (zone === 'B') typeName = Math.random() < 0.8 ? 'wolf' : 'polar';
     else typeName = (!initial && S.stats.kills >= 5 && Math.random() < 0.33) ? 'spiky' : 'polar';
   }
   if (typeName === 'yeti') { x = YETI_LAIR.x; y = YETI_LAIR.y; }
-  const type = TYPES[typeName];
+  if (typeName === 'mking') { x = MKING_LAIR.x; y = MKING_LAIR.y; }
+  const type = scaledType(typeName);
   const a = {
     x, y, type, zone, hp: type.hp, face: 1, walkT: 0, tx: x, ty: y, t: 0, atkCd: 0, hitT: 0, aggro: 0,
     dead: false, deadT: 0, orbitCd: 0, lunge: 0, spawnT: initial ? 1 : 0, raider: !!raider, slot: rand(-50, 50), side: 1, moving: false, id: ++UID,
@@ -449,6 +525,8 @@ function rebuildObstacles() {
   for (const id in TOWER_POS) if (lv(id)) { const t = TOWER_POS[id]; OBST.push({ x0: t.x - 20, y0: t.y - 20, x1: t.x + 20, y1: t.y + 20 }); }
   if (lv('smokehouse')) OBST.push({ x0: SMOKEHOUSE.x - 32, y0: SMOKEHOUSE.y - 26, x1: SMOKEHOUSE.x + 32, y1: SMOKEHOUSE.y + 26 });
   if (lv('radio')) OBST.push({ x0: RADIO.x - 30, y0: RADIO.y - 30, x1: RADIO.x + 30, y1: RADIO.y + 30 });
+  if (lv('forge')) OBST.push({ x0: FORGE.x - 34, y0: FORGE.y - 28, x1: FORGE.x + 34, y1: FORGE.y + 28 });
+  if (lv('observatory')) OBST.push({ x0: OBSERVATORY.x - 55, y0: OBSERVATORY.y - 55, x1: OBSERVATORY.x + 55, y1: OBSERVATORY.y + 55 });
 }
 
 /* =========================================================
@@ -458,9 +536,9 @@ const SAVE_KEY = 'frost-siedlung-v2', OLD_KEY = 'frost-siedlung-v1';
 function serialize() {
   return {
     v: 2, cash: S.cash, wood: S.wood, gold: S.gold, lv: S.lv, stats: S.stats,
-    paid: Object.fromEntries(pads.filter(p => p.paid.cash || p.paid.wood || p.paid.gold).map(p => [p.id, p.paid])),
+    paid: Object.fromEntries(pads.filter(p => p.paid.cash || p.paid.wood || p.paid.gold || p.paid.crystal).map(p => [p.id, p.paid])),
     shops: Object.fromEntries(SHOP_LIST.map(sh => [sh.id, { count: sh.count, pile: sh.pile.amount }])),
-    grillQ: grill ? grill.q : 0, woodPile: WOODPILE.n, goldPile: GOLDPILE.n,
+    grillQ: grill ? grill.q : 0, woodPile: WOODPILE.n, goldPile: GOLDPILE.n, crystalPile: CRYSTALPILE.n, crystal: S.crystal, mkingTimer: S.mkingTimer, meta: M,
     stack: player.stack, gate: { hp: Math.round(gate.hp), broken: gate.broken },
     raid: { timer: Math.max(S.raid.timer, S.raid.active ? 20 : 0), no: S.raid.no }, yetiTimer: S.yetiTimer,
     win1: S.win1, win2: S.win2, day: S.day, quests: S.quests, chestCd: S.chestCd, savedAt: Date.now(),
@@ -496,14 +574,18 @@ function migrateV1(d) {
 const hasSave = () => !!readSave();
 function applySave(d) {
   if (!d || d.v !== 2) return false;
-  S.cash = d.cash | 0; S.wood = d.wood | 0; S.gold = d.gold | 0;
+  M = Object.assign(defaultMeta(), d.meta || {});
+  M.totals = Object.assign({ killsBy: {} }, M.totals); M.totals.killsBy = M.totals.killsBy || {};
+  if (!d.meta && d.stats && d.stats.benedict) M.benedictLvl = d.stats.benedict;
+  S.cash = d.cash | 0; S.wood = d.wood | 0; S.gold = d.gold | 0; S.crystal = d.crystal | 0;
+  CRYSTALPILE.n = d.crystalPile | 0; if (d.mkingTimer) S.mkingTimer = d.mkingTimer;
   Object.assign(S.stats, d.stats || {});
   // Stufen der Reihe nach anwenden
   for (const p of PAD_DEFS) {
     const n = Math.min((d.lv && d.lv[p.id]) | 0, p.levels.length);
     for (let i = 1; i <= n; i++) { S.lv[p.id] = i; applyLevel(p.id, i, true); }
   }
-  for (const p of pads) if (d.paid && d.paid[p.id]) p.paid = { cash: 0, wood: 0, gold: 0, ...d.paid[p.id] };
+  for (const p of pads) if (d.paid && d.paid[p.id]) p.paid = { cash: 0, wood: 0, gold: 0, crystal: 0, ...d.paid[p.id] };
   if (d.shops) for (const sh of SHOP_LIST) if (d.shops[sh.id]) { sh.count = d.shops[sh.id].count | 0; sh.pile.amount = d.shops[sh.id].pile | 0; }
   if (grill) grill.q = d.grillQ | 0;
   WOODPILE.n = d.woodPile | 0; GOLDPILE.n = d.goldPile | 0;
@@ -517,6 +599,9 @@ function applySave(d) {
   S.chestCd = d.chestCd || 0;
   S.stats.killsBy = Object.assign({ bear: 0, wolf: 0, yeti: 0, boss: 0 }, S.stats.killsBy || {});
   if (lv('board') && S.quests.length < 3) fillQuests();
+  gate.max = gateMax(lv('gate')); gate.hp = Math.min(gate.hp, gate.max);
+  refreshStats(); player.hp = player.maxHp;
+  S.offline = offlineEarnings(d.savedAt);
   rebuildObstacles();
   return true;
 }
@@ -634,13 +719,14 @@ function inputVector() {
    ========================================================= */
 function blocked(x, y, r = 12) {
   if (Math.abs(y - FENCE_Y) < 12 && (x < GATE_X0 + 8 || x > GATE_X1 - 8)) return true;
+  if (Math.abs(y - FENCE2_Y) < 12 && (x < GATE_X0 + 8 || x > GATE_X1 - 8) && lv('glacier')) return true;
   for (const o of OBST) if (x > o.x0 - r && x < o.x1 + r && y > o.y0 - r && y < o.y1 + r) return true;
   if (lv('furnace') && Math.hypot(x - FURNACE.x, y - FURNACE.y) < 58) return true;
   return false;
 }
 function moveEntity(e, dx, dy) {
   const ww = worldW();
-  const nx = clamp(e.x + dx, 20, ww - 20), ny = clamp(e.y + dy, 20, H - 20);
+  const nx = clamp(e.x + dx, 20, ww - 20), ny = clamp(e.y + dy, 20, worldH() - 20);
   if (blocked(e.x, e.y)) { e.x = nx; e.y = ny; return; }
   if (!blocked(nx, e.y)) e.x = nx;
   if (!blocked(e.x, ny)) e.y = ny;
@@ -648,12 +734,18 @@ function moveEntity(e, dx, dy) {
 // NPC-Steuerung inkl. Weg durchs Tor
 function steer(e, tx, ty, speed, dt) {
   let wx = tx, wy = ty;
-  const eN = e.y < FENCE_Y, tN = ty < FENCE_Y;
-  if (eN === tN && Math.abs(e.y - FENCE_Y) < 14 && Math.abs(tx - e.x) > 30) {
-    wx = clamp(e.x, GATE_X0 + 20, GATE_X1 - 20); wy = eN ? FENCE_Y - 36 : FENCE_Y + 36;
-  } else if (eN !== tN) {
-    if (Math.abs(e.x - GATE_CX) > 22) { wx = GATE_CX; wy = eN ? FENCE_Y - 40 : FENCE_Y + 40; }
-    else { wx = GATE_CX; wy = tN ? FENCE_Y - 45 : FENCE_Y + 45; }
+  const fences = lv('glacier') ? [FENCE_Y, FENCE2_Y] : [FENCE_Y];
+  let F = null, nf = null;
+  for (const f of fences) {
+    if ((e.y < f) !== (ty < f) && (F === null || Math.abs(e.y - f) < Math.abs(e.y - F))) F = f;
+    if (Math.abs(e.y - f) < 14) nf = f;
+  }
+  if (F === null && nf !== null && Math.abs(tx - e.x) > 30) {
+    wx = clamp(e.x, GATE_X0 + 20, GATE_X1 - 20); wy = e.y < nf ? nf - 36 : nf + 36;
+  } else if (F !== null) {
+    const eN = e.y < F, tN = ty < F;
+    if (Math.abs(e.x - GATE_CX) > 22) { wx = GATE_CX; wy = eN ? F - 40 : F + 40; }
+    else { wx = GATE_CX; wy = tN ? F - 45 : F + 45; }
   }
   const dx = wx - e.x, dy = wy - e.y, d = Math.hypot(dx, dy);
   e.moving = false;
@@ -713,16 +805,21 @@ function banner(text, kind = '') {
    Bauen
    ========================================================= */
 function padVisible(p) { const l = lv(p.id); return l < p.levels.length && reqMet(p.levels[l].req); }
-function padCost(p) { return p.levels[lv(p.id)].cost; }
+function padCost(p) {
+  const c = p.levels[lv(p.id)].cost, o = {};
+  for (const k in c) o[k] = Math.round(c[k] * costScale(k));
+  return o;
+}
 function padRemaining(p) {
   const c = padCost(p);
-  return { cash: (c.cash || 0) - p.paid.cash, wood: (c.wood || 0) - p.paid.wood, gold: (c.gold || 0) - p.paid.gold };
+  return { cash: (c.cash || 0) - p.paid.cash, wood: (c.wood || 0) - p.paid.wood, gold: (c.gold || 0) - p.paid.gold, crystal: (c.crystal || 0) - (p.paid.crystal || 0) };
 }
 function levelUp(p) {
   const n = lv(p.id) + 1;
   S.lv[p.id] = n;
-  p.paid = { cash: 0, wood: 0, gold: 0 };
+  p.paid = { cash: 0, wood: 0, gold: 0, crystal: 0 };
   applyLevel(p.id, n, false);
+  gainXP(20 + 4 * progress());
   sfx('build');
   burst(p.x, p.y, 10, '#ffe066', 22, 220);
   addText(p.x, p.y, 70, p.levels.length > 1 ? `${p.name} Stufe ${n}!` : p.name + '!', '#ffe066', 26);
@@ -730,20 +827,20 @@ function levelUp(p) {
   save();
 }
 function makeWorker(kind, x, y, extra = {}) {
-  const coat = { hunter: '#2f9e5b', lumber: '#b8612d', fisher: '#2a7fb8' }[kind];
+  const coat = { hunter: '#2f9e5b', lumber: '#b8612d', fisher: '#2a7fb8', driller: '#6a4fb3' }[kind];
   return { kind, x, y, coat, face: 1, walkT: 0, moving: false, state: 'work', carry: 0, target: null, cd: 0, swing: 0, side: 1, ...extra };
 }
 function applyLevel(id, n, silent) {
   const p = player;
   switch (id) {
-    case 'axes': p.orbit = [0, 3, 4, 5, 6][n]; p.orbitDmg = [0, 7, 12, 18, 26][n]; p.dmg = [10, 10, 16, 22, 30][n]; p.orbitR = n >= 4 ? 72 : 62; break;
+    case 'axes': p.orbit = [0, 3, 4, 5, 6][n]; p.base.orbitDmg = [0, 7, 12, 18, 26][n]; p.base.dmg = [10, 10, 16, 22, 30][n]; p.orbitR = n >= 4 ? 72 : 62; break;
     case 'cashier': SHOPS.meat.cashier = { x: SHOPS.meat.reg.x + 22, y: SHOPS.meat.reg.y - 6, face: -1, walkT: 0 }; break;
     case 'cashier2': SHOPS.fish.cashier = { x: SHOPS.fish.reg.x + 22, y: SHOPS.fish.reg.y - 6, face: -1, walkT: 0 }; break;
-    case 'bag': p.cap = [12, 25, 40, 60, 90][n]; break;
-    case 'boots': p.speed = [235, 265, 295, 330][n]; break;
-    case 'armor': p.maxHp = [100, 160, 240, 350][n]; p.hp = p.maxHp; break;
-    case 'gate': gate.max = [200, 400, 700, 1100][n]; gate.hp = gate.max; gate.broken = false; break;
-    case 'hunter1': case 'hunter2': case 'hunter3': {
+    case 'bag': p.base.cap = [12, 25, 40, 60, 90][n]; break;
+    case 'boots': p.base.speed = [235, 265, 295, 330][n]; break;
+    case 'armor': p.base.hp = [100, 160, 240, 350][n]; refreshStats(); p.hp = p.maxHp; break;
+    case 'gate': gate.max = gateMax(n); gate.hp = gate.max; gate.broken = false; break;
+    case 'hunter1': case 'hunter2': case 'hunter3': case 'hunter4': {
       const pd = PAD_DEFS.find(q => q.id === id); workers.push(makeWorker('hunter', pd.x, pd.y)); break;
     }
     case 'lumber': case 'lumber2': case 'lumber3': workers.push(makeWorker('lumber', HUT.x0 - 20, HUT.y1 + 20)); break;
@@ -754,7 +851,7 @@ function applyLevel(id, n, silent) {
     case 'board': if (S.quests.length < 3) fillQuests(); if (!silent) banner('📜 Aufträge verfügbar!', 'info'); break;
     case 'mine2': if (cart) cart.cap = 6; break;
     case 'grill': grill = { q: 0, cd: 0 }; break;
-    case 'tower1': case 'tower2': case 'tower3': towers.push({ id, ...TOWER_POS[id], cd: 0, aim: 0 }); break;
+    case 'tower1': case 'tower2': case 'tower3': case 'tower4': towers.push({ id, ...TOWER_POS[id], cd: 0, aim: 0 }); break;
     case 'east':
       if (!silent) { banner('🗺️ Neues Gebiet: Eissee!', 'info'); for (let i = 0; i < 6; i++) spawnAnimal('B', true); }
       break;
@@ -769,8 +866,23 @@ function applyLevel(id, n, silent) {
     case 'radio':
       if (!silent && !S.win2) {
         S.win2 = true; sfx('win');
-        setTimeout(() => showWin('📡 Die Rettung ist unterwegs! 📡',
-          'Du hast Frost-Siedlung durchgespielt! Der Funkspruch ist raus und ein Eisbrecher nimmt Kurs auf die Siedlung.<br><br>Du kannst endlos weiterspielen.'), 1000);
+        setTimeout(() => showWin('📡 Kapitel 2 geschafft! 📡',
+          'Der Funkspruch ist raus – doch die Antwort lautet: „Der Weg durch den Gletscher ist versperrt.“<br><br>' +
+          '<b>Kapitel 3:</b> Erschließe den <b>Gletscher</b> im Süden, baue Kristalle ab, jage Mammuts und errichte das <b>Nordlicht-Observatorium</b>.<br><br>' +
+          'Tipp: Im 📘-Menü kannst du jederzeit eine neue <b>Expedition</b> starten und Polarsterne für dauerhafte Boni sammeln.'), 1000);
+      }
+      break;
+    case 'glacier': if (!silent) { banner('🏔️ Der Gletscher ist offen!', 'info'); for (let i = 0; i < 6; i++) spawnAnimal('C', true); } break;
+    case 'drill1': case 'drill2': workers.push(makeWorker('driller', CRYSTALPILE.x + 30, CRYSTALPILE.y + 30)); break;
+    case 'forge': refreshStats(); break;
+    case 'observatory':
+      rollTrophy('nordlicht', 1);
+      if (!silent && !S.win3) {
+        S.win3 = true; sfx('win');
+        setTimeout(() => showWin('🔭 Alle drei Kapitel geschafft! 🔭',
+          'Das Nordlicht leuchtet über deiner Siedlung – du hast alles erbaut!<br><br>' +
+          'Jetzt beginnt das große Abenteuer: Starte im 📘-Menü eine <b>neue Expedition</b>. Das Observatorium bringt dir <b>+50 % Polarsterne</b>. ' +
+          'Jede Expedition wird schwerer, aber lohnender – schaffst du alle Erfolge und Trophäen?'), 1000);
       }
       break;
   }
@@ -789,8 +901,8 @@ function shopOpen(sh) { return sh.id === 'meat' || lv('fishmarket') > 0; }
 function shopSprite(sh) { return sh.id === 'meat' ? (lv('grill') ? 'steak' : 'meat') : (lv('smokehouse') ? 'smoked' : 'fish'); }
 function shopPrice(sh) {
   let p = sh.id === 'meat' ? (lv('grill') ? 12 : 5) : (lv('smokehouse') ? 20 : 9);
-  if (lv('furnace')) p = Math.round(p * 1.5);
-  return p;
+  if (lv('furnace')) p = p * 1.5;
+  return Math.round(p * priceMult(sh));
 }
 function housesBuilt() { return HOUSES.filter(h => lv(h.id)).length; }
 function counterSlot(sh, i) {
@@ -816,6 +928,8 @@ let animalTimer = 0, saveTimer = 0;
 function damageAnimal(b, d, from) {
   if (b.dead) return;
   if (b.boss && b.boss.state === 'intro') return;
+  let crit = false;
+  if (from === player && Math.random() < critChance()) { d *= 2; crit = true; }
   b.hp -= d; b.hitT = 0.15; b.aggro = 4;
   if (b.type.kind !== 'yeti' && b.type.kind !== 'boss') {
     const a = Math.atan2(b.y - from.y, b.x - from.x);
@@ -824,7 +938,7 @@ function damageAnimal(b, d, from) {
   }
   burst(b.x, b.y, 30 * b.type.size, '#ffffff', 4, 90);
   burst(b.x, b.y, 30 * b.type.size, '#e2475a', 3, 90);
-  addText(b.x + rand(-10, 10), b.y, 60 * b.type.size, '-' + d, '#ff5a5a', 20);
+  addText(b.x + rand(-10, 10), b.y, 60 * b.type.size, crit ? '💥' + d : '-' + d, crit ? '#ffd84a' : '#ff5a5a', crit ? 26 : 20);
   sfx('hit');
   if (b.hp <= 0) killAnimal(b);
 }
@@ -835,8 +949,15 @@ function dropItem(type, x, y, z = 20) {
 function killAnimal(b) {
   b.dead = true; b.deadT = 0; S.stats.kills++;
   const kb = S.stats.killsBy, k = b.type.kind;
-  kb[k === 'bear' ? 'bear' : k] = (kb[k === 'bear' ? 'bear' : k] || 0) + 1;
+  kb[k] = (kb[k] || 0) + 1;
   sfx('kill');
+  gainXP(killXP(b));
+  if (k === 'bear') rollTrophy('silberpelz', 0.003);
+  if (k === 'wolf') rollTrophy('wolfszahn', 0.004);
+  if (k === 'yeti') rollTrophy('yetihorn', 0.15);
+  if (k === 'mammoth') rollTrophy('mammutzahn', 0.08);
+  if (k === 'mking') { rollTrophy('eiskrone', 0.3); S.mkingTimer = 480; banner('🏆 Der Mammutkönig ist besiegt!', 'good'); }
+  for (let i = 0; i < (b.type.crystal || 0); i++) dropItem('crystal', b.x, b.y, 30);
   if (k === 'boss') { defeatBenedict(b); return; }
   for (let i = 0; i < b.type.meat; i++) dropItem('meat', b.x, b.y);
   for (let i = 0; i < (b.type.gold || 0); i++) dropItem('gold', b.x, b.y, 30);
@@ -847,7 +968,7 @@ function killAnimal(b) {
 }
 function clampAnimal(b) {
   if (b.raider && gate.broken) { b.x = clamp(b.x, 20, worldW() - 20); b.y = clamp(b.y, 20, H - 20); return; }
-  const area = b.raider ? { x0: AREA_A.x0, x1: worldW() - 60, y0: AREA_A.y0, y1: AREA_A.y1 } : (b.zone === 'B' ? AREA_B : AREA_A);
+  const area = b.raider ? { x0: AREA_A.x0, x1: worldW() - 60, y0: AREA_A.y0, y1: AREA_A.y1 } : areaOf(b.zone);
   if (b.raider && b.y > FENCE_Y) return; // schon im Lager
   b.x = clamp(b.x, area.x0, b.type.kind === 'yeti' ? W_B - 60 : area.x1);
   b.y = clamp(b.y, area.y0, area.y1);
@@ -855,6 +976,9 @@ function clampAnimal(b) {
 
 function update(dt) {
   gameTime += dt; S.stats.time += dt;
+  refreshStats();
+  checkAchievements(dt);
+  for (const c of crystals) { c.shake = Math.max(0, c.shake - dt); if (c.charges <= 0) { c.regrow -= dt; if (c.regrow <= 0) { c.charges = 4; c.dirty = true; } } }
   updatePlayer(dt);
   updateAnimals(dt);
   updateItems(dt);
@@ -883,6 +1007,14 @@ function update(dt) {
     if (lv('east')) {
       const aliveB = animals.filter(b => !b.dead && !b.raider && b.zone === 'B' && b.type.kind !== 'yeti').length;
       if (aliveB < 7) { const first = spawnAnimal('B', false); if (first.type.kind === 'wolf') for (let i = 0; i < 2; i++) { const w = spawnAnimal('B', false, 'wolf'); w.x = clamp(first.x + rand(-40, 40), AREA_B.x0, AREA_B.x1); w.y = clamp(first.y + rand(-40, 40), AREA_B.y0, AREA_B.y1); } }
+      if (lv('glacier')) {
+        const aliveC = animals.filter(b => !b.dead && b.zone === 'C' && b.type.kind !== 'mking').length;
+        if (aliveC < 9) { const first = spawnAnimal('C', false); if (first.type.name === 'frostwolf') { const w = spawnAnimal('C', false, 'frostwolf'); w.x = clamp(first.x + rand(-40, 40), AREA_C.x0, AREA_C.x1); w.y = clamp(first.y + rand(-40, 40), AREA_C.y0, AREA_C.y1); } }
+        if (!animals.some(b => !b.dead && b.type.kind === 'mking')) {
+          S.mkingTimer -= 2;
+          if (S.mkingTimer <= 0) { spawnAnimal('C', false, 'mking'); banner('⚠️ Der Mammutkönig stampft durch den Gletscher!'); sfx('alarm'); shake(0.6); }
+        }
+      }
       if (!animals.some(b => !b.dead && b.type.kind === 'yeti')) {
         S.yetiTimer -= 2;
         if (S.yetiTimer <= 0) { spawnAnimal('B', false, 'yeti'); banner('⚠️ Ein Yeti ist aufgetaucht!'); sfx('alarm'); }
@@ -934,14 +1066,14 @@ function updatePlayer(dt) {
       const t = nearestAnimal(p, 290);
       if (t) {
         const l = lv('spear');
-        p.spearCd = [0, 1.4, 1.0, 0.7][l];
-        arrows.push({ kind: 'spear', x0: p.x, y0: p.y, z0: 40, tgt: t, t: 0, dur: Math.max(0.15, dist(p, t) / 750), x: p.x, y: p.y, z: 40, dmg: [0, 15, 25, 40][l] });
+        p.spearCd = [0, 1.4, 1.0, 0.7][l] * (1 - 0.04 * sk('speer'));
+        arrows.push({ kind: 'spear', x0: p.x, y0: p.y, z0: 40, tgt: t, t: 0, dur: Math.max(0.15, dist(p, t) / 750), x: p.x, y: p.y, z: 40, dmg: Math.round([0, 15, 25, 40][l] * p.spearMult) });
       }
     }
   }
 
-  const inCamp = p.y > FENCE_Y + 10;
-  if (p.lastHit > 2.5 || (inCamp && !S.raid.active)) p.hp = Math.min(p.maxHp, p.hp + (inCamp ? 30 : 8) * p.maxHp / 100 * dt);
+  const inCamp = p.y > FENCE_Y + 10 && !(lv('glacier') && p.y > FENCE2_Y + 10);
+  if (p.lastHit > 2.5 || (inCamp && !S.raid.active)) p.hp = Math.min(p.maxHp, p.hp + (inCamp ? 30 : 8) * p.maxHp / 100 * dt * (1 + 0.15 * sk('heiler')));
 
   // Angriff / Holzhacken
   p.atkCd -= dt;
@@ -956,10 +1088,21 @@ function updatePlayer(dt) {
     let tree = null, trd = 62;
     for (const t of trees) { if (t.logs <= 0 || t.x > worldW()) continue; const d = dist(p, t); if (d < trd) { trd = d; tree = t; } }
     if (tree) {
-      p.atkCd = 0.45; p.swing = 0.25;
+      p.atkCd = 0.45 / (1 + 0.12 * sk('holz')); p.swing = 0.25;
       p.face = isoX(tree.x - p.x, tree.y - p.y) > 0 ? 1 : -1;
       chopTree(tree);
-      fly('wood', { x: tree.x, y: tree.y, z: 40 }, () => ({ x: p.x, y: p.y, z: 50 }), 0.4, () => { S.wood++; S.stats.woodGot++; popPill('pWood'); sfx('pick'); });
+      const n = Math.random() < 0.05 * sk('holz') + 0.1 * pk('holzglueck') ? 2 : 1;
+      fly('wood', { x: tree.x, y: tree.y, z: 40 }, () => ({ x: p.x, y: p.y, z: 50 }), 0.4, () => { S.wood += n; S.stats.woodGot += n; popPill('pWood'); sfx('pick'); });
+    } else if (lv('glacier')) {
+      let cr = null, cd = 64;
+      for (const c of crystals) { if (c.charges <= 0) continue; const d = dist(p, c); if (d < cd) { cd = d; cr = c; } }
+      if (cr) {
+        p.atkCd = 0.5; p.swing = 0.25;
+        mineCrystal(cr);
+        const n = Math.random() < 0.1 * pk('kristall') + (hasT('kristallherz') ? 0.1 : 0) ? 2 : 1;
+        fly('crystal', { x: cr.x, y: cr.y, z: 30 }, () => ({ x: p.x, y: p.y, z: 50 }), 0.4, () => { S.crystal += n; S.stats.crystals += n; popPill('pCrystal'); sfx('coin'); });
+        gainXP(3); rollTrophy('kristallherz', 0.01);
+      }
     }
   }
 
@@ -983,8 +1126,8 @@ function updatePlayer(dt) {
   }
   if (p.fishing) {
     p.fishT += dt;
-    if (p.fishT >= 1.0) {
-      p.fishT = 0; p.incoming++; S.stats.fish++;
+    if (p.fishT >= 1.0 / (1 + 0.12 * sk('angler'))) {
+      p.fishT = 0; p.incoming++; S.stats.fish++; gainXP(2); rollTrophy('goldfisch', 0.005);
       sfx('splash'); burst(p.fishing.x, p.fishing.y, 2, '#bfe6ff', 6, 80);
       fly('fish', { x: p.fishing.x, y: p.fishing.y, z: 0 }, playerTop, 0.35, () => { p.incoming--; p.stack.push('fish'); popPill('pMeat'); sfx('pick'); }, 60);
     }
@@ -1018,6 +1161,10 @@ function updatePlayer(dt) {
     p.pickCd = 0.05; const n = Math.min(WOODPILE.n, Math.max(1, Math.round(WOODPILE.n / 15))); WOODPILE.n -= n;
     fly('wood', { x: WOODPILE.x, y: WOODPILE.y, z: 10 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.wood += n; S.stats.woodGot += n; popPill('pWood'); sfx('pick'); });
   }
+  if (dist(p, CRYSTALPILE) < 55 && CRYSTALPILE.n > 0 && p.pickCd <= 0) {
+    p.pickCd = 0.05; const n = Math.min(CRYSTALPILE.n, Math.max(1, Math.round(CRYSTALPILE.n / 15))); CRYSTALPILE.n -= n;
+    fly('crystal', { x: CRYSTALPILE.x, y: CRYSTALPILE.y, z: 10 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.crystal += n; S.stats.crystals += n; popPill('pCrystal'); sfx('coin'); });
+  }
   if (dist(p, GOLDPILE) < 55 && GOLDPILE.n > 0 && p.pickCd <= 0) {
     p.pickCd = 0.05; const n = Math.min(GOLDPILE.n, Math.max(1, Math.round(GOLDPILE.n / 15))); GOLDPILE.n -= n;
     fly('gold', { x: GOLDPILE.x, y: GOLDPILE.y, z: 10 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.gold += n; S.stats.goldGot += n; popPill('pGold'); sfx('coin'); });
@@ -1033,7 +1180,7 @@ function updatePlayer(dt) {
     p.payCd = 0.045;
     const rem = padRemaining(pad), cost = padCost(pad);
     let paidSomething = false;
-    for (const res of ['cash', 'wood', 'gold']) {
+    for (const res of ['cash', 'wood', 'gold', 'crystal']) {
       if (rem[res] <= 0 || S[res] <= 0) continue;
       const step = Math.min(rem[res], S[res], Math.max(1, Math.ceil((cost[res] || 0) / 30)));
       S[res] -= step; pad.paid[res] += step; paidSomething = true;
@@ -1041,11 +1188,17 @@ function updatePlayer(dt) {
     }
     if (paidSomething) sfx('coin');
     const r2 = padRemaining(pad);
-    if (r2.cash <= 0 && r2.wood <= 0 && r2.gold <= 0) levelUp(pad);
+    if (r2.cash <= 0 && r2.wood <= 0 && r2.gold <= 0 && r2.crystal <= 0) levelUp(pad);
     break;
   }
 }
 
+function mineCrystal(c) {
+  c.charges--; c.shake = 0.3; c.dirty = true;
+  burst(c.x, c.y, 30, '#8fe3ff', 6, 90);
+  sfx('chop');
+  if (c.charges <= 0) c.regrow = 40;
+}
 function chopTree(t) {
   t.logs--; t.shake = 0.3;
   burst(t.x, t.y, 50, '#ffffff', 5, 80);
@@ -1063,12 +1216,20 @@ function updateAnimals(dt) {
     b.spawnT = Math.min(1, b.spawnT + dt * 2);
     const dp = dist(b, p);
     const reach = 44 * b.type.size;
-    const inCampB = b.y > FENCE_Y;
-    const playerReachable = p.dead <= 0 && (p.y < FENCE_Y - 8 || (b.raider && (gate.broken || inCampB)));
+    const inCampB = b.y > FENCE_Y && b.zone !== 'C';
+    const playerReachable = p.dead <= 0 && (b.zone === 'C' ? p.y > FENCE2_Y + 8 : (p.y < FENCE_Y - 8 || (b.raider && (gate.broken || inCampB))));
     const sight = (b.type.kind === 'yeti' ? 260 : 190) * (isNight() ? 1.35 : 1);
     let tx = null, ty = null, spd = 0;
 
     const canHit = p.dead <= 0 && dp <= reach;
+    if (b.type.kind === 'mking') {
+      b.stompCd = (b.stompCd || 4) - dt;
+      if (b.stompCd <= 0 && p.dead <= 0 && dp < 260 && playerReachable) {
+        b.stompCd = rand(5, 7); b.lunge = 0.3;
+        hazards.push({ x: p.x, y: p.y, r: 80, t: 0, delay: 1.0, dmg: Math.round(30 * dmgScale()), stomp: true, id: ++UID });
+        addText(b.x, b.y, 170, 'STAMPF!', '#bfe6ff', 24);
+      }
+    }
     if (canHit || (playerReachable && (dp < sight || b.aggro > 0))) {
       if (dp > reach) { tx = p.x; ty = p.y; spd = b.type.speed; }
       else if (b.atkCd <= 0) {
@@ -1097,10 +1258,10 @@ function updateAnimals(dt) {
       }
     } else {
       b.t -= dt;
-      const area = b.zone === 'B' ? AREA_B : AREA_A;
+      const area = areaOf(b.zone);
       if (b.t <= 0 || Math.hypot(b.tx - b.x, b.ty - b.y) < 8) {
         b.t = rand(2, 5);
-        const home = b.type.kind === 'yeti' ? YETI_LAIR : b;
+        const home = b.type.kind === 'yeti' ? YETI_LAIR : b.type.kind === 'mking' ? MKING_LAIR : b;
         b.tx = clamp(home.x + rand(-160, 160), area.x0, b.type.kind === 'yeti' ? W_B - 60 : area.x1);
         b.ty = clamp(home.y + rand(-160, 160), area.y0, area.y1);
       }
@@ -1149,11 +1310,15 @@ function updateItems(dt) {
       it.x += it.vx * dt; it.y += it.vy * dt;
       if (it.z <= 0) { it.z = 0; it.vz = it.vz < -120 ? -it.vz * 0.3 : 0; it.vx *= 0.5; it.vy *= 0.5; }
     } else { it.vx *= 0.9; it.vy *= 0.9; }
-    it.x = clamp(it.x, 20, worldW() - 20); it.y = clamp(it.y, 20, H - 20);
+    it.x = clamp(it.x, 20, worldW() - 20); it.y = clamp(it.y, 20, worldH() - 20);
     if (Math.abs(it.y - FENCE_Y) < 14 && (it.x < GATE_X0 || it.x > GATE_X1)) it.y = FENCE_Y - 16;
+    if (Math.abs(it.y - FENCE2_Y) < 14 && (it.x < GATE_X0 || it.x > GATE_X1) && lv('glacier')) it.y = FENCE2_Y + 16;
     if (it.claimed || it.t < 0.35 || p.dead > 0) continue;
     if (dist(p, it) < 62) {
-      if (it.type === 'gold') {
+      if (it.type === 'crystal') {
+        it.claimed = true; it.gone = true;
+        fly('crystal', { x: it.x, y: it.y, z: it.z }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.crystal++; S.stats.crystals++; popPill('pCrystal'); sfx('coin'); }, 50);
+      } else if (it.type === 'gold') {
         it.claimed = true; it.gone = true;
         fly('gold', { x: it.x, y: it.y, z: it.z }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.gold++; S.stats.goldGot++; popPill('pGold'); sfx('coin'); }, 50);
       } else if (p.stack.length + p.incoming < p.cap) {
@@ -1204,7 +1369,7 @@ function updateShops(dt) {
         front.state = 'leave';
         const ex = pick(sh.spawns);
         front.lx = clamp(ex.x, 30, W_B - 30); front.ly = H - 25;
-        S.stats.sold += front.got;
+        S.stats.sold += front.got; S.stats.cashEarned += amount; gainXP(front.got);
         const n = Math.min(5, Math.ceil(amount / 5));
         for (let i = 0; i < n; i++) {
           fly('cash', { x: sh.reg.x, y: sh.reg.y, z: 40 }, () => ({ x: sh.pile.x, y: sh.pile.y, z: 10 }), 0.35,
@@ -1230,6 +1395,7 @@ function updateWorkers(dt) {
     w.cd -= dt; w.swing = Math.max(0, w.swing - dt);
     if (w.kind === 'hunter') updateHunter(w, hunters, dt);
     else if (w.kind === 'lumber') updateLumber(w, dt);
+    else if (w.kind === 'driller') updateDriller(w, dt);
     else updateFisher(w, dt);
   }
 }
@@ -1241,7 +1407,7 @@ function updateHunter(h, hunters, dt) {
       if (md < 30) {
         meat.claimed = true; meat.gone = true;
         fly('meat', { x: meat.x, y: meat.y, z: 0 }, () => ({ x: h.x, y: h.y, z: 40 + h.carry * 5.5 }), 0.25, () => { h.carry++; }, 30);
-      } else steer(h, meat.x, meat.y, 150, dt);
+      } else steer(h, meat.x, meat.y, 150 * workerMult(), dt);
       return;
     }
     if (h.carry >= 8) { h.state = 'deliver'; return; }
@@ -1250,15 +1416,15 @@ function updateHunter(h, hunters, dt) {
     const b = h.target;
     if (!b) { if (h.carry > 0) h.state = 'deliver'; return; }
     const d = dist(h, b);
-    if (d > 50 * b.type.size) steer(h, b.x, b.y, 150, dt);
+    if (d > 50 * b.type.size) steer(h, b.x, b.y, 150 * workerMult(), dt);
     else {
       h.moving = false;
       h.face = isoX(b.x - h.x, b.y - h.y) > 0 ? 1 : -1;
-      if (h.cd <= 0) { h.cd = 0.6; h.swing = 0.25; damageAnimal(b, 8, h); }
+      if (h.cd <= 0) { h.cd = 0.6 / workerMult(); h.swing = 0.25; damageAnimal(b, workerDmg(8), h); }
     }
   } else {
     const dr = SHOPS.meat.drop;
-    if (steer(h, dr.x + 25, dr.y - 10, 150, dt) || dist(h, dr) < dr.r) {
+    if (steer(h, dr.x + 25, dr.y - 10, 150 * workerMult(), dt) || dist(h, dr) < dr.r) {
       h.moving = false;
       if (h.cd <= 0 && h.carry > 0) {
         h.cd = 0.07; h.carry--;
@@ -1275,7 +1441,7 @@ function updateLumber(l, dt) {
       const taken = workers.filter(o => o !== l && o.kind === 'lumber').map(o => o.target);
       let best = null, bd = 1e9;
       for (const t of trees) {
-        if (t.logs <= 0 || t.x > worldW() - 20 || taken.includes(t)) continue;
+        if (t.logs <= 0 || t.x > worldW() - 20 || t.y > worldH() - 20 || (t.y > FENCE2_Y && !lv('glacier')) || taken.includes(t)) continue;
         const d = Math.hypot(t.x - l.x, t.y - l.y);
         if (d < bd) { bd = d; best = t; }
       }
@@ -1283,18 +1449,18 @@ function updateLumber(l, dt) {
     }
     const t = l.target;
     if (!t) return;
-    if (dist(l, t) > 42) steer(l, t.x, Math.min(t.y + 30, FENCE_Y - 40), 140, dt);
+    if (dist(l, t) > 42) steer(l, t.x, t.y < FENCE_Y ? Math.min(t.y + 30, FENCE_Y - 40) : Math.max(t.y - 30, FENCE2_Y + 40), 140 * workerMult(), dt);
     else {
       l.moving = false;
       l.face = isoX(t.x - l.x, t.y - l.y) > 0 ? 1 : -1;
       if (l.cd <= 0) {
-        l.cd = 0.45; l.swing = 0.25; chopTree(t);
+        l.cd = 0.45 / workerMult(); l.swing = 0.25; chopTree(t);
         fly('wood', { x: t.x, y: t.y, z: 40 }, () => ({ x: l.x, y: l.y, z: 40 + l.carry * 7 }), 0.3, () => { l.carry++; }, 30);
         if (t.logs <= 0) l.target = null;
       }
     }
   } else {
-    if (steer(l, WOODPILE.x + 30, WOODPILE.y - 20, 140, dt)) {
+    if (steer(l, WOODPILE.x + 30, WOODPILE.y - 20, 140 * workerMult(), dt)) {
       l.moving = false;
       if (l.cd <= 0 && l.carry > 0) {
         l.cd = 0.1; l.carry--;
@@ -1308,12 +1474,12 @@ function updateFisher(f, dt) {
   const hole = HOLES[f.hole];
   if (f.state === 'work') {
     if (f.carry >= 8) { f.state = 'deliver'; return; }
-    if (dist(f, hole) > 26) steer(f, hole.x + 18, hole.y + 12, 130, dt);
+    if (dist(f, hole) > 26) steer(f, hole.x + 18, hole.y + 12, 130 * workerMult(), dt);
     else {
       f.moving = false; f.fishing = hole;
       f.face = isoX(hole.x - f.x, hole.y - f.y) > 0 ? 1 : -1;
       if (f.cd <= 0) {
-        f.cd = 1.5;
+        f.cd = 1.5 / workerMult(); if (Math.random() < 0.003) rollTrophy('goldfisch', 1);
         fly('fish', { x: hole.x, y: hole.y, z: 0 }, () => ({ x: f.x, y: f.y, z: 40 + f.carry * 5.5 }), 0.35, () => { f.carry++; S.stats.fish++; }, 50);
         burst(hole.x, hole.y, 2, '#bfe6ff', 4, 60);
       }
@@ -1322,13 +1488,42 @@ function updateFisher(f, dt) {
     f.fishing = null;
     const dr = SHOPS.fish.drop;
     if (!shopOpen(SHOPS.fish)) return;
-    if (steer(f, dr.x + 25, dr.y - 10, 130, dt) || dist(f, dr) < dr.r) {
+    if (steer(f, dr.x + 25, dr.y - 10, 130 * workerMult(), dt) || dist(f, dr) < dr.r) {
       f.moving = false;
       if (f.cd <= 0 && f.carry > 0) {
         f.cd = 0.08; f.carry--;
         deliverToShop(SHOPS.fish, { x: f.x, y: f.y, z: 40 + f.carry * 5.5 });
       }
       if (f.carry <= 0) f.state = 'work';
+    }
+  }
+}
+function updateDriller(l, dt) {
+  if (l.state === 'work') {
+    if (l.carry >= 6) { l.state = 'deliver'; return; }
+    if (!l.target || l.target.charges <= 0) {
+      const taken = workers.filter(o => o !== l && o.kind === 'driller').map(o => o.target);
+      l.target = nearestOf(crystals.filter(c => c.charges > 0 && !taken.includes(c)), l);
+    }
+    const t = l.target;
+    if (!t) return;
+    if (dist(l, t) > 40) steer(l, t.x, t.y - 30, 140 * workerMult(), dt);
+    else {
+      l.moving = false;
+      if (l.cd <= 0) {
+        l.cd = 0.9 / workerMult(); l.swing = 0.25; mineCrystal(t);
+        fly('crystal', { x: t.x, y: t.y, z: 30 }, () => ({ x: l.x, y: l.y, z: 40 + l.carry * 5.5 }), 0.3, () => { l.carry++; }, 30);
+        if (t.charges <= 0) l.target = null;
+      }
+    }
+  } else {
+    if (steer(l, CRYSTALPILE.x + 30, CRYSTALPILE.y - 20, 140 * workerMult(), dt)) {
+      l.moving = false;
+      if (l.cd <= 0 && l.carry > 0) {
+        l.cd = 0.1; l.carry--;
+        fly('crystal', { x: l.x, y: l.y, z: 40 + l.carry * 5.5 }, () => ({ x: CRYSTALPILE.x, y: CRYSTALPILE.y, z: 10 }), 0.3, () => { CRYSTALPILE.n++; }, 40);
+      }
+      if (l.carry <= 0) { l.state = 'work'; l.target = null; }
     }
   }
 }
@@ -1349,7 +1544,7 @@ function updateTowers(dt) {
     const b = nearestAnimal(t, 360);
     if (!b) continue;
     t.cd = 0.9; t.aim = isoX(b.x - t.x, b.y - t.y) > 0 ? 1 : -1;
-    arrows.push({ kind: 'arrow', x0: t.x, y0: t.y, z0: 95, tgt: b, t: 0, dur: 0.35, x: t.x, y: t.y, z: 95, dmg: 14 });
+    arrows.push({ kind: 'arrow', x0: t.x, y0: t.y, z0: 95, tgt: b, t: 0, dur: 0.35, x: t.x, y: t.y, z: 95, dmg: Math.round(14 * hpScale() * (1 + 0.15 * pk('wache'))) });
     sfx('arrow');
   }
   for (const a of arrows) {
@@ -1385,8 +1580,9 @@ function updateRaid(dt) {
   } else if (!animals.some(b => b.raider && !b.dead)) {
     R.active = false; R.timer = rand(150, 210);
     S.stats.raids++;
-    const reward = 60 + 40 * R.no;
-    SHOPS.meat.pile.amount += reward;
+    const reward = Math.round((60 + 40 * R.no) * (1 + 0.5 * EXP()));
+    SHOPS.meat.pile.amount += reward; S.stats.cashEarned += reward;
+    gainXP(80 + 20 * R.no);
     banner(`🛡️ Angriff abgewehrt! +${reward} $`, 'good');
     sfx('build');
   }
@@ -1405,7 +1601,7 @@ function updateCart(dt) {
   if (cart.wait > 0) {
     cart.wait -= dt;
     if (cart.wait <= 0) {
-      if (cart.s <= 0) { cart.load = cart.cap; cart.dir = 1; }
+      if (cart.s <= 0) { cart.load = cart.cap + pk('goldader') + (hasT('goldbarren') ? 1 : 0); cart.dir = 1; rollTrophy('goldbarren', 0.002); }
       else {
         const pos = railPos(railLen);
         for (let i = 0; i < cart.load; i++) fly('gold', { x: pos.x, y: pos.y, z: 20 }, () => ({ x: GOLDPILE.x, y: GOLDPILE.y, z: 10 }), 0.3, () => { GOLDPILE.n++; }, 40, i * 0.1);
@@ -1447,6 +1643,214 @@ function updateFx(dt) {
   texts = texts.filter(t => t.t < 1.1);
 }
 
+
+/* =========================================================
+   Dauerhafter Fortschritt (bleibt über Expeditionen erhalten)
+   ========================================================= */
+function defaultMeta() {
+  return { stars: 0, starsTotal: 0, expedition: 0, perks: {}, xp: 0, level: 1, sp: 0, skills: {}, ach: {}, trophies: {}, totals: { killsBy: {} }, benedictLvl: 0 };
+}
+let M = defaultMeta();
+const EXP = () => M.expedition;
+const sk = id => M.skills[id] || 0;
+const pk = id => M.perks[id] || 0;
+const hasT = id => !!M.trophies[id];
+
+const SKILLS = [
+  { id: 'kraft', name: 'Kraft', icon: '💪', max: 10, desc: '+6 % Schaden' },
+  { id: 'ausdauer', name: 'Ausdauer', icon: '❤️', max: 10, desc: '+10 % Lebenspunkte' },
+  { id: 'tempo', name: 'Tempo', icon: '👟', max: 10, desc: '+2,5 % Laufgeschwindigkeit' },
+  { id: 'sammler', name: 'Sammler', icon: '🎒', max: 10, desc: '+2 Rucksackplätze' },
+  { id: 'handel', name: 'Verhandlung', icon: '🤝', max: 10, desc: '+4 % Verkaufspreise' },
+  { id: 'holz', name: 'Holzfäller', icon: '🪓', max: 10, desc: '+12 % Hacktempo, +5 % doppeltes Holz' },
+  { id: 'angler', name: 'Angler', icon: '🎣', max: 10, desc: '+12 % Angeltempo' },
+  { id: 'wirbel', name: 'Wirbelsturm', icon: '🌀', max: 10, desc: '+8 % Schaden der Wirbeläxte' },
+  { id: 'speer', name: 'Speermeister', icon: '🔱', max: 10, desc: '+8 % Speerschaden, schnellere Würfe' },
+  { id: 'heiler', name: 'Zähigkeit', icon: '🩹', max: 10, desc: '+15 % Heilung' },
+  { id: 'glueck', name: 'Glück', icon: '🍀', max: 10, desc: '+2 % Volltreffer, +10 % Trophäen-Chance' },
+  { id: 'anfuehrer', name: 'Anführer', icon: '📣', max: 10, desc: '+5 % Tempo aller Helfer' },
+];
+const PERKS = [
+  { id: 'haendler', name: 'Händlerglück', icon: '💰', max: 20, base: 2, desc: '+10 % Verkaufspreise' },
+  { id: 'kapital', name: 'Startkapital', icon: '🏦', max: 10, base: 2, desc: '+300 $ und +20 Holz zu Beginn' },
+  { id: 'arme', name: 'Starke Arme', icon: '🦾', max: 20, base: 2, desc: '+10 % Schaden' },
+  { id: 'fuesse', name: 'Flinke Füße', icon: '💨', max: 10, base: 2, desc: '+4 % Laufgeschwindigkeit' },
+  { id: 'ruecken', name: 'Breiter Rücken', icon: '🧳', max: 10, base: 2, desc: '+3 Rucksackplätze' },
+  { id: 'helfer', name: 'Fleißige Helfer', icon: '👷', max: 10, base: 3, desc: '+8 % Tempo aller Helfer' },
+  { id: 'holzglueck', name: 'Holzglück', icon: '🌲', max: 10, base: 2, desc: '+10 % Chance auf doppeltes Holz' },
+  { id: 'goldader', name: 'Goldader', icon: '⛏️', max: 10, base: 3, desc: '+1 Gold pro Lorenfahrt' },
+  { id: 'fruehstart', name: 'Frühstart', icon: '🏗️', max: 10, base: 4, desc: 'Ein Ausbau mehr ist schon fertig' },
+  { id: 'wache', name: 'Nachtwache', icon: '🛡️', max: 10, base: 2, desc: '+15 % Torstärke und Turmschaden' },
+  { id: 'kristall', name: 'Kristallgespür', icon: '💎', max: 10, base: 3, desc: '+10 % Chance auf doppelte Kristalle' },
+  { id: 'erfahrung', name: 'Weisheit', icon: '📚', max: 10, base: 3, desc: '+10 % Erfahrung' },
+];
+const FRUEHSTART = ['axes', 'cashier', 'bag', 'hunter1', 'lumber', 'grill', 'board', 'mine', 'tower1', 'husky'];
+function perkCost(p) { return Math.ceil(p.base * Math.pow(1 + pk(p.id), 1.35)); }
+
+const TROPHIES = [
+  { id: 'goldfisch', name: 'Goldener Fisch', icon: '🐠', desc: '+10 % Fischpreis', hint: 'Wer viel angelt, fängt vielleicht etwas Besonderes …' },
+  { id: 'silberpelz', name: 'Silberpelz', icon: '🧥', desc: '+5 % Lebenspunkte', hint: 'Ein seltener Eisbär trägt ein silbernes Fell.' },
+  { id: 'wolfszahn', name: 'Wolfszahn', icon: '🦷', desc: '+5 % Schaden', hint: 'Wölfe verlieren manchmal einen Zahn.' },
+  { id: 'yetihorn', name: 'Yeti-Horn', icon: '🦴', desc: '+10 % Wirbelaxt-Schaden', hint: 'Nur ein Yeti trägt solche Hörner.' },
+  { id: 'mammutzahn', name: 'Mammut-Stoßzahn', icon: '🐘', desc: '+3 Rucksackplätze', hint: 'Mammuts im Gletscher …' },
+  { id: 'monokel', name: 'Benedicts Monokel', icon: '🧐', desc: '+10 % Verkaufspreise', hint: 'Benedict Million passt nicht gut darauf auf.' },
+  { id: 'zylinder', name: 'Goldener Zylinder', icon: '🎩', desc: '+5 % Laufgeschwindigkeit', hint: 'Besiege einen stärkeren Benedict Million.' },
+  { id: 'kristallherz', name: 'Kristallherz', icon: '💠', desc: '+10 % doppelte Kristalle', hint: 'Tief in einem Kristall pulsiert etwas.' },
+  { id: 'goldbarren', name: 'Riesengoldbarren', icon: '🧈', desc: '+1 Gold pro Lorenfahrt', hint: 'Die Lore bringt manchmal Überraschungen mit.' },
+  { id: 'eiskrone', name: 'Eiskrone', icon: '❄️', desc: '+10 % Schaden', hint: 'Der Mammutkönig trägt eine Krone aus Eis.' },
+  { id: 'polarstern', name: 'Polarstern', icon: '🌟', desc: '+10 % Polarsterne', hint: 'Erreiche die fünfte Expedition.' },
+  { id: 'nordlicht', name: 'Nordlicht-Kristall', icon: '🌌', desc: '+10 % Erfahrung', hint: 'Baue das Observatorium.' },
+];
+function rollTrophy(id, chance) {
+  if (M.trophies[id] || Math.random() > chance * (1 + 0.1 * sk('glueck'))) return;
+  M.trophies[id] = true;
+  const t = TROPHIES.find(q => q.id === id);
+  banner(`🏆 Trophäe gefunden: ${t.icon} ${t.name}!`, 'good');
+  sfx('win');
+  save();
+}
+
+// Summen über alle Expeditionen
+function tot(k) { return (M.totals[k] || 0) + (S && S.stats[k] || 0); }
+function totKill(k) { return (M.totals.killsBy[k] || 0) + (S && S.stats.killsBy[k] || 0); }
+
+const ACH = [];
+function ach(id, name, stars, cur, goal) { ACH.push({ id, name, stars, cur, goal }); }
+[[100, 1], [1000, 3], [10000, 8], [50000, 15]].forEach(([g, s]) => ach('kills' + g, `Erlege ${fmt(g)} Tiere`, s, () => tot('kills'), g));
+[[500, 1], [5000, 3], [50000, 8], [500000, 15]].forEach(([g, s]) => ach('sold' + g, `Verkaufe ${fmt(g)} Waren`, s, () => tot('sold'), g));
+[[100, 1], [1000, 3], [10000, 8]].forEach(([g, s]) => ach('fish' + g, `Fange ${fmt(g)} Fische`, s, () => tot('fish'), g));
+[[1e4, 1], [1e5, 2], [1e6, 5], [1e7, 10], [1e8, 20]].forEach(([g, s]) => ach('cash' + g, `Verdiene insgesamt ${fmt(g)} $`, s, () => tot('cashEarned'), g));
+[[10, 2], [50, 5], [200, 10]].forEach(([g, s]) => ach('raid' + g, `Wehre ${g} Nachtangriffe ab`, s, () => tot('raids'), g));
+[[1, 1], [10, 3], [50, 8]].forEach(([g, s]) => ach('yeti' + g, `Besiege ${g} Yeti${g > 1 ? 's' : ''}`, s, () => totKill('yeti'), g));
+[[1, 3], [5, 6], [25, 15], [100, 30]].forEach(([g, s]) => ach('bene' + g, g === 1 ? 'Besiege Benedict Million' : `Besiege Benedict Million ${g}-mal`, s, () => totKill('boss'), g));
+[[1, 1], [50, 4], [500, 10]].forEach(([g, s]) => ach('mam' + g, `Erlege ${g} Mammut${g > 1 ? 's' : ''}`, s, () => totKill('mammoth'), g));
+[[1, 5], [10, 15]].forEach(([g, s]) => ach('mking' + g, g === 1 ? 'Besiege den Mammutkönig' : `Besiege den Mammutkönig ${g}-mal`, s, () => totKill('mking'), g));
+[[10, 2], [25, 4], [50, 8], [75, 12], [100, 20]].forEach(([g, s]) => ach('lvl' + g, `Erreiche Stufe ${g}`, s, () => M.level, g));
+[[1, 2], [3, 4], [5, 6], [10, 10], [20, 20]].forEach(([g, s]) => ach('exp' + g, `Schließe ${g} Expedition${g > 1 ? 'en' : ''} ab`, s, () => M.expedition, g));
+[[50, 2], [500, 6]].forEach(([g, s]) => ach('quest' + g, `Erfülle ${g} Aufträge`, s, () => tot('quests'), g));
+[[1000, 3], [10000, 8]].forEach(([g, s]) => ach('crys' + g, `Sammle ${fmt(g)} Kristalle`, s, () => tot('crystals'), g));
+[[10, 5], [25, 10], [50, 20]].forEach(([g, s]) => ach('time' + g, `Spiele ${g} Stunden`, s, () => Math.floor(tot('time') / 3600), g));
+ach('houses', 'Baue alle Blockhütten', 2, () => housesBuilt(), HOUSES.length);
+ach('radio', 'Baue den Funkturm', 3, () => lv('radio'), 1);
+ach('obs', 'Baue das Observatorium', 5, () => lv('observatory'), 1);
+ach('troph6', 'Finde 6 Trophäen', 4, () => Object.keys(M.trophies).length, 6);
+ach('troph12', 'Finde alle Trophäen', 10, () => Object.keys(M.trophies).length, TROPHIES.length);
+ach('skills', 'Bringe eine Fähigkeit auf Stufe 10', 3, () => Math.max(...SKILLS.map(s => sk(s.id))), 10);
+function fmt(n) { n = Math.floor(n); return n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace('.', ',') + ' Mio.' : n.toLocaleString('de-DE'); }
+let achTimer = 0;
+function checkAchievements(dt) {
+  achTimer -= dt; if (achTimer > 0) return; achTimer = 2;
+  for (const a of ACH) {
+    if (M.ach[a.id] || a.cur() < a.goal) continue;
+    M.ach[a.id] = true; M.stars += a.stars; M.starsTotal += a.stars;
+    banner(`🏅 Erfolg: ${a.name} (+${a.stars} ⭐)`, 'good');
+    sfx('build');
+    break;
+  }
+}
+
+/* ---------- Erfahrung & Stufen ---------- */
+function xpFor(L) { return Math.floor(50 * Math.pow(L, 1.45)); }
+function xpMult() { return (1 + 0.1 * pk('erfahrung')) * (hasT('nordlicht') ? 1.1 : 1) * (1 + 0.25 * EXP()); }
+function gainXP(n) {
+  M.xp += n * xpMult();
+  let up = false;
+  while (M.xp >= xpFor(M.level)) { M.xp -= xpFor(M.level); M.level++; M.sp++; up = true; }
+  if (up) {
+    banner(`⬆️ Stufe ${M.level}! +1 Fähigkeitspunkt`, 'good'); sfx('win');
+    player.hp = player.maxHp;
+    burst(player.x, player.y, 30, '#ffe066', 24, 200);
+  }
+}
+function killXP(b) {
+  const k = b.type.kind;
+  return k === 'boss' ? 400 * (1 + M.benedictLvl) : k === 'mking' ? 800 : k === 'yeti' ? 150 : k === 'mammoth' ? 60 : k === 'wolf' ? (b.type.name === 'frostwolf' ? 10 : 4) : b.type.name === 'spiky' ? 9 : 5;
+}
+
+/* ---------- Werte-Multiplikatoren ---------- */
+function hpScale() { return 1 + 0.4 * EXP(); }
+function dmgScale() { return 1 + 0.2 * EXP(); }
+function workerMult() { return (1 + 0.05 * sk('anfuehrer')) * (1 + 0.08 * pk('helfer')); }
+function workerDmg(base) { return Math.round(base * hpScale() * workerMult()); }
+function forgeMult() { return 1 + 0.2 * lv('forge'); }
+function priceMult(sh) {
+  return (1 + 0.04 * sk('handel')) * (1 + 0.1 * pk('haendler')) * (1 + 0.5 * EXP()) * (hasT('monokel') ? 1.1 : 1) * (sh && sh.id === 'fish' && hasT('goldfisch') ? 1.1 : 1);
+}
+function costScale(res) { return res === 'cash' ? 1 + 0.5 * EXP() : 1 + 0.15 * EXP(); }
+function critChance() { return 0.02 * sk('glueck'); }
+const TYPE_CACHE = {};
+function scaledType(name) {
+  const k = name + '_' + EXP();
+  if (TYPE_CACHE[k]) return TYPE_CACHE[k];
+  const t = TYPES[name];
+  return (TYPE_CACHE[k] = { ...t, hp: Math.round(t.hp * hpScale()), dmg: Math.round(t.dmg * dmgScale()) });
+}
+function refreshStats() {
+  const p = player, b = p.base;
+  const hpMax = Math.round(b.hp * (1 + 0.1 * sk('ausdauer')) * (hasT('silberpelz') ? 1.05 : 1));
+  if (hpMax !== p.maxHp) { p.hp = Math.max(1, p.hp * hpMax / (p.maxHp || hpMax)); p.maxHp = hpMax; }
+  p.cap = b.cap + 2 * sk('sammler') + 3 * pk('ruecken') + (hasT('mammutzahn') ? 3 : 0);
+  p.speed = b.speed * (1 + 0.025 * sk('tempo') + 0.04 * pk('fuesse')) * (hasT('zylinder') ? 1.05 : 1);
+  const dm = (1 + 0.06 * sk('kraft')) * (1 + 0.1 * pk('arme')) * forgeMult() * (hasT('wolfszahn') ? 1.05 : 1) * (hasT('eiskrone') ? 1.1 : 1);
+  p.dmg = Math.round(b.dmg * dm);
+  p.orbitDmg = Math.round(b.orbitDmg * dm * (1 + 0.08 * sk('wirbel')) * (hasT('yetihorn') ? 1.1 : 1));
+  p.spearMult = dm * (1 + 0.08 * sk('speer'));
+}
+function gateMax(n) { return Math.round([200, 400, 700, 1100][n] * (1 + 0.15 * pk('wache')) * (1 + 0.3 * EXP())); }
+
+/* ---------- Expeditionen ---------- */
+function starsForRun() {
+  const base = 5 * Math.sqrt((S.stats.cashEarned || 0) / 5000 / (1 + 0.5 * EXP()));
+  return Math.floor(base * (1 + 0.5 * lv('observatory')) * (1 + 0.25 * EXP()) * (hasT('polarstern') ? 1.1 : 1) * (1 + 0.1 * S.stats.benedict));
+}
+function addTotals() {
+  for (const k in S.stats) {
+    if (k === 'killsBy') { for (const kk in S.stats.killsBy) M.totals.killsBy[kk] = (M.totals.killsBy[kk] || 0) + S.stats.killsBy[kk]; }
+    else if (typeof S.stats[k] === 'number') M.totals[k] = (M.totals[k] || 0) + S.stats[k];
+  }
+}
+function startExpedition() {
+  const gain = starsForRun();
+  addTotals();
+  M.stars += gain; M.starsTotal += gain; M.expedition++;
+  newState(); reset3D();
+  applyRunStart();
+  if (M.expedition >= 5) rollTrophy('polarstern', 1);
+  camTarget.set(player.x, 0, player.y); goal = null;
+  save();
+  banner(`🚀 Expedition ${M.expedition + 1} beginnt! +${gain} ⭐`, 'good');
+  sfx('win');
+}
+function applyRunStart() {
+  S.cash += 300 * pk('kapital'); S.wood += 20 * pk('kapital');
+  for (let i = 0; i < Math.min(pk('fruehstart'), FRUEHSTART.length); i++) {
+    const id = FRUEHSTART[i];
+    if (!lv(id)) { S.lv[id] = 1; applyLevel(id, 1, true); }
+  }
+  gate.max = gateMax(lv('gate')); gate.hp = gate.max;
+  rebuildObstacles();
+  refreshStats(); player.hp = player.maxHp;
+}
+
+/* ---------- Offline-Einnahmen ---------- */
+function offlineEarnings(savedAt) {
+  if (!savedAt) return null;
+  const away = Math.min(8 * 3600, (Date.now() - savedAt) / 1000);
+  if (away < 120) return null;
+  const n = k => workers.filter(w => w.kind === k).length;
+  const eff = 0.3 * away;
+  const r = {
+    away,
+    cash: Math.round(eff * (n('hunter') * 0.45 * shopPrice(SHOPS.meat) + (shopOpen(SHOPS.fish) ? n('fisher') * 0.35 * shopPrice(SHOPS.fish) : 0) + housesBuilt() * 0.3 * shopPrice(SHOPS.meat))),
+    wood: Math.round(eff * n('lumber') * 0.8),
+    gold: cart ? Math.round(eff / 12 * (cart.cap + pk('goldader'))) : 0,
+    crystal: Math.round(eff * n('driller') * 0.4),
+  };
+  if (!r.cash && !r.wood && !r.gold && !r.crystal) return null;
+  S.cash += r.cash; S.wood += r.wood; S.gold += r.gold; S.crystal += r.crystal;
+  S.stats.cashEarned += r.cash;
+  return r;
+}
 
 /* =========================================================
    Tag & Nacht, Wetter, Husky, Aufträge
@@ -1493,7 +1897,7 @@ function updatePet(dt) {
     if (dist(pet, t) > 42 * t.type.size) steer(pet, t.x, t.y, 270, dt);
     else {
       pet.moving = false;
-      if (pet.cd <= 0) { pet.cd = 0.6; pet.lunge = 0.2; damageAnimal(t, 12, pet); }
+      if (pet.cd <= 0) { pet.cd = 0.6; pet.lunge = 0.2; damageAnimal(t, workerDmg(12), pet); }
     }
   } else {
     const fx = p.x - 35, fy = p.y + 35;
@@ -1518,7 +1922,7 @@ function newQuest() {
   const opts = Object.keys(QUEST_TYPES).filter(k => !active.includes(k) && (!QUEST_TYPES[k].req || QUEST_TYPES[k].req()));
   const type = pick(opts);
   const tier = questTier(), Q = QUEST_TYPES[type];
-  const reward = { cash: [60, 400, 1800][tier] * (Q.n[tier] === 1 ? 2 : 1) };
+  const reward = { cash: Math.round([60, 400, 1800][tier] * (Q.n[tier] === 1 ? 2 : 1) * (1 + 0.5 * EXP())), xp: 60 * (tier + 1) };
   if (Math.random() < 0.5) reward.wood = [8, 20, 40][tier]; else if (lv('mine')) reward.gold = [3, 10, 25][tier];
   return { type, n: Q.n[tier], base: Q.stat(), reward };
 }
@@ -1531,7 +1935,7 @@ function updateQuests(dt) {
     const q = S.quests[i], Q = QUEST_TYPES[q.type];
     if (Q.stat() - q.base >= q.n) {
       const r = q.reward;
-      S.cash += r.cash || 0; S.wood += r.wood || 0; S.gold += r.gold || 0;
+      S.cash += r.cash || 0; S.wood += r.wood || 0; S.gold += r.gold || 0; S.stats.cashEarned += r.cash || 0; gainXP(r.xp || 60);
       popPill('pCash');
       banner(`📜 Auftrag erfüllt! +${r.cash} $` + (r.wood ? ` +${r.wood} 🪵` : '') + (r.gold ? ` +${r.gold} 🪙` : ''), 'good');
       sfx('build'); S.stats.quests = (S.stats.quests || 0) + 1;
@@ -1558,13 +1962,13 @@ function updateChest(dt) {
   }
 }
 function summonBenedict() {
-  const hp = Math.round(1500 + 160 * progress());
+  const hp = Math.round((1500 + 160 * progress()) * (1 + 0.6 * M.benedictLvl) * hpScale());
   const b = spawnAnimal('A', true, 'boss');
-  b.type = { ...TYPES.boss, hp }; b.hp = hp;
+  b.type = { ...TYPES.boss, hp, dmg: Math.round(TYPES.boss.dmg * (1 + 0.15 * M.benedictLvl) * dmgScale()) }; b.hp = hp;
   b.x = 330; b.y = 360; b.spawnT = 0;
   b.boss = { state: 'intro', t: 1.8, rainCd: 4, dashCd: 7, phase: 1, away: 0, dashV: null, hitDone: false };
   burst(b.x, b.y, 40, '#ffd84a', 40, 260);
-  banner('👑 BENEDICT MILLION erscheint!'); sfx('alarm'); shake(1);
+  banner(`👑 BENEDICT MILLION erscheint! (Stufe ${M.benedictLvl + 1})`); sfx('alarm'); shake(1);
   addText(b.x, b.y, 160, '„Mein Gold bekommt ihr nie!“', '#ffe98a', 22);
 }
 function benedictLeaves(b, msg) {
@@ -1574,17 +1978,22 @@ function benedictLeaves(b, msg) {
 }
 function defeatBenedict(b) {
   S.stats.benedict++; S.chestCd = 300; hazards = [];
+  const bl = ++M.benedictLvl;
+  rollTrophy('monokel', 0.3);
+  if (bl >= 3) rollTrophy('zylinder', 0.2);
+  const st = 1 + Math.floor(bl / 3); M.stars += st; M.starsTotal += st;
   for (let i = 0; i < b.type.meat; i++) dropItem('meat', b.x, b.y);
   for (let i = 0; i < b.type.gold; i++) dropItem('gold', b.x, b.y, 40);
-  const reward = 2000 + 120 * progress();
+  const reward = Math.round((2000 + 120 * progress()) * (1 + 0.5 * (bl - 1)) * (1 + 0.5 * EXP()));
+  S.stats.cashEarned += reward;
   const n = 10;
   for (let i = 0; i < n; i++) fly('cash', { x: b.x, y: b.y, z: 60 }, () => ({ x: player.x, y: player.y, z: 40 }), 0.6,
     i === n - 1 ? () => { S.cash += reward; popPill('pCash'); sfx('coin'); } : null, 90, i * 0.06);
   burst(b.x, b.y, 50, '#ffd84a', 60, 300);
   shake(0.8);
-  banner('🏆 Benedict Million besiegt! +' + reward + ' $', 'good');
+  banner(`🏆 Benedict Million besiegt! +${fmt(reward)} $ +${st} ⭐`, 'good');
   sfx('win');
-  if (S.stats.benedict === 1) setTimeout(() => showWin('👑 Benedict Million besiegt! 👑',
+  if (totKill('boss') === 1) setTimeout(() => showWin('👑 Benedict Million besiegt! 👑',
     'Du hast den reichsten und gefährlichsten Mann des Nordens bezwungen!<br><br>Als Trophäe trägst du jetzt seine <b>goldene Krone</b>. ' +
     'Sein Tresor füllt sich wieder – wenn du dich traust, kannst du ihn später erneut herausfordern.'), 1500);
   save();
@@ -1641,7 +2050,7 @@ function updateBoss(b, dt) {
     const n = B.phase === 2 ? 8 : 5;
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, r = i === 0 ? 0 : rand(45, 150);
-      hazards.push({ x: clamp(p.x + Math.cos(a) * r, 30, worldW() - 30), y: clamp(p.y + Math.sin(a) * r, 30, FENCE_Y - 20), r: 42, t: 0, delay: 1.3 + i * 0.08, dmg: 25, id: ++UID });
+      hazards.push({ x: clamp(p.x + Math.cos(a) * r, 30, worldW() - 30), y: clamp(p.y + Math.sin(a) * r, 30, FENCE_Y - 20), r: 42, t: 0, delay: 1.3 + i * 0.08, dmg: Math.round(25 * (1 + 0.15 * M.benedictLvl) * dmgScale()), id: ++UID });
     }
     b.lunge = 0.3;
     addText(b.x, b.y, 160, pick(['„Goldregen!“', '„Geld regiert die Welt!“', '„Das ist mein Revier!“', '„Ihr seid pleite!“']), '#ffe98a', 20);
@@ -1658,9 +2067,10 @@ function updateHazards(dt) {
     h.t += dt;
     if (!h.hit && h.t >= h.delay) {
       h.hit = true;
-      burst(h.x, h.y, 10, '#ffd84a', 10, 160); burst(h.x, h.y, 10, '#fff4b0', 4, 100);
+      if (h.stomp) { burst(h.x, h.y, 5, '#dff4ff', 16, 220); burst(h.x, h.y, 5, '#8fd3ff', 8, 160); shake(0.35); }
+      else { burst(h.x, h.y, 10, '#ffd84a', 10, 160); burst(h.x, h.y, 10, '#fff4b0', 4, 100); }
       if (player.dead <= 0 && dist(player, h) < h.r) hurtPlayer(h.dmg);
-      sfx('coin');
+      sfx(h.stomp ? 'hurt' : 'coin');
     }
   }
   hazards = hazards.filter(h => h.t < h.delay + 0.35);
@@ -1675,6 +2085,7 @@ function currentGoal() {
   const meatN = p.stack.filter(t => t === 'meat').length, fishN = p.stack.length - meatN;
   const boss = animals.find(b => b.boss && !b.dead && !b.gone);
   if (boss) return { text: '👑 Besiege Benedict Million!', x: boss.x, y: boss.y, bear: true };
+  if (p.y > FENCE2_Y) { const mk = animals.find(b => b.type.kind === 'mking' && !b.dead && dist(b, p) < 500); if (mk) return { text: '⚠️ Der Mammutkönig! Kämpfe oder flieh!', x: mk.x, y: mk.y, bear: true }; }
   if (S.raid.active) {
     const r = nearestOf(animals.filter(b => b.raider && !b.dead), p);
     if (r) return { text: gate.broken ? '⚠️ Die Bären sind im Lager – vertreibe sie!' : '⚠️ Verteidige das Tor gegen die Bären!', x: r.x, y: r.y, bear: true };
@@ -1693,17 +2104,22 @@ function currentGoal() {
   let bestPad = null, bd = 1e9;
   for (const pad of vis) {
     const r = padRemaining(pad);
-    if (S.cash >= r.cash && S.wood >= r.wood && S.gold >= r.gold) { const d = dist(p, pad); if (d < bd) { bd = d; bestPad = pad; } }
+    if (S.cash >= r.cash && S.wood >= r.wood && S.gold >= r.gold && S.crystal >= r.crystal) { const d = dist(p, pad); if (d < bd) { bd = d; bestPad = pad; } }
   }
   if (bestPad) return { text: 'Baue: ' + bestPad.name, x: bestPad.x, y: bestPad.y, pad: true };
   if (S.stats.sold < 15) for (const sh of SHOP_LIST) if (sh.pile.amount > 0) return { text: 'Sammle das Geld ein', x: sh.pile.x, y: sh.pile.y };
   // nächstes Ziel: günstigstes sichtbares Bau-Feld
-  const score = v => { const r = padRemaining(v); return r.cash + r.wood * 15 + r.gold * 25; };
+  const score = v => { const r = padRemaining(v); return r.cash + r.wood * 15 + r.gold * 25 + r.crystal * 200; };
   const next = vis.slice().sort((a, b) => score(a) - score(b))[0];
   if (next) {
     const r = padRemaining(next);
     if (r.gold > S.gold && lv('mine') && GOLDPILE.n > 0) return { text: 'Hol das Gold aus der Mine', x: GOLDPILE.x, y: GOLDPILE.y };
     if (r.wood > S.wood && WOODPILE.n > 0) return { text: 'Hol das Holz vom Holzlager', x: WOODPILE.x, y: WOODPILE.y };
+    if (r.crystal > S.crystal && CRYSTALPILE.n > 0) return { text: 'Hol die Kristalle vom Kristalllager', x: CRYSTALPILE.x, y: CRYSTALPILE.y };
+    if (r.crystal > S.crystal + CRYSTALPILE.n && lv('glacier') && workers.filter(w => w.kind === 'driller').length < 2 && S.cash >= r.cash) {
+      const c = nearestOf(crystals.filter(q => q.charges > 0), p);
+      if (c) return { text: 'Baue Kristalle im Gletscher ab', x: c.x, y: c.y, tree: true };
+    }
     if (r.cash > S.cash) {
       const pile = SHOP_LIST.map(sh => sh.pile).sort((a, b) => b.amount - a.amount)[0];
       if (pile.amount >= Math.min(15, r.cash - S.cash)) return { text: 'Sammle das Geld ein', x: pile.x, y: pile.y };
@@ -1745,6 +2161,7 @@ function gCone(r, h, s = 8) { const k = `k${r},${h},${s}`; return GEO[k] || (GEO
 function gSph(r, w = 8, h = 6) { const k = `s${r},${w},${h}`; return GEO[k] || (GEO[k] = new THREE.SphereGeometry(r, w, h)); }
 function gIco(r, d = 0) { const k = `i${r},${d}`; return GEO[k] || (GEO[k] = new THREE.IcosahedronGeometry(r, d)); }
 function gTor(r, t, rs = 5, ts = 12, arc = PI * 2) { const k = `t${r},${t},${rs},${ts},${arc}`; return GEO[k] || (GEO[k] = new THREE.TorusGeometry(r, t, rs, ts, arc)); }
+function gDome(r, s = 16) { const k = `d${r},${s}`; return GEO[k] || (GEO[k] = new THREE.SphereGeometry(r, s, 8, 0, PI * 2, 0, PI / 2)); }
 // Dreiecksprisma (First entlang x) – für Dächer und Zelte
 function gPrism(len, h, d) {
   const k = `p${len},${h},${d}`;
@@ -1900,6 +2317,49 @@ function buildWorld() {
   { const m = new THREE.Mesh(new THREE.CircleGeometry(115, 40), new THREE.MeshLambertMaterial({ color: '#dca183', polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -3 }));
     m.rotation.x = -PI / 2; at(m, FURNACE.x, FURNACE.y, 1); m.receiveShadow = true; scene.add(m); decals.push({ m, cond: () => lv('furnace') }); }
 
+  // Gletscher (Kapitel 3)
+  decal(0, FENCE2_Y, W_B, H_C, '#d3e9f9', () => lv('glacier'), 0.3);
+  decal(GATE_X0 + 15, 1290, GATE_X1 - 15, FENCE2_Y + 70, dirt, () => lv('glacier'), 0.95);
+  decal(250, 1370, 2200, 1500, dirt, () => lv('glacier'), 1.0);
+  decal(1640, 1290, 1760, 1380, dirt, () => lv('glacier'), 1.05);
+  fence2Group = new THREE.Group();
+  { const posts2 = [];
+    for (let x = 6; x < W_B; x += 16) { if (x > GATE_X0 && x < GATE_X1) continue; posts2.push(x); }
+    const im = new THREE.InstancedMesh(model('post2', () => [P3(gBox(7, 38, 7), '#5f86b3', 0, 19, 0), P3(gBox(3, 38, 7.4), '#7aa3cf', -2, 19, 0), P3(gCone(5.2, 9, 4), '#f4f9ff', 0, 42.5, 0, 0, PI / 4)]), VC, posts2.length);
+    posts2.forEach((x, i) => { _m4.makeTranslation(x, 0, FENCE2_Y); im.setMatrixAt(i, _m4); });
+    im.castShadow = true; fence2Group.add(im);
+    const rp = [];
+    for (const [a, b] of [[0, GATE_X0 - 6], [GATE_X1 + 6, W_B]]) for (const h of [12, 28]) rp.push(P3(gBox(b - a, 3, 3), '#4a6e96', (a + b) / 2, h, FENCE2_Y + 4));
+    for (const x of [GATE_X0, GATE_X1]) rp.push(P3(gBox(12, 54, 12), '#4a6e96', x, 27, FENCE2_Y), P3(gCone(9, 12, 4), '#f4f9ff', x, 60, FENCE2_Y, 0, PI / 4));
+    rp.push(P3(gBox(4, 36, 55), '#5f86b3', GATE_X0, 20, FENCE2_Y - 27.5), P3(gBox(4, 36, 55), '#5f86b3', GATE_X1, 20, FENCE2_Y - 27.5));
+    fence2Group.add(mesh(merge(rp)));
+    scene.add(fence2Group); }
+  lockFog2 = new THREE.Mesh(new THREE.BoxGeometry(W_B + 2400, 240, H_C - H + 800), new THREE.MeshBasicMaterial({ color: '#eef3fa', transparent: true, opacity: 0.88, depthWrite: false }));
+  at(lockFog2, W_B / 2, H + 8 + (H_C - H + 800) / 2, 120); scene.add(lockFog2);
+  crystalIM = new THREE.InstancedMesh(model('crystalNode', () => [
+    P3(gIco(16, 0), '#8a96a8', 0, 6, 0, 0, 0, 0, 1.3, 0.55, 1.2),
+    P3(gCone(6, 34, 5), '#6fe7ff', 0, 22, 0, 0.1, 0, 0.1), P3(gCone(5, 26, 5), '#9ff0ff', 9, 16, 3, 0.2, 0, -0.45),
+    P3(gCone(4.5, 22, 5), '#4fc9f0', -8, 14, -3, -0.2, 0, 0.5), P3(gCone(4, 18, 5), '#b8f6ff', 2, 12, -10, -0.5, 0, 0.1),
+  ]), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: '#1a6a86' }), crystals.length);
+  crystalIM.castShadow = true;
+  crystalRockIM = new THREE.InstancedMesh(model('crystalRock', () => [P3(gIco(16, 0), '#8a96a8', 0, 6, 0, 0, 0, 0, 1.3, 0.55, 1.2), P3(gCone(2.5, 6, 5), '#6fe7ff', 3, 13, 2)]), VC, crystals.length);
+  scene.add(crystalIM, crystalRockIM);
+  aurora = new THREE.Group();
+  const auroraTex = canvasTex(256, 128, (g, w, h) => {
+    for (let x = 0; x < w; x++) {
+      const a = 0.35 + 0.35 * Math.sin(x * 0.07) * Math.sin(x * 0.023 + 1);
+      const gr = g.createLinearGradient(0, 0, 0, h);
+      gr.addColorStop(0, 'rgba(120,255,200,0)'); gr.addColorStop(0.45, `rgba(90,255,170,${a})`); gr.addColorStop(0.8, `rgba(80,160,255,${a * 0.6})`); gr.addColorStop(1, 'rgba(80,160,255,0)');
+      g.fillStyle = gr; g.fillRect(x, 0, 1, h);
+    }
+  });
+  for (let i = 0; i < 3; i++) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1600, 380), new THREE.MeshBasicMaterial({ map: auroraTex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
+    m.position.set((i - 1) * 500, 700 + i * 60, -900 - i * 150); m.rotation.y = PI / 4 + (i - 1) * 0.3;
+    aurora.add(m);
+  }
+  scene.add(aurora);
+
   // See
   { const rim = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshLambertMaterial({ color: '#e1edf8' }));
     rim.rotation.x = -PI / 2; rim.scale.set(LAKE.rx + 16, LAKE.ry + 16, 1); at(rim, LAKE.x, LAKE.y, 2.4); rim.receiveShadow = true; scene.add(rim);
@@ -1991,7 +2451,7 @@ function buildWorld() {
   for (const p of PAD_DEFS) makePadObj(p);
 
   // Gegenstände, Partikel usw. (instanziert)
-  for (const t of ['meat', 'steak', 'fish', 'smoked', 'wood', 'gold', 'cash']) {
+  for (const t of ['meat', 'steak', 'fish', 'smoked', 'wood', 'gold', 'cash', 'crystal']) {
     const im = new THREE.InstancedMesh(itemGeo(t), VC, 1600); im.count = 0; im.castShadow = true; im.frustumCulled = false;
     scene.add(im); itemIM[t] = im;
   }
@@ -2021,7 +2481,7 @@ function buildWorld() {
   const axeGeo = model('orbitAxe', () => [P3(gCyl(1.5, 1.5, 22, 6), '#7a4a2a', 0, 0, 0, 0, 0, PI / 2), P3(gBox(8, 10, 2), '#b8c2cf', 10, 3, 0), P3(gBox(2, 10, 2.2), '#eef2f7', 14, 3, 0)]);
   for (let i = 0; i < 6; i++) { const a = mesh(axeGeo); a.visible = false; scene.add(a); orbitAxes.push(a); }
 }
-let gateDoors = [], gateDebris, torchFlames = [], chestObj, chestLid, chestGlint, lockFog;
+let gateDoors = [], gateDebris, torchFlames = [], chestObj, chestLid, chestGlint, lockFog, lockFog2, fence2Group, crystalIM, crystalRockIM, aurora;
 function makeDoor(x) {
   const g = new THREE.Group();
   const b = Math.atan2(30, 52);
@@ -2043,6 +2503,7 @@ function itemGeo(t) {
       }
       case 'wood': return [P3(gCyl(4.5, 4.5, 24, 8), '#8a5530', 0, 4.5, 0, 0, 0, PI / 2), P3(gCyl(4.2, 4.2, 0.6, 8), '#e8b777', 12.1, 4.5, 0, 0, 0, PI / 2), P3(gCyl(4.2, 4.2, 0.6, 8), '#e8b777', -12.1, 4.5, 0, 0, 0, PI / 2)];
       case 'gold': return [P3(gBox(20, 4, 10), '#d9a520', 0, 2, 0), P3(gBox(16, 3, 7), '#ffd84a', 0, 5.5, 0), P3(gBox(6, 0.5, 2), '#fffbe0', -3, 7.1, -1)];
+      case 'crystal': return [P3(gCone(4.5, 13, 5), '#6fe7ff', 0, 6.5, 0), P3(gCone(3, 9, 5), '#b8f6ff', 4.5, 4.5, 1.5, 0, 0, -0.5), P3(gCone(3, 8, 5), '#4fc9f0', -4, 4, -1, 0, 0, 0.5)];
       case 'cash': return [P3(gBox(24, 3, 12), '#2e8b3a', 0, 1.5, 0), P3(gBox(24, 0.6, 12), '#5ccf5c', 0, 3.2, 0), P3(gCyl(3, 3, 0.6, 10), '#b8f5b0', 0, 3.6, 0, 0, 0, 0, 1, 1, 0.8)];
     }
   });
@@ -2079,11 +2540,11 @@ function updatePads() {
     o.m.visible = vis; o.fill.visible = false;
     if (!vis) continue;
     const rem = padRemaining(p);
-    const afford = S.cash >= rem.cash && S.wood >= rem.wood && S.gold >= rem.gold;
+    const afford = S.cash >= rem.cash && S.wood >= rem.wood && S.gold >= rem.gold && S.crystal >= rem.crystal;
     o.m.material.color.setRGB(afford ? 0.6 : pulse, afford ? 1.3 * pulse : pulse, afford ? 0.65 : pulse);
     const cost = padCost(p);
     let tot = 0, paid = 0;
-    for (const r of ['cash', 'wood', 'gold']) { tot += cost[r] || 0; paid += p.paid[r] || 0; }
+    for (const r of ['cash', 'wood', 'gold', 'crystal']) { const w = r === 'crystal' ? 100 : 1; tot += (cost[r] || 0) * w; paid += (p.paid[r] || 0) * w; }
     const k = tot ? paid / tot : 0;
     if (k > 0) { o.fill.visible = true; o.fill.scale.set(o.half * 2, o.half * 2 * k, 1); at(o.fill, p.x, p.y + o.half - o.half * k, 1.8); }
   }
@@ -2263,6 +2724,27 @@ function buildRadio() {
   return at(g, RADIO.x, RADIO.y);
 }
 
+function buildForge() {
+  const g = group(mesh(model('forge', () => [
+    P3(gBox(74, 8, 58), '#6b7280', 0, 4, 0), P3(gBox(32, 30, 28), '#4b5563', -16, 23, -8), P3(gBox(36, 5, 32), '#374151', -16, 40, -8),
+    P3(gCyl(5, 6, 36, 8), '#6b7280', -24, 58, -16), P3(gBox(14, 12, 4), '#1f2937', -16, 20, 6.5),
+    P3(gBox(16, 10, 9), '#2f3440', 20, 13, 12), P3(gBox(24, 5, 11), '#3a414e', 20, 20.5, 12), P3(gCone(3, 8, 4), '#3a414e', 34, 20.5, 12, 0, 0, -PI / 2),
+    P3(gBox(3, 40, 3), '#7b4d29', 34, 20, -26), P3(gBox(3, 40, 3), '#7b4d29', 34, 20, 26), P3(gPrism(78, 16, 60), '#5a3a20', 0, 40, 0, 0, 0, 0, 1, 1, 1),
+  ])));
+  const fire = new THREE.Mesh(gBox(12, 9, 1), glow('#6fe7ff')); fire.position.set(-16, 20, 8.6); g.add(fire);
+  const shard = new THREE.Mesh(gCone(3, 10, 5), glow('#b8f6ff')); shard.position.set(20, 28, 12); shard.rotation.z = 0.4; g.add(shard);
+  g.userData.smoke = [-24, 80, -16];
+  return at(g, FORGE.x, FORGE.y);
+}
+function buildObservatory() {
+  const g = group(mesh(model('observatory', () => [
+    P3(gCyl(52, 56, 46, 18), '#dfe5ee', 0, 23, 0), P3(gTor(53, 3, 4, 24), '#9aa3ae', 0, 46, 0, PI / 2), P3(gDome(48), '#8fa6c8', 0, 46, 0),
+    P3(gBox(14, 40, 6), '#1c2333', 0, 70, 40, -0.9), P3(gCyl(7, 9, 60, 10), '#4b5563', 0, 92, 30, -0.9), P3(gBox(16, 26, 3), '#5a3a20', 0, 13, 55),
+    P3(gCyl(3, 3, 30, 6), '#dfe5ee', 44, 15, 44), P3(gCyl(3, 3, 30, 6), '#dfe5ee', -44, 15, 44),
+  ])));
+  const lens = new THREE.Mesh(gCyl(6.5, 6.5, 1, 12), glow('#9fdcff')); lens.position.set(0, 116, 55); lens.rotation.x = -0.9 + PI / 2; g.add(lens);
+  return at(g, OBSERVATORY.x, OBSERVATORY.y);
+}
 function syncWorld() {
   const t = gameTime;
   for (const d of decals) d.m.visible = !d.cond || !!d.cond();
@@ -2284,6 +2766,13 @@ function syncWorld() {
   if (ct) { const p = railPos(cart.s); at(ct, p.x, p.y); const seg = railSeg.find(g => cart.s <= g.s0 + g.l + 0.01) || railSeg[railSeg.length - 1]; ct.rotation.y = -Math.atan2(seg.b[1] - seg.a[1], seg.b[0] - seg.a[0]); }
   ensure('board', lv('board'), buildBoard);
   ensure('smokehouse', lv('smokehouse'), buildSmokehouse);
+  ensure('forge', lv('forge'), buildForge);
+  ensure('observatory', lv('observatory'), buildObservatory);
+  fence2Group.visible = !!lv('glacier');
+  lockFog2.visible = !lv('glacier');
+  const n = nightAmount();
+  aurora.visible = !!lv('observatory') && n > 0.05;
+  if (aurora.visible) { at(aurora, camTarget.x, camTarget.z); aurora.children.forEach((m, i) => { m.material.opacity = n * (0.55 + 0.25 * Math.sin(t * 0.5 + i * 2)); m.position.y = 700 + i * 60 + Math.sin(t * 0.3 + i) * 30; }); }
   const ra = ensure('radio', lv('radio'), buildRadio);
   if (ra) ra.userData.beacon.visible = Math.sin(t * 4) > 0;
   // Tor
@@ -2363,21 +2852,42 @@ function makeBear(spiky, raider) {
   }, 'bearLeg', () => [P3(gCyl(4.5, 4, 18, 7), '#e8edf4', 0, -9, 0), P3(gCyl(4.8, 4.8, 3, 7), '#8795a8', 0, -17, 1)],
   [[-9, 18, 16], [9, 18, 16], [-9, 18, -15], [9, 18, -15]]);
 }
-function makeWolf(guard, husky) {
-  const fur = husky ? '#eef1f5' : '#9aa4b1', dark = husky ? '#5d6673' : '#6f7986', light = husky ? '#ffffff' : '#d9dee5';
-  return quadruped('wolf' + (guard ? 'G' : '') + (husky ? 'H' : ''), () => {
+function makeWolf(guard, husky, frost) {
+  const fur = husky ? '#eef1f5' : frost ? '#a9d6f5' : '#9aa4b1', dark = husky ? '#5d6673' : frost ? '#4f86b8' : '#6f7986', light = husky ? '#ffffff' : frost ? '#e8f6ff' : '#d9dee5';
+  return quadruped('wolf' + (guard ? 'G' : '') + (husky ? 'H' : '') + (frost ? 'F' : ''), () => {
     const a = [
       P3(gSph(1, 10, 8), fur, 0, 21, 0, 0, 0, 0, 10, 10, 22), P3(gSph(1, 8, 6), dark, 0, 26, -2, 0, 0, 0, 8, 5, 18), P3(gSph(1, 8, 6), light, 0, 17, 2, 0, 0, 0, 8, 5, 16),
       P3(gSph(8, 8, 6), fur, 0, 27, 20), P3(gCone(4.5, 12, 6), husky ? light : fur, 0, 25, 30, PI / 2), P3(gSph(1.8, 5, 4), '#222', 0, 25, 36.5),
       P3(gCone(3, 7, 4), dark, -4, 35, 18), P3(gCone(3, 7, 4), dark, 4, 35, 18),
-      P3(gSph(1.4, 5, 4), husky ? '#4fc3f7' : '#ffd24a', -3.5, 29, 26.5), P3(gSph(1.4, 5, 4), husky ? '#4fc3f7' : '#ffd24a', 3.5, 29, 26.5),
+      P3(gSph(1.4, 5, 4), husky ? '#4fc3f7' : frost ? '#e8fbff' : '#ffd24a', -3.5, 29, 26.5), P3(gSph(1.4, 5, 4), husky ? '#4fc3f7' : frost ? '#e8fbff' : '#ffd24a', 3.5, 29, 26.5),
       husky ? P3(gTor(6, 2.5, 4, 8, PI * 1.3), fur, 0, 32, -20, 0, PI / 2, 0) : P3(gCyl(2.5, 4, 22, 6), fur, 0, 26, -28, -0.9),
     ];
     if (guard) a.push(P3(gTor(7, 1.8, 4, 10), '#ffd84a', 0, 25, 13, 0.3));
     if (husky) a.push(P3(gTor(7, 1.6, 4, 10), '#e53935', 0, 25, 13, 0.3));
     return a;
-  }, 'wolfLeg' + (husky ? 'H' : ''), () => [P3(gCyl(2.4, 2, 17, 6), dark, 0, -8.5, 0)],
+  }, 'wolfLeg' + (husky ? 'H' : '') + (frost ? 'F' : ''), () => [P3(gCyl(2.4, 2, 17, 6), dark, 0, -8.5, 0)],
   [[-5, 17, 12], [5, 17, 12], [-5, 17, -12], [5, 17, -12]]);
+}
+function makeMammoth(king) {
+  const fur = king ? '#5a3d28' : '#7a5236', dark = king ? '#3f2a1b' : '#5f3f2a';
+  const m = quadruped('mammoth' + (king ? 'K' : ''), () => {
+    const a = [
+      P3(gSph(1, 12, 9), fur, 0, 44, 0, 0, 0, 0, 26, 26, 38), P3(gSph(1, 10, 8), fur, 0, 60, -6, 0, 0, 0, 20, 14, 24),
+      P3(gCyl(24, 29, 18, 12), dark, 0, 26, 0, 0, 0, 0, 1, 1, 1.35), P3(gSph(1, 10, 8), '#f4f9ff', 0, 67, -6, 0, 0, 0, 16, 4, 20),
+      P3(gSph(17, 10, 8), fur, 0, 52, 36), P3(gSph(1, 8, 6), dark, -15, 54, 30, 0, 0, 0, 4, 11, 9), P3(gSph(1, 8, 6), dark, 15, 54, 30, 0, 0, 0, 4, 11, 9),
+      P3(gCyl(5, 6.5, 18, 8), fur, 0, 36, 50, 0.3), P3(gCyl(4, 5, 16, 8), fur, 0, 23, 54, 0.1), P3(gCyl(3.5, 4, 10, 8), dark, 0, 13, 56, -0.5),
+      P3(gCyl(1.5, 3.6, 36, 6), '#f4ecd8', -9, 32, 52, 1.25, 0, -0.35), P3(gCyl(1.5, 3.6, 36, 6), '#f4ecd8', 9, 32, 52, 1.25, 0, 0.35),
+      P3(gSph(1.8, 5, 4), '#111', -9, 57, 48), P3(gSph(1.8, 5, 4), '#111', 9, 57, 48),
+    ];
+    if (king) {
+      a.push(P3(gCyl(10, 9, 7, 10), '#bfe9ff', 0, 72, 34));
+      for (let i = 0; i < 6; i++) { const an = i / 6 * PI * 2; a.push(P3(gCone(2.6, 10, 4), '#e8fbff', Math.cos(an) * 9, 80, 34 + Math.sin(an) * 9)); }
+      for (let i = 0; i < 7; i++) a.push(P3(gCone(4, 18, 5), '#8fd3ff', (i % 2 ? 6 : -6), 68, -22 + i * 6, -0.3));
+    }
+    return a;
+  }, 'mamLeg' + (king ? 'K' : ''), () => [P3(gCyl(8, 7.5, 30, 8), dark, 0, -15, 0), P3(gCyl(8.6, 8.6, 4, 8), '#2b1d12', 0, -28, 0)],
+  [[-13, 30, 18], [13, 30, 18], [-13, 30, -18], [13, 30, -18]]);
+  return m;
 }
 function makeYeti() {
   const root = new THREE.Group(), inner = new THREE.Group(); root.add(inner);
@@ -2474,8 +2984,9 @@ function renderEntities(dt) {
   if (!p._m) { p._m = track(makeHuman('#2f7de1', { tool: 'axe' })); p._m.root.scale.setScalar(1.1); p._m.px = p.x; p._m.py = p.y; }
   const pm = p._m; pm.seen = frameId;
   pm.root.visible = p.dead <= 0;
-  if (S.stats.benedict > 0 && !pm.crown) addCrown(pm);
-  if (pm.crown) pm.crown.visible = S.stats.benedict > 0;
+  const crowned = totKill('boss') > 0;
+  if (crowned && !pm.crown) addCrown(pm);
+  if (pm.crown) pm.crown.visible = crowned;
   at(pm.root, p.x, p.y);
   const near = nearestAnimal(p, 90);
   animHuman(pm, p, !p.moving ? (near || p.fishing || null) : null);
@@ -2494,9 +3005,9 @@ function renderEntities(dt) {
   // Tiere
   for (const b of animals) {
     const kind = b.type.kind;
-    const m = ensureModel(b, () => kind === 'bear' ? makeBear(b.type.name === 'spiky', b.raider) : kind === 'wolf' ? makeWolf(b.guard) : kind === 'yeti' ? makeYeti() : makeBenedict());
+    const m = ensureModel(b, () => kind === 'bear' ? makeBear(b.type.name === 'spiky', b.raider) : kind === 'wolf' ? makeWolf(b.guard, false, b.type.name === 'frostwolf') : kind === 'yeti' ? makeYeti() : kind === 'mammoth' ? makeMammoth(false) : kind === 'mking' ? makeMammoth(true) : makeBenedict());
     at(m.root, b.x, b.y);
-    const s = (kind === 'bear' ? b.type.size * 1.1 : kind === 'yeti' ? 1.25 : kind === 'boss' ? 1.85 : 1) * (0.3 + 0.7 * b.spawnT);
+    const s = (kind === 'bear' ? b.type.size * 1.1 : kind === 'yeti' ? 1.25 : kind === 'boss' ? 1.85 : kind === 'mking' ? 1.6 : kind === 'wolf' ? b.type.size : 1) * (0.3 + 0.7 * b.spawnT);
     m.root.scale.setScalar(s);
     const dp = dist(b, p);
     const attacking = !b.dead && p.dead <= 0 && dp < 80 * b.type.size;
@@ -2528,7 +3039,7 @@ function renderEntities(dt) {
     const look = w.kind === 'fisher' ? (w.state === 'work' && !w.moving ? HOLES[w.hole] : null) : (!w.moving && w.target && !w.target.dead ? w.target : null);
     w.rodOn = w.kind === 'fisher' && w.state === 'work' && !w.moving;
     animHuman(m, w, look);
-    stackOn(m, w, Array(w.carry).fill(w.kind === 'hunter' ? 'meat' : w.kind === 'lumber' ? 'wood' : 'fish'), 56);
+    stackOn(m, w, Array(w.carry).fill(w.kind === 'hunter' ? 'meat' : w.kind === 'lumber' ? 'wood' : w.kind === 'driller' ? 'crystal' : 'fish'), 56);
   }
   for (const sh of SHOP_LIST) if (sh.cashier) {
     const m = ensureModel(sh.cashier, () => makeHuman('#8e44ad'));
@@ -2576,19 +3087,20 @@ function renderItems() {
   }
   if (lv('lumber')) pilePos(WOODPILE, 'wood', WOODPILE.n);
   if (lv('mine')) pilePos(GOLDPILE, 'gold', GOLDPILE.n);
+  if (lv('glacier')) pilePos(CRYSTALPILE, 'crystal', CRYSTALPILE.n);
   if (grill) { const n = Math.min(grill.q, 6); for (let i = 0; i < n; i++) pushItem(i % 2 ? 'steak' : 'meat', GRILL.x - 10 + (i % 3) * 10, GRILL.y - 5 + Math.floor(i / 3) * 10, 23, 0.3, 0.7); }
   if (cart) { const p = railPos(cart.s); for (let i = 0; i < cart.load; i++) pushItem('gold', p.x - 6 + (i % 3) * 6, p.y, 17 + Math.floor(i / 3) * 5, 0.5, 0.8); }
   for (const f of flyers) { if (f.t < 0) continue; pushItem(f.type, f.x, f.y, f.z, f.t * 6); }
   for (const it of items) pushItem(it.type, it.x, it.y, it.z, it.x * 0.1);
   for (const h of hazards) {
     const k = (h.t - (h.delay - 0.5)) / 0.5;
-    if (k > 0 && k < 1) for (let i = 0; i < 5; i++) pushItem('gold', h.x + Math.cos(i * 1.3) * 18, h.y + Math.sin(i * 1.3) * 18, 320 * (1 - k) + i * 12, i + gameTime * 8, 0.9);
+    if (k > 0 && k < 1 && !h.stomp) for (let i = 0; i < 5; i++) pushItem('gold', h.x + Math.cos(i * 1.3) * 18, h.y + Math.sin(i * 1.3) * 18, 320 * (1 - k) + i * 12, i + gameTime * 8, 0.9);
   }
   flushItems();
 }
 function pilePos(pile, type, count) {
   const cols = [[0, 0], [22, 0], [0, 22], [22, 22], [-22, 0], [0, -22], [-22, 22], [22, -22], [-22, -22]];
-  const per = type === 'cash' ? 8 : 6, step = type === 'wood' ? 7 : type === 'cash' ? 4 : 5.5;
+  const per = type === 'cash' ? 8 : 6, step = type === 'wood' ? 7 : type === 'cash' ? 4 : type === 'crystal' ? 9 : 5.5;
   const n = Math.min(count, cols.length * per);
   for (let i = 0; i < n; i++) {
     const c = cols[Math.floor(i / per) % cols.length], h = i % per;
@@ -2633,6 +3145,19 @@ function renderFx(dt) {
     _m4.compose(_p.set(a.x, a.z, a.y), _q, _s.set(sc, sc, sc)); arrowIM.setMatrixAt(an++, _m4);
   }
   arrowIM.count = an; arrowIM.instanceMatrix.needsUpdate = true;
+}
+function updateCrystalsIM() {
+  let ch = false;
+  for (const c of crystals) {
+    if (!c.dirty && c.shake <= 0 && !c.wasShaking) continue;
+    c.wasShaking = c.shake > 0; c.dirty = false; ch = true;
+    const alive = c.charges > 0, k = alive ? c.s * (0.55 + 0.45 * c.charges / 4) : 0.0001;
+    _e.set(0, c.x * 0.02, c.shake > 0 ? Math.sin(c.shake * 80) * 0.06 : 0); _q.setFromEuler(_e);
+    _m4.compose(_p.set(c.x, 0, c.y), _q, _s.set(k, k, k)); crystalIM.setMatrixAt(c.i, _m4);
+    const r = alive ? 0.0001 : c.s;
+    _m4.compose(_p.set(c.x, 0, c.y), _q, _s.set(r, r, r)); crystalRockIM.setMatrixAt(c.i, _m4);
+  }
+  if (ch) { crystalIM.instanceMatrix.needsUpdate = true; crystalRockIM.instanceMatrix.needsUpdate = true; }
 }
 function updateTreesIM() {
   let changed = false;
@@ -2738,9 +3263,10 @@ function renderLabels() {
       const name = pd.levels.length > 1 ? `${pd.name} <span class="stars">${'★'.repeat(l)}${'☆'.repeat(pd.levels.length - l)}</span>` : pd.name;
       label3('pn' + pd.id, name, pd.x, pd.y - half, 0, 'padname', -12);
       const rem = padRemaining(pd), c = [];
-      if (rem.cash > 0) c.push(`<span class="${S.cash >= rem.cash ? 'ok' : ''}">💵${rem.cash}</span>`);
+      if (rem.cash > 0) c.push(`<span class="${S.cash >= rem.cash ? 'ok' : ''}">💵${fmt(rem.cash)}</span>`);
       if (rem.wood > 0) c.push(`<span class="${S.wood >= rem.wood ? 'ok' : ''}">🪵${rem.wood}</span>`);
       if (rem.gold > 0) c.push(`<span class="${S.gold >= rem.gold ? 'ok' : ''}">🪙${rem.gold}</span>`);
+      if (rem.crystal > 0) c.push(`<span class="${S.crystal >= rem.crystal ? 'ok' : ''}">💎${rem.crystal}</span>`);
       label3('pc' + pd.id, c.join(' '), pd.x, pd.y + half * 0.45, 0, 'padcost');
     }
     for (const sh of SHOP_LIST) {
@@ -2749,9 +3275,9 @@ function renderLabels() {
     }
     for (const b of animals) {
       if (b.dead) continue;
-      const hh = b.type.kind === 'boss' ? 150 : b.type.kind === 'yeti' ? 150 : b.type.kind === 'wolf' ? 50 : 62 * b.type.size;
+      const hh = b.type.kind === 'boss' ? 150 : b.type.kind === 'yeti' ? 150 : b.type.kind === 'mking' ? 140 : b.type.kind === 'mammoth' ? 95 : b.type.kind === 'wolf' ? 50 : 62 * b.type.size;
       if (b.hp < b.type.hp && !b.boss) {
-        const w = b.type.kind === 'yeti' ? 90 : Math.round(46 * b.type.size);
+        const w = b.type.kind === 'yeti' || b.type.kind === 'mking' ? 90 : b.type.kind === 'mammoth' ? 70 : Math.round(46 * b.type.size);
         label3('~hp' + b.id, `<div class="hp" style="width:${w}px"><i style="width:${Math.max(0, b.hp / b.type.hp * 100).toFixed(0)}%"></i></div>`, b.x, b.y, hh, '');
       }
       if (b.raider || b.guard) label3('~rd' + b.id, '⚔️', b.x, b.y, hh + 16, 'small');
@@ -2764,6 +3290,7 @@ function renderLabels() {
       label3('gate', `🛡️<div class="hp gate" style="width:110px"><i style="width:${(gate.hp / gate.max * 100).toFixed(0)}%"></i></div>`, GATE_CX, FENCE_Y, 70, 'row');
     if (p.dead <= 0 && p.hp < p.maxHp)
       label3('php', `<div class="hp me" style="width:60px"><i style="width:${(p.hp / p.maxHp * 100).toFixed(0)}%;background:${p.hp > p.maxHp * 0.35 ? '#5ccf5c' : '#ff5a3c'}"></i></div>`, p.x, p.y, 0, '', 20);
+    if (lv('radio') && !lv('glacier')) label3('lock2', `<div class="lockt">🔒 Gletscher</div><div class="locks">Schalte das Gebiet im Lager frei</div>`, 700, 1560, 80, '');
     if (!lv('east')) label3('lock', `<div class="lockt">🔒 Eissee</div><div class="locks">${lv('furnace') ? 'Schalte das Gebiet im Lager frei' : 'Wird nach dem Großen Ofen freigeschaltet'}</div>`, 1850, 700, 80, '');
   }
   for (const [k, L] of LB) {
@@ -2781,6 +3308,7 @@ function render3D(dt) {
   updateCamera(dt, menu);
   updateLights(dt);
   updateTreesIM();
+  updateCrystalsIM();
   renderEntities(dt);
   renderItems();
   renderFx(dt);
@@ -2796,6 +3324,7 @@ function reset3D() {
   puffs.length = 0;
   for (const [k, L] of LB) { L.el.remove(); LB.delete(k); }
   for (const t of trees) t.dirty = true;
+  for (const c of crystals) c.dirty = true;
 }
 
 const $ = id => document.getElementById(id);
@@ -2809,13 +3338,16 @@ function progress() {
 }
 function updateHud() {
   const done = progress();
-  const key = [S.cash, S.wood, player.stack.length, player.cap, S.gold, goal ? goal.text : '', done].join('|');
+  const key = [S.cash, S.wood, player.stack.length, player.cap, S.gold, goal ? goal.text : '', done, S.crystal, M.level, Math.floor(M.xp), M.sp, EXP()].join('|');
   if (key === lastHud) return; lastHud = key;
-  hud.cash.textContent = S.cash; hud.wood.textContent = S.wood; hud.gold.textContent = S.gold;
+  hud.cash.textContent = fmt(S.cash); hud.wood.textContent = fmt(S.wood); hud.gold.textContent = fmt(S.gold);
+  $('hCrystal').textContent = fmt(S.crystal); $('pCrystal').classList.toggle('hidden', !lv('glacier') && !S.crystal);
+  $('lvlTxt').textContent = 'Lv ' + M.level; $('xpBar').style.width = Math.min(100, M.xp / xpFor(M.level) * 100).toFixed(1) + '%';
+  $('spBadge').textContent = M.sp; $('spBadge').classList.toggle('hidden', M.sp <= 0);
   hud.meat.textContent = player.stack.length; hud.meatMax.textContent = '/' + player.cap;
   hud.pMeat.classList.toggle('full', player.stack.length >= player.cap);
   hud.hint.textContent = goal ? goal.text : '';
-  hud.progTxt.textContent = (S.win2 ? '🏆 Durchgespielt' : S.win1 ? 'Kapitel 2' : 'Kapitel 1') + ` · ${done}/${TOTAL_LEVELS}`;
+  hud.progTxt.textContent = (S.win3 ? '🏆 Alles gebaut' : `Kapitel ${S.win2 ? 3 : S.win1 ? 2 : 1}`) + ` · ${done}/${TOTAL_LEVELS}` + (EXP() ? ` · Exp. ${EXP() + 1}` : '');
   hud.progBar.style.width = (done / TOTAL_LEVELS * 100).toFixed(1) + '%';
 }
 function renderQuests() {
@@ -2824,7 +3356,7 @@ function renderQuests() {
   el.classList.remove('hidden');
   const html = '<div class="qh">📜 Aufträge</div>' + S.quests.map(q => {
     const Q = QUEST_TYPES[q.type], cur = Math.min(q.n, Q.stat() - q.base), r = q.reward;
-    const rw = `+${r.cash}💵` + (r.wood ? ` +${r.wood}🪵` : '') + (r.gold ? ` +${r.gold}🪙` : '');
+    const rw = `+${fmt(r.cash)}💵` + (r.wood ? ` +${r.wood}🪵` : '') + (r.gold ? ` +${r.gold}🪙` : '');
     return `<div class="q"><div class="qt">${Q.text(q.n)}</div><div class="qb"><i style="width:${(cur / q.n * 100).toFixed(0)}%"></i></div><div class="qr"><span>${cur}/${q.n}</span><span>${rw}</span></div></div>`;
   }).join('');
   if (html !== lastQuest) { el.innerHTML = html; lastQuest = html; }
@@ -2833,7 +3365,7 @@ function updateOverlays() {
   const boss = running ? animals.find(b => b.boss && !b.dead && !b.gone) : null;
   const bb = $('bossbar');
   bb.classList.toggle('hidden', !boss);
-  if (boss) $('bossHp').style.width = Math.max(0, boss.hp / boss.type.hp * 100).toFixed(1) + '%';
+  if (boss) { $('bossHp').style.width = Math.max(0, boss.hp / boss.type.hp * 100).toFixed(1) + '%'; $('bossName').textContent = `👑 Benedict Million · Stufe ${M.benedictLvl + 1}`; }
   const p = player;
   let v = 0, col = '200,20,20';
   if (running) {
@@ -2858,7 +3390,8 @@ function renderStats() {
   const rows = [
     ['Spielzeit', fmtTime(st.time)], ['Ausbauten', `${progress()} / ${TOTAL_LEVELS}`], ['Siedlungshäuser', `${housesBuilt()} / ${HOUSES.length}`],
     ['Tiere erlegt', st.kills], ['Ware verkauft', st.sold], ['Fische gefangen', st.fish], ['Angriffe abgewehrt', st.raids], ['Yetis besiegt', st.yeti],
-    ['Aufträge erfüllt', st.quests || 0], ['Geheimer Boss', st.benedict ? `👑 Benedict Million ×${st.benedict}` : '???'],
+    ['Aufträge erfüllt', st.quests || 0], ['Geheimer Boss', totKill('boss') ? `👑 Benedict Million ×${totKill('boss')}` : '???'],
+    ['Expedition', EXP() + 1], ['Spielerstufe', M.level], ['Polarsterne', M.stars], ['Erfolge', `${Object.keys(M.ach).length} / ${ACH.length}`], ['Trophäen', `${Object.keys(M.trophies).length} / ${TROPHIES.length}`], ['Gesamtspielzeit', fmtTime(tot('time'))],
     ['Zuletzt gespeichert', lastSaveOk ? new Date(lastSaveOk).toLocaleTimeString('de-DE') : '–'],
   ];
   $('stats').innerHTML = rows.map(([a, b]) => `<span>${a}</span><b>${b}</b>`).join('');
@@ -2887,14 +3420,18 @@ function startGame(fresh) {
   initAudio();
   newState();
   reset3D();
-  if (fresh) clearSave(); else applySave(readSave());
+  if (fresh) { clearSave(); M = defaultMeta(); } else applySave(readSave());
+  refreshStats(); player.hp = player.maxHp;
   camTarget.set(player.x, 0, player.y); goal = null; lastQuest = '';
   $('menu').classList.add('hidden');
   running = true; paused = false; lastHud = '';
+  if (S.offline) { const r = S.offline; S.offline = null;
+    showWin('👋 Willkommen zurück!', `Während du ${fmtTime(r.away)} weg warst, haben deine Helfer weitergearbeitet:<br><br>` +
+      [r.cash && `💵 ${fmt(r.cash)}`, r.wood && `🪵 ${fmt(r.wood)}`, r.gold && `🪙 ${fmt(r.gold)}`, r.crystal && `💎 ${fmt(r.crystal)}`].filter(Boolean).join(' &nbsp; ')); }
   save();
 }
 function togglePause() {
-  if (!running || !$('codeBox').classList.contains('hidden') || !$('win').classList.contains('hidden')) return;
+  if (!running || !$('codeBox').classList.contains('hidden') || !$('win').classList.contains('hidden') || !$('metaBox').classList.contains('hidden')) return;
   paused = !paused;
   if (paused) { save(); renderStats(); $('bQuality').textContent = 'Grafik: ' + (quality === 'high' ? 'Hoch' : 'Schnell'); }
   $('pause').classList.toggle('hidden', !paused);
@@ -2958,6 +3495,60 @@ window.addEventListener('beforeunload', save);
 if (hasSave()) { $('bPlay').textContent = 'Weiterspielen'; $('bNew').classList.remove('hidden'); }
 newState(); running = false;
 init3D();
+let metaTab = 'skills';
+function openMeta(tab) {
+  if (!running) return;
+  if (!$('pause').classList.contains('hidden')) $('pause').classList.add('hidden');
+  paused = true; metaTab = tab || metaTab;
+  $('metaBox').classList.remove('hidden'); renderMeta();
+}
+function closeMeta() { $('metaBox').classList.add('hidden'); paused = false; save(); }
+function renderMeta() {
+  document.querySelectorAll('#metaTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === metaTab));
+  let h = '';
+  if (metaTab === 'skills') {
+    h = `<h2>⭐ Fähigkeiten</h2><div class="sub">Stufe ${M.level} · <b>${M.sp}</b> Punkt${M.sp === 1 ? '' : 'e'} frei · Erfahrung ${fmt(M.xp)} / ${fmt(xpFor(M.level))}</div>` +
+      '<div class="small">Du bekommst Erfahrung für alles: Tiere erlegen, verkaufen, bauen, Aufträge und Bosse. Jede Stufe bringt einen Fähigkeitspunkt. Fähigkeiten bleiben auch bei neuen Expeditionen erhalten.</div>' +
+      SKILLS.map(s => `<div class="mrow"><span class="ri">${s.icon}</span><div class="rt"><b>${s.name}</b><span class="lvlv">${sk(s.id)}/${s.max}</span><div class="rd">${s.desc}</div></div>` +
+        `<button class="mini" data-act="skill" data-id="${s.id}" ${M.sp > 0 && sk(s.id) < s.max ? '' : 'disabled'}>+1</button></div>`).join('');
+  } else if (metaTab === 'exp') {
+    const can = lv('furnace') > 0, gain = starsForRun();
+    h = `<h2>🚀 Expedition ${EXP() + 1}</h2><div class="sub">Schwierigkeit: Tiere ×${hpScale().toFixed(1)} Leben · Preise und Kosten ×${(1 + 0.5 * EXP()).toFixed(1)}</div>` +
+      `<div class="starbox">⭐ ${M.stars} Polarsterne</div>` +
+      '<div class="small">Bei einer neuen Expedition beginnst du wieder mit einer leeren Siedlung – aber stärker. Du behältst Stufe, Fähigkeiten, Polarsterne, Sternen-Boni, Erfolge und Trophäen. Je mehr Geld du in dieser Expedition verdient hast, desto mehr Sterne gibt es.</div>' +
+      `<div style="margin:12px 0"><button class="big-btn" data-act="expedition" ${can ? '' : 'disabled'}>Neue Expedition starten (+${gain} ⭐)</button></div>` +
+      (can ? '' : '<div class="small">Verfügbar, sobald der Große Ofen gebaut ist.</div>') +
+      '<h3>Sternen-Boni</h3>' +
+      PERKS.map(p => { const l = pk(p.id), c = perkCost(p), max = l >= p.max;
+        return `<div class="mrow"><span class="ri">${p.icon}</span><div class="rt"><b>${p.name}</b><span class="lvlv">${l}/${p.max}</span><div class="rd">${p.desc}</div></div>` +
+          `<button class="mini" data-act="perk" data-id="${p.id}" ${!max && M.stars >= c ? '' : 'disabled'}>${max ? 'Max' : c + ' ⭐'}</button></div>`; }).join('');
+  } else if (metaTab === 'ach') {
+    const done = ACH.filter(a => M.ach[a.id]).length;
+    h = `<h2>🏅 Erfolge</h2><div class="sub">${done} von ${ACH.length} geschafft · Jeder Erfolg bringt Polarsterne</div>` +
+      ACH.map(a => { const ok = M.ach[a.id], cur = Math.min(a.cur(), a.goal);
+        return `<div class="mrow ${ok ? 'done' : ''}"><span class="ri">${ok ? '✅' : '⬜'}</span><div class="rt"><b>${a.name}</b><div class="rd">${ok ? 'Geschafft' : fmt(cur) + ' / ' + fmt(a.goal)}</div></div><b>+${a.stars} ⭐</b></div>`; }).join('');
+  } else {
+    const n = Object.keys(M.trophies).length;
+    h = `<h2>🏆 Sammlung</h2><div class="sub">${n} von ${TROPHIES.length} Trophäen · Jede Trophäe ist ein dauerhafter Bonus</div><div class="tgrid">` +
+      TROPHIES.map(t => hasT(t.id) ? `<div class="tcard"><div class="ti">${t.icon}</div><b>${t.name}</b><div class="rd">${t.desc}</div></div>`
+        : `<div class="tcard no"><div class="ti">❔</div><b>???</b><div class="rd">${t.hint}</div></div>`).join('') + '</div>';
+  }
+  $('metaContent').innerHTML = h;
+}
+$('metaTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { metaTab = b.dataset.tab; renderMeta(); } });
+$('metaContent').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  const id = b.dataset.id;
+  if (b.dataset.act === 'skill' && M.sp > 0) { const s = SKILLS.find(q => q.id === id); if (sk(id) < s.max) { M.skills[id] = sk(id) + 1; M.sp--; sfx('build'); refreshStats(); } }
+  if (b.dataset.act === 'perk') { const p = PERKS.find(q => q.id === id), c = perkCost(p); if (M.stars >= c && pk(id) < p.max) { M.stars -= c; M.perks[id] = pk(id) + 1; sfx('build'); refreshStats(); if (id === 'wache') { gate.max = gateMax(lv('gate')); } } }
+  if (b.dataset.act === 'expedition') {
+    if (!confirm(`Neue Expedition starten?\n\nDu erhältst ${starsForRun()} Polarsterne. Gebäude, Geld und Rohstoffe werden zurückgesetzt – Stufe, Fähigkeiten, Boni, Erfolge und Trophäen bleiben.`)) return;
+    $('metaBox').classList.add('hidden'); paused = false; startExpedition(); return;
+  }
+  save(); renderMeta();
+});
+$('bMeta').addEventListener('click', () => openMeta());
+$('bMetaClose').addEventListener('click', closeMeta);
 $('bQuality').addEventListener('click', () => {
   quality = quality === 'high' ? 'low' : 'high';
   try { localStorage.setItem('fs-quality', quality); } catch (e) { }
