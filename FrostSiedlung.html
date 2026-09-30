@@ -315,6 +315,12 @@ const W_A = 1400, W_B = 2300, H = 1320;
 const WM = 400, X_MIN = -WM, Y_MIN = -WM, X_MAX = W_B + WM;
 const FENCE_Y = 660;
 const GATE_X0 = 630, GATE_X1 = 770, GATE_CX = 700;
+// zweites Tor beim Fischmarkt: direkter Weg vom Lager ins Eissee-Jagdgebiet (offen, sobald der Eissee freigeschaltet ist)
+const GATE2_X0 = 1620, GATE2_X1 = 1760, GATE2_CX = 1690;
+const fenceGates = f => f === FENCE_Y && lv('east') ? [[GATE_X0, GATE_X1, GATE_CX], [GATE2_X0, GATE2_X1, GATE2_CX]] : [[GATE_X0, GATE_X1, GATE_CX]];
+const inGate = (f, x, m = 0) => fenceGates(f).some(g => x > g[0] + m && x < g[1] - m);
+// günstigstes Tor für einen Weg von ax nach bx
+const gateFor = (f, ax, bx) => fenceGates(f).reduce((g, h) => Math.abs(ax - h[2]) + Math.abs(bx - h[2]) < Math.abs(ax - g[2]) + Math.abs(bx - g[2]) ? h : g);
 const AREA_A = { x0: X_MIN + 170, x1: 1230, y0: Y_MIN + 215, y1: FENCE_Y - 28 };
 const AREA_B = { x0: 1450, x1: X_MAX - 170, y0: Y_MIN + 215, y1: FENCE_Y - 28 };
 const RAID_Y0 = 215;   // Nachtangreifer starten wie bisher in Sichtweite des Tors
@@ -765,8 +771,8 @@ function inputVector() {
    Bewegung & Kollision
    ========================================================= */
 function blocked(x, y, r = 12) {
-  if (Math.abs(y - FENCE_Y) < 12 && (x < GATE_X0 + 8 || x > GATE_X1 - 8)) return true;
-  if (Math.abs(y - FENCE2_Y) < 12 && (x < GATE_X0 + 8 || x > GATE_X1 - 8) && lv('glacier')) return true;
+  if (Math.abs(y - FENCE_Y) < 12 && !inGate(FENCE_Y, x, 8)) return true;
+  if (Math.abs(y - FENCE2_Y) < 12 && !inGate(FENCE2_Y, x, 8) && lv('glacier')) return true;
   for (const o of OBST) if (x > o.x0 - r && x < o.x1 + r && y > o.y0 - r && y < o.y1 + r) return true;
   if (lv('furnace') && Math.hypot(x - FURNACE.x, y - FURNACE.y) < 58) return true;
   return false;
@@ -797,11 +803,12 @@ function steer(e, tx, ty, speed, dt) {
     if (Math.abs(e.y - f) < 14) nf = f;
   }
   if (F === null && nf !== null && Math.abs(tx - e.x) > 30) {
-    wx = clamp(e.x, GATE_X0 + 20, GATE_X1 - 20); wy = e.y < nf ? nf - 36 : nf + 36;
+    const g = gateFor(nf, e.x, tx); wx = clamp(e.x, g[0] + 20, g[1] - 20); wy = e.y < nf ? nf - 36 : nf + 36;
   } else if (F !== null) {
     const eN = e.y < F, tN = ty < F;
-    if (Math.abs(e.x - GATE_CX) > 22) { wx = GATE_CX; wy = eN ? F - 40 : F + 40; }
-    else { wx = GATE_CX; wy = tN ? F - 45 : F + 45; }
+    const gx = gateFor(F, e.x, tx)[2];
+    if (Math.abs(e.x - gx) > 22) { wx = gx; wy = eN ? F - 40 : F + 40; }
+    else { wx = gx; wy = tN ? F - 45 : F + 45; }
   }
   const dx = wx - e.x, dy = wy - e.y, d = Math.hypot(dx, dy);
   e.moving = false;
@@ -1400,8 +1407,8 @@ function updateItems(dt) {
       if (it.z <= 0) { it.z = 0; it.vz = it.vz < -120 ? -it.vz * 0.3 : 0; it.vx *= 0.5; it.vy *= 0.5; }
     } else { it.vx *= 0.9; it.vy *= 0.9; }
     it.x = clamp(it.x, X_MIN + 20, worldW() - 20); it.y = clamp(it.y, Y_MIN + 20, worldH() - 20);
-    if (Math.abs(it.y - FENCE_Y) < 14 && (it.x < GATE_X0 || it.x > GATE_X1)) it.y = FENCE_Y - 16;
-    if (Math.abs(it.y - FENCE2_Y) < 14 && (it.x < GATE_X0 || it.x > GATE_X1) && lv('glacier')) it.y = FENCE2_Y + 16;
+    if (Math.abs(it.y - FENCE_Y) < 14 && !inGate(FENCE_Y, it.x)) it.y = FENCE_Y - 16;
+    if (Math.abs(it.y - FENCE2_Y) < 14 && !inGate(FENCE2_Y, it.x) && lv('glacier')) it.y = FENCE2_Y + 16;
     if (it.claimed || it.t < 0.35 || p.dead > 0) continue;
     if (dist(p, it) < 62) {
       if (it.type === 'crystal') {
@@ -2653,6 +2660,7 @@ function buildWorld() {
   scene.add(ground);
   const dirt = '#e6b08f';
   decal(GATE_X0 + 15, FENCE_Y - 70, GATE_X1 - 15, FENCE_Y + 40, dirt, null);
+  decal(GATE2_X0 + 15, FENCE_Y - 70, GATE2_X1 - 15, 700, dirt, () => lv('east'), 0.52);   // Weg durchs Fischer-Tor
   decal(400, FENCE_Y + 40, 800, 1000, dirt, null, 0.55);
   decal(430, 1000, 560, H, dirt, null, 0.6);
   decal(760, 680, 1200, 1060, dirt, null, 0.65);
@@ -2748,19 +2756,20 @@ function buildWorld() {
 
   // Zaun
   const posts = [];
-  for (let x = X_MIN - 150; x < X_MAX + 150; x += 16) { if (x > GATE_X0 && x < GATE_X1) continue; posts.push(x); }
+  for (let x = X_MIN - 150; x < X_MAX + 150; x += 16) { if ((x > GATE_X0 && x < GATE_X1) || (x > GATE2_X0 && x < GATE2_X1)) continue; posts.push(x); }
   const postIM = new THREE.InstancedMesh(model('post', () => [
     P3(gBox(7, 38, 7), '#d4603f', 0, 19, 0), P3(gBox(3, 38, 7.4), '#e8775a', -2, 19, 0), P3(gCone(5.2, 9, 4), '#f4f9ff', 0, 42.5, 0, 0, PI / 4)]), VC, posts.length);
   posts.forEach((x, i) => { _m4.makeTranslation(x, 0, FENCE_Y); postIM.setMatrixAt(i, _m4); });
   postIM.castShadow = true; postIM.receiveShadow = true; scene.add(postIM); inkIM(postIM);
   const railParts = [];
-  for (const [a, b] of [[X_MIN - 150, GATE_X0 - 6], [GATE_X1 + 6, X_MAX + 150]]) for (const h of [12, 28]) railParts.push(P3(gBox(b - a, 3, 3), '#a8432d', (a + b) / 2, h, FENCE_Y - 4));
-  for (const x of [GATE_X0, GATE_X1]) {
+  for (const [a, b] of [[X_MIN - 150, GATE_X0 - 6], [GATE_X1 + 6, GATE2_X0 - 6], [GATE2_X1 + 6, X_MAX + 150]]) for (const h of [12, 28]) railParts.push(P3(gBox(b - a, 3, 3), '#a8432d', (a + b) / 2, h, FENCE_Y - 4));
+  for (const x of [GATE_X0, GATE_X1, GATE2_X0, GATE2_X1]) {
     railParts.push(P3(gBox(12, 54, 12), '#8b5a2b', x, 27, FENCE_Y), P3(gCone(9, 12, 4), '#f4f9ff', x, 60, FENCE_Y, 0, PI / 4));
   }
   scene.add(mesh(merge(railParts)));
   // Tor
   gateDoors = [makeDoor(GATE_X0), makeDoor(GATE_X1)];
+  makeDoor(GATE2_X0); makeDoor(GATE2_X1);   // Fischer-Tor: Flügel stehen offen
   gateDebris = mesh(model('debris', () => [P3(gBox(40, 4, 8), '#8b3a2b', GATE_X0 + 30, 2, FENCE_Y + 20, 0, 0.4), P3(gBox(34, 4, 8), '#c0392b', GATE_X1 - 30, 2, FENCE_Y + 30, 0, -0.6),
     P3(gBox(28, 4, 7), '#8b5a2b', GATE_CX, 2, FENCE_Y + 10, 0, 1.1), P3(gBox(22, 3, 6), '#c0392b', GATE_CX + 20, 5, FENCE_Y + 40, 0.3, 2)]));
   scene.add(gateDebris);
