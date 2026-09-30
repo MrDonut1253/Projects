@@ -500,7 +500,14 @@ function makeTrees() {
   const S0 = 48, J = 34;
   for (let gx = X_MIN - 640; gx <= X_MAX + 640; gx += S0) for (let gy = Y_MIN - 640; gy <= Y_MAX + 640; gy += S0) {
     const x = gx + (r() - 0.5) * J, y = gy + (r() - 0.5) * J, s = 0.9 + r() * 0.45, d = inset(x, y);
-    if (d < 0) { if (-d < 560 + wob(y, x) * 50) decoTrees.push({ x, y, s, logs: 3, shake: 0 }); }
+    if (d < 0) {
+      if (-d > 560 + wob(y, x) * 50) continue;
+      if (Math.abs(y - FENCE_Y) < 16 || Math.abs(y - FENCE2_Y) < 16) continue;               // Zäune laufen in den Wald hinein
+      // grenzt innen kein Wald an (Lager), franst der Waldrand unregelmäßig aus statt gerade zu beginnen
+      const cx = clamp(x, X_MIN + 1, X_MAX - 1), cy = clamp(y, Y_MIN + 1, Y_MAX - 1);
+      if (!forestInside(cx, cy) && -d < Math.max(0, 14 + wob(x * 1.7, y * 1.7) * 14)) continue;
+      decoTrees.push({ x, y, s, logs: 3, shake: 0 });
+    }
     else if (forestInside(x, y)) trees.push({ i: trees.length, x, y, s, logs: 3, regrow: 0, shake: 0, dirty: true });
   }
   // Kacheln für die Darstellung (nur sichtbare Kacheln werden gezeichnet)
@@ -764,9 +771,18 @@ function blocked(x, y, r = 12) {
   if (lv('furnace') && Math.hypot(x - FURNACE.x, y - FURNACE.y) < 58) return true;
   return false;
 }
+// Weiche Grenze für den Spieler: keine unsichtbare Wand. Im Randwald bzw. Nebel wird es nach außen immer zäher
+// (bis zum Stillstand), und ohne Eingabe schiebt es einen sanft zurück.
+const SOFT = 110;
 function moveEntity(e, dx, dy) {
-  const ww = worldW();
-  const nx = clamp(e.x + dx, X_MIN + 20, ww - 20), ny = clamp(e.y + dy, Y_MIN + 20, worldH() - 20);
+  const x0 = X_MIN + 20, x1 = worldW() - 20, y0 = Y_MIN + 20, y1 = worldH() - 20;
+  const soft = e === player ? SOFT : 0;
+  if (soft) {
+    const ox = e.x < x0 ? x0 - e.x : e.x > x1 ? e.x - x1 : 0, oy = e.y < y0 ? y0 - e.y : e.y > y1 ? e.y - y1 : 0;
+    if ((dx < 0 && e.x < x0) || (dx > 0 && e.x > x1)) dx *= Math.max(0, 1 - ox / soft) ** 2;
+    if ((dy < 0 && e.y < y0) || (dy > 0 && e.y > y1)) dy *= Math.max(0, 1 - oy / soft) ** 2;
+  }
+  const nx = clamp(e.x + dx, x0 - soft, x1 + soft), ny = clamp(e.y + dy, y0 - soft, y1 + soft);
   if (blocked(e.x, e.y)) { e.x = nx; e.y = ny; return; }
   if (!blocked(nx, e.y)) e.x = nx;
   if (!blocked(e.x, ny)) e.y = ny;
@@ -1099,6 +1115,11 @@ function updatePlayer(dt) {
   }
   p.sway = lerp(p.sway, -v.sx * mv, Math.min(1, dt * 6));
   if (p.knock) { moveEntity(p, p.knock.x * dt, p.knock.y * dt); p.knock.t -= dt; if (p.knock.t <= 0) p.knock = null; }
+  { // sanft aus dem Randwald zurückgleiten
+    const x0 = X_MIN + 20, x1 = worldW() - 20, y0 = Y_MIN + 20, y1 = worldH() - 20;
+    const bx = p.x < x0 ? x0 - p.x : p.x > x1 ? x1 - p.x : 0, by = p.y < y0 ? y0 - p.y : p.y > y1 ? y1 - p.y : 0;
+    if (bx || by) { const k = Math.min(1, dt * 0.55); moveEntity(p, bx * k, by * k); }
+  }
 
   // Speerwurf
   if (lv('spear')) {
@@ -2652,12 +2673,12 @@ function buildWorld() {
   decal(1640, 1290, 1760, 1380, dirt, () => lv('glacier'), 1.05);
   fence2Group = new THREE.Group();
   { const posts2 = [];
-    for (let x = X_MIN + 6; x < X_MAX; x += 16) { if (x > GATE_X0 && x < GATE_X1) continue; posts2.push(x); }
+    for (let x = X_MIN - 150; x < X_MAX + 150; x += 16) { if (x > GATE_X0 && x < GATE_X1) continue; posts2.push(x); }
     const im = new THREE.InstancedMesh(model('post2', () => [P3(gBox(7, 38, 7), '#5f86b3', 0, 19, 0), P3(gBox(3, 38, 7.4), '#7aa3cf', -2, 19, 0), P3(gCone(5.2, 9, 4), '#f4f9ff', 0, 42.5, 0, 0, PI / 4)]), VC, posts2.length);
     posts2.forEach((x, i) => { _m4.makeTranslation(x, 0, FENCE2_Y); im.setMatrixAt(i, _m4); });
     im.castShadow = true; fence2Group.add(im); inkIM(im);
     const rp = [];
-    for (const [a, b] of [[X_MIN, GATE_X0 - 6], [GATE_X1 + 6, X_MAX]]) for (const h of [12, 28]) rp.push(P3(gBox(b - a, 3, 3), '#4a6e96', (a + b) / 2, h, FENCE2_Y + 4));
+    for (const [a, b] of [[X_MIN - 150, GATE_X0 - 6], [GATE_X1 + 6, X_MAX + 150]]) for (const h of [12, 28]) rp.push(P3(gBox(b - a, 3, 3), '#4a6e96', (a + b) / 2, h, FENCE2_Y + 4));
     for (const x of [GATE_X0, GATE_X1]) rp.push(P3(gBox(12, 54, 12), '#4a6e96', x, 27, FENCE2_Y), P3(gCone(9, 12, 4), '#f4f9ff', x, 60, FENCE2_Y, 0, PI / 4));
     rp.push(P3(gBox(4, 36, 55), '#5f86b3', GATE_X0, 20, FENCE2_Y - 27.5), P3(gBox(4, 36, 55), '#5f86b3', GATE_X1, 20, FENCE2_Y - 27.5));
     fence2Group.add(mesh(merge(rp)));
@@ -2727,13 +2748,13 @@ function buildWorld() {
 
   // Zaun
   const posts = [];
-  for (let x = X_MIN + 6; x < X_MAX; x += 16) { if (x > GATE_X0 && x < GATE_X1) continue; posts.push(x); }
+  for (let x = X_MIN - 150; x < X_MAX + 150; x += 16) { if (x > GATE_X0 && x < GATE_X1) continue; posts.push(x); }
   const postIM = new THREE.InstancedMesh(model('post', () => [
     P3(gBox(7, 38, 7), '#d4603f', 0, 19, 0), P3(gBox(3, 38, 7.4), '#e8775a', -2, 19, 0), P3(gCone(5.2, 9, 4), '#f4f9ff', 0, 42.5, 0, 0, PI / 4)]), VC, posts.length);
   posts.forEach((x, i) => { _m4.makeTranslation(x, 0, FENCE_Y); postIM.setMatrixAt(i, _m4); });
   postIM.castShadow = true; postIM.receiveShadow = true; scene.add(postIM); inkIM(postIM);
   const railParts = [];
-  for (const [a, b] of [[X_MIN, GATE_X0 - 6], [GATE_X1 + 6, X_MAX]]) for (const h of [12, 28]) railParts.push(P3(gBox(b - a, 3, 3), '#a8432d', (a + b) / 2, h, FENCE_Y - 4));
+  for (const [a, b] of [[X_MIN - 150, GATE_X0 - 6], [GATE_X1 + 6, X_MAX + 150]]) for (const h of [12, 28]) railParts.push(P3(gBox(b - a, 3, 3), '#a8432d', (a + b) / 2, h, FENCE_Y - 4));
   for (const x of [GATE_X0, GATE_X1]) {
     railParts.push(P3(gBox(12, 54, 12), '#8b5a2b', x, 27, FENCE_Y), P3(gCone(9, 12, 4), '#f4f9ff', x, 60, FENCE_Y, 0, PI / 4));
   }
