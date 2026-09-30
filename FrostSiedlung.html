@@ -311,10 +311,13 @@ const isoY = (x, y) => (x + y) * IY;
    Welt-Layout
    ========================================================= */
 const W_A = 1400, W_B = 2300, H = 1320;
+// Erweiterter Rand: die spielbare Fläche reicht WM weiter nach Norden und Westen, ab dem Eissee nach Osten, ab dem Gletscher nach Süden
+const WM = 400, X_MIN = -WM, Y_MIN = -WM, X_MAX = W_B + WM;
 const FENCE_Y = 660;
 const GATE_X0 = 630, GATE_X1 = 770, GATE_CX = 700;
-const AREA_A = { x0: 170, x1: 1230, y0: 215, y1: FENCE_Y - 28 };
-const AREA_B = { x0: 1450, x1: 2150, y0: 215, y1: FENCE_Y - 28 };
+const AREA_A = { x0: X_MIN + 170, x1: 1230, y0: Y_MIN + 215, y1: FENCE_Y - 28 };
+const AREA_B = { x0: 1450, x1: X_MAX - 170, y0: Y_MIN + 215, y1: FENCE_Y - 28 };
+const RAID_Y0 = 215;   // Nachtangreifer starten wie bisher in Sichtweite des Tors
 const YETI_LAIR = { x: 2120, y: 300 };
 
 const WOODPILE = { x: 1030, y: 780, n: 0 };
@@ -328,14 +331,14 @@ const LAKE = { x: 1895, y: 1085, rx: 180, ry: 115 };
 const HOLES = [{ x: 1795, y: 1040 }, { x: 1925, y: 1005 }, { x: 2005, y: 1110 }, { x: 1865, y: 1150 }];
 const SMOKEHOUSE = { x: 2050, y: 800 };
 const CHEST = { x: 70, y: 105 };
-const H_C = 2150, FENCE2_Y = 1600;
-const AREA_C = { x0: 160, x1: 2140, y0: FENCE2_Y + 60, y1: H_C - 60 };
+const H_C = 2150, FENCE2_Y = 1600, Y_MAX = H_C + WM;
+const AREA_C = { x0: X_MIN + 160, x1: X_MAX - 160, y0: FENCE2_Y + 60, y1: Y_MAX - 180 };
 const CRYSTALPILE = { x: 560, y: 1420, n: 0 };
 const MKING_LAIR = { x: 1900, y: 1950 };
 const FORGE = { x: 1150, y: 1450 }, OBSERVATORY = { x: 1550, y: 1450 };
-const worldH = () => lv('glacier') ? H_C : H;
+const worldH = () => lv('glacier') ? Y_MAX : H;
 const TORCHES = [{ x: 615, y: 700 }, { x: 785, y: 700 }, { x: 470, y: 1000 }, { x: 1165, y: 930 }];
-const SNOWMEN = [{ x: 350, y: 1270 }, { x: 1360, y: 770 }, { x: 2240, y: 1280 }];
+const SNOWMEN = [{ x: 350, y: 1270 }, { x: 1360, y: 770 }, { x: 2240, y: 1280 }, { x: -170, y: 1240 }, { x: 2520, y: 1270 }, { x: -60, y: 1900 }];
 const DAY_LEN = 300;
 let UID = 0;
 const RADIO = { x: 2150, y: 1180 };
@@ -449,7 +452,7 @@ let gameTime = 0, running = false, paused = false;
 
 const lv = id => (S && S.lv[id]) || 0;
 function reqMet(list) { return list.every(r => { const [id, n] = r.split(':'); return lv(id) >= (n ? +n : 1); }); }
-const worldW = () => lv('east') ? W_B : W_A;
+const worldW = () => lv('east') ? X_MAX : W_A;
 
 function newState() {
   S = {
@@ -474,48 +477,50 @@ function newState() {
   pads = PAD_DEFS.map(p => ({ ...p, paid: { cash: 0, wood: 0, gold: 0, crystal: 0 } }));
   makeTrees();
   rebuildObstacles();
-  for (let i = 0; i < 6; i++) spawnAnimal('A', true);
+  for (let i = 0; i < 9; i++) spawnAnimal('A', true);
 }
 
 function makeTrees() {
+  // Ein einziger, durchgehender Wald: gleiche Dichte, gleiche Baumgrößen innen und außen.
+  // Bäume innerhalb der Weltgrenze sind fällbar, Bäume dahinter gehören zum nicht begehbaren Wald – optisch gibt es keinen Übergang.
   const r = mulberry32(42);
-  trees = [];
-  const add = (x, y) => {
-    for (const t of trees) if (Math.hypot(t.x - x, t.y - y) < 46) return;
-    if (Math.hypot(CHEST.x - x, CHEST.y - y) < 50) return;
-    trees.push({ i: trees.length, x, y, s: 0.9 + r() * 0.4, logs: 3, regrow: 0, shake: 0, dirty: true });
+  trees = []; decoTrees = [];
+  const wob = (x, y) => Math.sin(x * 0.013 + 0.7) + Math.sin(y * 0.011 + 1.3) + Math.sin((x - y) * 0.0071 + 2.1);   // −3 … 3
+  const inset = (x, y) => Math.min(x - X_MIN, X_MAX - x, y - Y_MIN, Y_MAX - y);                                       // > 0: innerhalb der Welt
+  const GROVES = [[-120, 20, 105], [420, -190, 95], [980, -120, 100], [1720, -160, 105], [2280, 60, 95], [2420, -240, 90], [60, 430, 85],
+    [-80, 2150, 100], [2480, 1850, 95], [700, 2330, 90]];
+  const forestInside = (x, y) => {
+    if (y > FENCE_Y - 34 && y < FENCE2_Y + 44) return false;                      // Lager bleibt frei
+    if (Math.hypot(CHEST.x - x, CHEST.y - y) < 50) return false;
+    if (inset(x, y) < 165 + wob(x, y) * 24) return true;                         // Waldgürtel am Rand, ausgefranste Innenkante
+    if (x > 1246 + wob(y, x) * 6 && x < 1386 && y < FENCE_Y - 34) return true;    // Streifen zwischen Jagdgebiet und Eissee
+    for (const [gx, gy, gr] of GROVES) if (Math.hypot(x - gx, y - gy) < gr + wob(x, y) * 14) return true;   // Wäldchen
+    return false;
   };
-  for (let i = 0; i < 700; i++) {
-    const zone = r();
-    if (zone < 0.45) add(20 + r() * (W_B - 40), 20 + r() * 170);
-    else if (zone < 0.65) add(1250 + r() * 130, 190 + r() * 440);
-    else if (zone < 0.8) add(20 + r() * 130, 190 + r() * 440);
-    else add(2175 + r() * 110, 380 + r() * 250);
+  const S0 = 48, J = 34;
+  for (let gx = X_MIN - 640; gx <= X_MAX + 640; gx += S0) for (let gy = Y_MIN - 640; gy <= Y_MAX + 640; gy += S0) {
+    const x = gx + (r() - 0.5) * J, y = gy + (r() - 0.5) * J, s = 0.9 + r() * 0.45, d = inset(x, y);
+    if (d < 0) { if (-d < 560 + wob(y, x) * 50) decoTrees.push({ x, y, s, logs: 3, shake: 0 }); }
+    else if (forestInside(x, y)) trees.push({ i: trees.length, x, y, s, logs: 3, regrow: 0, shake: 0, dirty: true });
   }
-  for (let i = 0; i < 400; i++) {
-    const zone = r();
-    if (zone < 0.5) add(20 + r() * (W_B - 40), 2010 + r() * 120);
-    else if (zone < 0.75) add(20 + r() * 120, FENCE2_Y + 40 + r() * 380);
-    else add(2170 + r() * 110, FENCE2_Y + 40 + r() * 380);
+  // Kacheln für die Darstellung (nur sichtbare Kacheln werden gezeichnet)
+  const chunkOf = new Map(), cnt = [];
+  for (const t of trees) {
+    const k = Math.floor((t.x - X_MIN) / 700) + Math.floor((t.y - Y_MIN) / 700) * 100;
+    if (!chunkOf.has(k)) chunkOf.set(k, chunkOf.size);
+    t.ch = chunkOf.get(k); t.j = cnt[t.ch] || 0; cnt[t.ch] = t.j + 1;
   }
   crystals = [];
   const rc = mulberry32(77);
-  for (let i = 0; i < 200 && crystals.length < 30; i++) {
+  for (let i = 0; i < 320 && crystals.length < 38; i++) {
     const x = AREA_C.x0 + 40 + rc() * (AREA_C.x1 - AREA_C.x0 - 80), y = AREA_C.y0 + 40 + rc() * (AREA_C.y1 - AREA_C.y0 - 80);
     if (crystals.some(c => Math.hypot(c.x - x, c.y - y) < 90) || Math.hypot(x - MKING_LAIR.x, y - MKING_LAIR.y) < 150) continue;
     crystals.push({ i: crystals.length, x, y, s: 0.8 + rc() * 0.5, charges: 4, regrow: 0, shake: 0, dirty: true });
   }
-  decoTrees = [];
-  const r2 = mulberry32(7);
-  for (let i = 0; i < 700; i++) {
-    const x = -420 + r2() * (W_B + 840), y = -420 + r2() * (H_C + 840);
-    if (x > -15 && x < W_B + 15 && y > -15 && y < H_C + 15) continue;
-    decoTrees.push({ x, y, s: 0.9 + r2() * 0.6, logs: 3, shake: 0 });
-  }
   snowDots = [];
   const r3 = mulberry32(99);
   for (let i = 0; i < 800; i++) snowDots.push({ x: r3() * W_B, y: r3() * H, s: 1 + r3() * 2 });
-  tents = [{ x: 1330, y: 860, c: '#d9824a' }, { x: 60, y: 1010, c: '#5c8fd6' }, { x: 2250, y: 800, c: '#c55a5a' }];
+  tents = [{ x: 1330, y: 860, c: '#d9824a' }, { x: 60, y: 1010, c: '#5c8fd6' }, { x: 2250, y: 800, c: '#c55a5a' }, { x: -250, y: 930, c: '#6aa84f' }, { x: 2560, y: 900, c: '#d9824a' }];
   crates = [{ x: 780, y: 1090 }, { x: 805, y: 1106 }, { x: 772, y: 1122 }];
 }
 
@@ -761,7 +766,7 @@ function blocked(x, y, r = 12) {
 }
 function moveEntity(e, dx, dy) {
   const ww = worldW();
-  const nx = clamp(e.x + dx, 20, ww - 20), ny = clamp(e.y + dy, 20, worldH() - 20);
+  const nx = clamp(e.x + dx, X_MIN + 20, ww - 20), ny = clamp(e.y + dy, Y_MIN + 20, worldH() - 20);
   if (blocked(e.x, e.y)) { e.x = nx; e.y = ny; return; }
   if (!blocked(nx, e.y)) e.x = nx;
   if (!blocked(e.x, ny)) e.y = ny;
@@ -1001,10 +1006,10 @@ function killAnimal(b) {
   }
 }
 function clampAnimal(b) {
-  if (b.raider && gate.broken) { b.x = clamp(b.x, 20, worldW() - 20); b.y = clamp(b.y, 20, H - 20); return; }
+  if (b.raider && gate.broken) { b.x = clamp(b.x, X_MIN + 20, worldW() - 20); b.y = clamp(b.y, Y_MIN + 20, H - 20); return; }
   const area = b.raider ? { x0: AREA_A.x0, x1: worldW() - 60, y0: AREA_A.y0, y1: AREA_A.y1 } : areaOf(b.zone);
   if (b.raider && b.y > FENCE_Y) return; // schon im Lager
-  b.x = clamp(b.x, area.x0, b.type.kind === 'yeti' ? W_B - 60 : area.x1);
+  b.x = clamp(b.x, area.x0, area.x1);
   b.y = clamp(b.y, area.y0, area.y1);
 }
 
@@ -1037,14 +1042,14 @@ function update(dt) {
   if (animalTimer <= 0) {
     animalTimer = 2;
     const aliveA = animals.filter(b => !b.dead && !b.raider && !b.guard && b.zone === 'A' && b.type.kind !== 'boss').length;
-    const maxA = Math.min(11, 6 + Math.floor(S.stats.kills / 10));
+    const maxA = Math.min(16, 9 + Math.floor(S.stats.kills / 8));
     if (aliveA < maxA - 1) spawnAnimal('A', false);
     if (lv('east')) {
       const aliveB = animals.filter(b => !b.dead && !b.raider && b.zone === 'B' && b.type.kind !== 'yeti').length;
-      if (aliveB < 7) { const first = spawnAnimal('B', false); if (first.type.kind === 'wolf') for (let i = 0; i < 2; i++) { const w = spawnAnimal('B', false, 'wolf'); w.x = clamp(first.x + rand(-40, 40), AREA_B.x0, AREA_B.x1); w.y = clamp(first.y + rand(-40, 40), AREA_B.y0, AREA_B.y1); } }
+      if (aliveB < 11) { const first = spawnAnimal('B', false); if (first.type.kind === 'wolf') for (let i = 0; i < 2; i++) { const w = spawnAnimal('B', false, 'wolf'); w.x = clamp(first.x + rand(-40, 40), AREA_B.x0, AREA_B.x1); w.y = clamp(first.y + rand(-40, 40), AREA_B.y0, AREA_B.y1); } }
       if (lv('glacier')) {
         const aliveC = animals.filter(b => !b.dead && b.zone === 'C' && b.type.kind !== 'mking').length;
-        if (aliveC < 9) { const first = spawnAnimal('C', false); if (first.type.name === 'frostwolf') { const w = spawnAnimal('C', false, 'frostwolf'); w.x = clamp(first.x + rand(-40, 40), AREA_C.x0, AREA_C.x1); w.y = clamp(first.y + rand(-40, 40), AREA_C.y0, AREA_C.y1); } }
+        if (aliveC < 13) { const first = spawnAnimal('C', false); if (first.type.name === 'frostwolf') { const w = spawnAnimal('C', false, 'frostwolf'); w.x = clamp(first.x + rand(-40, 40), AREA_C.x0, AREA_C.x1); w.y = clamp(first.y + rand(-40, 40), AREA_C.y0, AREA_C.y1); } }
         if (!animals.some(b => !b.dead && b.type.kind === 'mking')) {
           S.mkingTimer -= 2;
           if (S.mkingTimer <= 0) { spawnAnimal('C', false, 'mking'); banner('⚠️ Der Mammutkönig stampft durch den Gletscher!'); sfx('alarm'); shake(0.6); }
@@ -1312,7 +1317,7 @@ function updateAnimals(dt) {
       if (b.t <= 0 || Math.hypot(b.tx - b.x, b.ty - b.y) < 8) {
         b.t = rand(2, 5);
         const home = b.type.kind === 'yeti' ? YETI_LAIR : b.type.kind === 'mking' ? MKING_LAIR : b;
-        b.tx = clamp(home.x + rand(-160, 160), area.x0, b.type.kind === 'yeti' ? W_B - 60 : area.x1);
+        b.tx = clamp(home.x + rand(-160, 160), area.x0, area.x1);
         b.ty = clamp(home.y + rand(-160, 160), area.y0, area.y1);
       }
       if (Math.hypot(b.tx - b.x, b.ty - b.y) > 8) { tx = b.tx; ty = b.ty; spd = b.type.kind === 'wolf' ? 55 : 38; }
@@ -1365,7 +1370,7 @@ function updateItems(dt) {
       it.x += it.vx * dt; it.y += it.vy * dt;
       if (it.z <= 0) { it.z = 0; it.vz = it.vz < -120 ? -it.vz * 0.3 : 0; it.vx *= 0.5; it.vy *= 0.5; }
     } else { it.vx *= 0.9; it.vy *= 0.9; }
-    it.x = clamp(it.x, 20, worldW() - 20); it.y = clamp(it.y, 20, worldH() - 20);
+    it.x = clamp(it.x, X_MIN + 20, worldW() - 20); it.y = clamp(it.y, Y_MIN + 20, worldH() - 20);
     if (Math.abs(it.y - FENCE_Y) < 14 && (it.x < GATE_X0 || it.x > GATE_X1)) it.y = FENCE_Y - 16;
     if (Math.abs(it.y - FENCE2_Y) < 14 && (it.x < GATE_X0 || it.x > GATE_X1) && lv('glacier')) it.y = FENCE2_Y + 16;
     if (it.claimed || it.t < 0.35 || p.dead > 0) continue;
@@ -1632,7 +1637,7 @@ function updateRaid(dt) {
         const type = R.no >= 3 && Math.random() < 0.35 ? 'spiky' : (lv('east') && Math.random() < 0.3 ? 'wolf' : 'polar');
         const a = spawnAnimal('A', false, type, true);
         a.x = clamp(GATE_CX + rand(-380, 380), AREA_A.x0, AREA_A.x1);
-        a.y = AREA_A.y0 + rand(0, 60);
+        a.y = RAID_Y0 + rand(0, 60);
       }
       banner('🌙⚠️ Nachtangriff! Verteidige das Tor!');
       sfx('alarm');
@@ -2324,7 +2329,7 @@ function currentGoal() {
       if (pile.amount >= Math.min(15, r.cash - S.cash)) return { text: 'Sammle das Geld ein', x: pile.x, y: pile.y };
     }
     if (r.wood > S.wood + WOODPILE.n && workers.filter(w => w.kind === 'lumber').length < 2) {
-      const t = nearestOf(trees.filter(tr => tr.logs > 0 && tr.x < worldW() - 20), p);
+      const t = nearestOf(trees.filter(tr => tr.logs > 0 && tr.x < worldW() - 20 && tr.y < worldH() - 20), p);
       if (t) return { text: 'Fälle Bäume im Wald für Holz', x: t.x, y: t.y, tree: true };
     }
   }
@@ -2434,6 +2439,41 @@ function ensureInkAttr(geo) {
   geo.setAttribute('sw', new THREE.BufferAttribute(new Float32Array(cnt).fill(1), 1));
   return geo;
 }
+/* ---------- Gesperrte Gebiete: weicher Nebel pro Pixel ----------
+   Statt einer Nebel-Box mit harter Kante wird jedes Material abhängig von seiner Weltposition
+   sanft eingenebelt (auch hohe Objekte, ohne Versatz durch die Kameraperspektive). */
+const LOCK_U = { value: new THREE.Vector2(1, 1) }, LOCK_C = { value: new THREE.Color(0.93, 0.95, 0.98) };
+function lockPatch(sh) {
+  sh.uniforms.uLock = LOCK_U; sh.uniforms.uLockC = LOCK_C;
+  sh.vertexShader = sh.vertexShader
+    .replace('#include <fog_pars_vertex>', '#include <fog_pars_vertex>\nvarying vec2 vLockW;')
+    .replace('#include <fog_vertex>', `#include <fog_vertex>
+      { mat3 lv3 = mat3( viewMatrix ); vec3 lp = mvPosition.xyz;
+        vLockW = cameraPosition.xz + vec2( dot( lv3[ 0 ], lp ), dot( lv3[ 2 ], lp ) ); }`);
+  sh.fragmentShader = sh.fragmentShader
+    .replace('#include <fog_pars_fragment>', '#include <fog_pars_fragment>\nvarying vec2 vLockW;\nuniform vec2 uLock;\nuniform vec3 uLockC;')
+    .replace('#include <fog_fragment>', `#include <fog_fragment>
+      { float le = uLock.x * smoothstep( ${W_A - 30}.0, ${W_A + 240}.0, vLockW.x );
+        float lg = uLock.y * smoothstep( ${H - 30}.0, ${H + 240}.0, vLockW.y );
+        gl_FragColor.rgb = mix( gl_FragColor.rgb, uLockC, 0.92 * max( le, lg ) ); }`);
+}
+function lockOnBeforeCompile(sh) { lockPatch(sh); }
+function patchLockMat(m) {
+  if (m.userData.lk || !m.fog) return;   // Himmel (Nordlicht) ohne Nebel bleibt unberührt
+  m.userData.lk = true;
+  if (m === INK) return;                 // Tusche bindet den Nebel selbst ein
+  m.onBeforeCompile = lockOnBeforeCompile; m.needsUpdate = true;
+}
+function patchLock() {
+  scene.traverse(o => { const m = o.material; if (!m) return; if (Array.isArray(m)) m.forEach(patchLockMat); else patchLockMat(m); });
+}
+function updateLock(dt) {
+  const v = LOCK_U.value, k = Math.min(1, dt * 1.2);
+  v.x += ((lv('east') ? 0 : 1) - v.x) * k; v.y += ((lv('glacier') ? 0 : 1) - v.y) * k;
+  _col.set('#eef3fa').lerp(_v2col.set('#27344f'), nightAmount() * 0.85).getRGB(LOCK_C.value, THREE.SRGBColorSpace);
+}
+const _v2col = new THREE.Color();
+
 /* ---------- South-Park-Tusche: schwarze Umrisse um die beleuchteten 3D-Modelle ----------
    Rückseiten-Hülle, im Blickraum entlang der geglätteten Normalen aufgebläht –
    dadurch bleibt die Strichstärke auf dem Bildschirm konstant (Licht und Schatten bleiben unverändert). */
@@ -2458,8 +2498,9 @@ function inkMat() {
         inkN = normalize( mat3( modelViewMatrix ) * inkN );
         mvPosition.xyz += inkN * ( uInk * sw * step( 0.02, inkS ) * -mvPosition.z );
         gl_Position = projectionMatrix * mvPosition;`);
+    lockPatch(sh);
   };
-  INK.customProgramCacheKey = () => 'sp-ink';
+  INK.customProgramCacheKey = () => 'sp-ink-lock';
   return INK;
 }
 function inkify(m) {
@@ -2470,7 +2511,7 @@ function inkify(m) {
 }
 function inkIM(im) {
   const k = new THREE.InstancedMesh(ensureInkAttr(im.geometry), inkMat(), im.instanceMatrix.count);
-  k.instanceMatrix = im.instanceMatrix; k.count = im.count; k.frustumCulled = im.frustumCulled;
+  k.instanceMatrix = im.instanceMatrix; k.count = im.count; k.frustumCulled = im.frustumCulled; if (im.boundingSphere) k.boundingSphere = im.boundingSphere;
   k.castShadow = false; k.receiveShadow = false; k.renderOrder = 1;
   (im.parent || scene).add(k); INK_IMS.push([im, k]);
   return im;
@@ -2496,7 +2537,7 @@ function canvasTex(w, h, draw) {
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 
 /* ---------- Initialisierung ---------- */
-let pointLights = {}, snowPts = null, snowPos = null, treeIM, stumpIM, decoIM, itemIM = {}, partIM, puffIM, hazIM, arrowIM;
+let pointLights = {}, snowPts = null, snowPos = null, treeChunks = [], decoIM, itemIM = {}, partIM, puffIM, hazIM, arrowIM;
 const puffs = [];
 let goalArrow, goalRing, goalPointer, orbitAxes = [], ringObjs = [];
 const DAY_BG = new THREE.Color('#cfe0f3'), NIGHT_BG = new THREE.Color('#15203a');
@@ -2595,24 +2636,22 @@ function buildWorld() {
     m.rotation.x = -PI / 2; at(m, FURNACE.x, FURNACE.y, 1); m.receiveShadow = true; scene.add(m); decals.push({ m, cond: () => lv('furnace') }); }
 
   // Gletscher (Kapitel 3)
-  decal(0, FENCE2_Y, W_B, H_C, '#d3e9f9', () => lv('glacier'), 0.3);
+  decal(X_MIN - 700, FENCE2_Y, X_MAX + 700, Y_MAX + 700, '#d3e9f9', () => lv('glacier'), 0.3);
   decal(GATE_X0 + 15, 1290, GATE_X1 - 15, FENCE2_Y + 70, dirt, () => lv('glacier'), 0.95);
   decal(250, 1370, 2200, 1500, dirt, () => lv('glacier'), 1.0);
   decal(1640, 1290, 1760, 1380, dirt, () => lv('glacier'), 1.05);
   fence2Group = new THREE.Group();
   { const posts2 = [];
-    for (let x = 6; x < W_B; x += 16) { if (x > GATE_X0 && x < GATE_X1) continue; posts2.push(x); }
+    for (let x = X_MIN + 6; x < X_MAX; x += 16) { if (x > GATE_X0 && x < GATE_X1) continue; posts2.push(x); }
     const im = new THREE.InstancedMesh(model('post2', () => [P3(gBox(7, 38, 7), '#5f86b3', 0, 19, 0), P3(gBox(3, 38, 7.4), '#7aa3cf', -2, 19, 0), P3(gCone(5.2, 9, 4), '#f4f9ff', 0, 42.5, 0, 0, PI / 4)]), VC, posts2.length);
     posts2.forEach((x, i) => { _m4.makeTranslation(x, 0, FENCE2_Y); im.setMatrixAt(i, _m4); });
     im.castShadow = true; fence2Group.add(im); inkIM(im);
     const rp = [];
-    for (const [a, b] of [[0, GATE_X0 - 6], [GATE_X1 + 6, W_B]]) for (const h of [12, 28]) rp.push(P3(gBox(b - a, 3, 3), '#4a6e96', (a + b) / 2, h, FENCE2_Y + 4));
+    for (const [a, b] of [[X_MIN, GATE_X0 - 6], [GATE_X1 + 6, X_MAX]]) for (const h of [12, 28]) rp.push(P3(gBox(b - a, 3, 3), '#4a6e96', (a + b) / 2, h, FENCE2_Y + 4));
     for (const x of [GATE_X0, GATE_X1]) rp.push(P3(gBox(12, 54, 12), '#4a6e96', x, 27, FENCE2_Y), P3(gCone(9, 12, 4), '#f4f9ff', x, 60, FENCE2_Y, 0, PI / 4));
     rp.push(P3(gBox(4, 36, 55), '#5f86b3', GATE_X0, 20, FENCE2_Y - 27.5), P3(gBox(4, 36, 55), '#5f86b3', GATE_X1, 20, FENCE2_Y - 27.5));
     fence2Group.add(mesh(merge(rp)));
     scene.add(fence2Group); }
-  lockFog2 = new THREE.Mesh(new THREE.BoxGeometry(W_B + 2400, 240, H_C - H + 800), new THREE.MeshBasicMaterial({ color: '#eef3fa', transparent: true, opacity: 0.88, depthWrite: false }));
-  at(lockFog2, W_B / 2, H + 8 + (H_C - H + 800) / 2, 120); scene.add(lockFog2);
   crystalIM = new THREE.InstancedMesh(model('crystalNode', () => [
     P3(gIco(16, 0), '#8a96a8', 0, 6, 0, 0, 0, 0, 1.3, 0.55, 1.2),
     P3(gCone(6, 34, 5), '#6fe7ff', 0, 22, 0, 0.1, 0, 0.1), P3(gCone(5, 26, 5), '#9ff0ff', 9, 16, 3, 0.2, 0, -0.45),
@@ -2658,24 +2697,33 @@ function buildWorld() {
 
   // Bäume (instanziert)
   const tgeo = model('tree', () => treeParts(true));
-  treeIM = new THREE.InstancedMesh(tgeo, VC, trees.length); treeIM.castShadow = true; treeIM.receiveShadow = true;
-  stumpIM = new THREE.InstancedMesh(model('stump', () => [P3(gCyl(7, 8, 7, 8), '#6b3f22', 0, 3.5, 0), P3(gCyl(6.5, 6.5, 0.8, 8), '#e8c38f', 0, 7.2, 0), P3(gSph(3, 6, 4), '#ffffff', -2, 8, 1, 0, 0, 0, 1, 0.5, 1)]), VC, trees.length);
-  stumpIM.castShadow = true;
-  scene.add(treeIM, stumpIM); inkIM(treeIM); inkIM(stumpIM);
+  // fällbare Bäume in Kacheln: jede Kachel wird nur gezeichnet, wenn sie im Bild ist
+  const sgeo = model('stump', () => [P3(gCyl(7, 8, 7, 8), '#6b3f22', 0, 3.5, 0), P3(gCyl(6.5, 6.5, 0.8, 8), '#e8c38f', 0, 7.2, 0), P3(gSph(3, 6, 4), '#ffffff', -2, 8, 1, 0, 0, 0, 1, 0.5, 1)]);
+  treeChunks = [];
+  for (const t of trees) {
+    let c = treeChunks[t.ch];
+    if (!c) c = treeChunks[t.ch] = { n: 0, x0: 1e9, x1: -1e9, y0: 1e9, y1: -1e9, dirty: false };
+    c.n++; c.x0 = Math.min(c.x0, t.x); c.x1 = Math.max(c.x1, t.x); c.y0 = Math.min(c.y0, t.y); c.y1 = Math.max(c.y1, t.y);
+  }
+  for (const c of treeChunks) {
+    const sph = new THREE.Sphere(new THREE.Vector3((c.x0 + c.x1) / 2, 50, (c.y0 + c.y1) / 2), Math.hypot(c.x1 - c.x0, c.y1 - c.y0) / 2 + 110);
+    c.tim = new THREE.InstancedMesh(tgeo, VC, c.n); c.tim.castShadow = true; c.tim.receiveShadow = true; c.tim.boundingSphere = sph;
+    c.sim = new THREE.InstancedMesh(sgeo, VC, c.n); c.sim.castShadow = true; c.sim.boundingSphere = sph;
+    scene.add(c.tim, c.sim); inkIM(c.tim); inkIM(c.sim);
+  }
   decoIM = new THREE.InstancedMesh(tgeo, VC, decoTrees.length);
-  decoTrees.forEach((t, i) => { _e.set(0, t.x * 0.01, 0); _q.setFromEuler(_e); _m4.compose(_p.set(t.x, 0, t.y), _q, _s.set(t.s, t.s, t.s)); decoIM.setMatrixAt(i, _m4); });
-  decoIM.receiveShadow = true;
+  decoIM.count = 0; decoIM.frustumCulled = false; decoIM.castShadow = true; decoIM.receiveShadow = true;   // wie die fällbaren Bäume
   scene.add(decoIM); inkIM(decoIM);
 
   // Zaun
   const posts = [];
-  for (let x = 6; x < W_B; x += 16) { if (x > GATE_X0 && x < GATE_X1) continue; posts.push(x); }
+  for (let x = X_MIN + 6; x < X_MAX; x += 16) { if (x > GATE_X0 && x < GATE_X1) continue; posts.push(x); }
   const postIM = new THREE.InstancedMesh(model('post', () => [
     P3(gBox(7, 38, 7), '#d4603f', 0, 19, 0), P3(gBox(3, 38, 7.4), '#e8775a', -2, 19, 0), P3(gCone(5.2, 9, 4), '#f4f9ff', 0, 42.5, 0, 0, PI / 4)]), VC, posts.length);
   posts.forEach((x, i) => { _m4.makeTranslation(x, 0, FENCE_Y); postIM.setMatrixAt(i, _m4); });
   postIM.castShadow = true; postIM.receiveShadow = true; scene.add(postIM); inkIM(postIM);
   const railParts = [];
-  for (const [a, b] of [[0, GATE_X0 - 6], [GATE_X1 + 6, W_B]]) for (const h of [12, 28]) railParts.push(P3(gBox(b - a, 3, 3), '#a8432d', (a + b) / 2, h, FENCE_Y - 4));
+  for (const [a, b] of [[X_MIN, GATE_X0 - 6], [GATE_X1 + 6, X_MAX]]) for (const h of [12, 28]) railParts.push(P3(gBox(b - a, 3, 3), '#a8432d', (a + b) / 2, h, FENCE_Y - 4));
   for (const x of [GATE_X0, GATE_X1]) {
     railParts.push(P3(gBox(12, 54, 12), '#8b5a2b', x, 27, FENCE_Y), P3(gCone(9, 12, 4), '#f4f9ff', x, 60, FENCE_Y, 0, PI / 4));
   }
@@ -2720,9 +2768,6 @@ function buildWorld() {
   }), transparent: true, depthWrite: false }));
   chestGlint.scale.set(30, 30, 1); scene.add(chestGlint);
 
-  // gesperrtes Gebiet (Nebelwand)
-  lockFog = new THREE.Mesh(new THREE.BoxGeometry(W_B - W_A + 900, 220, H + 1400), new THREE.MeshBasicMaterial({ color: '#eef3fa', transparent: true, opacity: 0.86, depthWrite: false }));
-  at(lockFog, (W_A + W_B + 900) / 2, H / 2, 110); scene.add(lockFog);
 
   // Bau-Felder
   for (const p of PAD_DEFS) makePadObj(p);
@@ -2758,7 +2803,7 @@ function buildWorld() {
   const axeGeo = model('orbitAxe', () => [P3(gCyl(1.5, 1.5, 22, 6), '#7a4a2a', 0, 0, 0, 0, 0, PI / 2), P3(gBox(8, 10, 2), '#b8c2cf', 10, 3, 0), P3(gBox(2, 10, 2.2), '#eef2f7', 14, 3, 0)]);
   for (let i = 0; i < 6; i++) { const a = mesh(axeGeo); a.visible = false; scene.add(a); orbitAxes.push(a); }
 }
-let gateDoors = [], gateDebris, torchFlames = [], chestObj, chestLid, chestGlint, lockFog, lockFog2, fence2Group, crystalIM, crystalRockIM, aurora;
+let gateDoors = [], gateDebris, torchFlames = [], chestObj, chestLid, chestGlint, fence2Group, crystalIM, crystalRockIM, aurora;
 function makeDoor(x) {
   const g = new THREE.Group();
   const b = Math.atan2(30, 52);
@@ -3048,7 +3093,6 @@ function syncWorld() {
   ensure('forge', lv('forge'), buildForge);
   ensure('observatory', lv('observatory'), buildObservatory);
   fence2Group.visible = !!lv('glacier');
-  lockFog2.visible = !lv('glacier');
   const n = nightAmount();
   aurora.visible = !!lv('observatory') && n > 0.05;
   if (aurora.visible) { at(aurora, camTarget.x, camTarget.z); aurora.children.forEach((m, i) => { m.material.opacity = n * (0.55 + 0.25 * Math.sin(t * 0.5 + i * 2)); m.position.y = 700 + i * 60 + Math.sin(t * 0.3 + i) * 30; }); }
@@ -3057,7 +3101,6 @@ function syncWorld() {
   // Tor
   for (const d of gateDoors) { d.visible = !gate.broken; d.position.x = (d === gateDoors[0] ? GATE_X0 : GATE_X1) + (gate.hitT > 0 ? Math.sin(t * 90) * 2 : 0); }
   gateDebris.visible = gate.broken;
-  lockFog.visible = !lv('east');
   // Tresor
   chestObj.visible = false; chestGlint.visible = false;
   // Rauch
@@ -3254,24 +3297,34 @@ function makeAlex() {
 // Kopf von Herrn Faudt im South-Park-Stil: große Ovalaugen hinter der schmalen, randlosen Brille,
 // längliches Gesicht, markante Nase, braune, an den Schläfen zurückgehende Haare – etwas größer (South-Park-Proportionen)
 function faudtHead(skin, skinD, hair, hair2, frame) {
-  const lens = (s, y, len, th) => { const a = s * 0.3; return P3(gBox(len, th, th), frame, s * (2.75 + 1.7 * Math.sin(0.3)), y, 9.3 + 1.7 * Math.cos(0.3), 0, a, 0); };
+  // Brille: zwei ovale Metallfassungen um die Augen, Steg als Bogen, Scharniere und Bügel über die Ohren
+  const EX = 3.25, EY = 70.4, EZ = 9.1, TURN = 0.3, RZ = 0.45;
+  const rimAt = (s, lx, ly, lz = RZ) => { const a = s * TURN; return [s * EX + lx * Math.cos(a) + lz * Math.sin(a), EY + ly, EZ - lx * Math.sin(a) + lz * Math.cos(a)]; };
+  const rim = s => { const [x, y, z] = rimAt(s, 0, 0); const q = P3(gTor(1, 0.11, 6, 28), frame, x, y, z, 0, s * TURN, 0, 2.95, 3.25, 1); q.ink = 0.35; return q; };
+  // Stück von Punkt a (hinten) nach Punkt b (vorn), beliebig im Raum geneigt
+  const bar = (a, b, th = 0.34) => { const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], L = Math.hypot(dx, dy, dz);
+    const q = P3(gBox(th, th, L), frame, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, Math.atan2(-dy, dz), Math.asin(dx / L), 0); q.ink = 0; return q; };
+  const glasses = [rim(-1), rim(1)];
+  { const [, , zi] = rimAt(1, -2.95, 0); const q = P3(gTor(0.6, 0.12, 5, 12, PI), frame, 0, 70.9, zi, 0, 0, 0, 1, 0.8, 1); q.ink = 0; glasses.push(q); }
+  for (const s of [-1, 1]) {
+    const h = rimAt(s, s * 3.0, 0.9);                                  // Scharnier außen oben an der Fassung
+    const hinge = P3(gBox(0.55, 0.7, 1.0), frame, h[0], h[1], h[2] - 0.3, 0, s * TURN, 0); hinge.ink = 0;
+    const mid = [s * 8.45, 71.8, 5.8], ear = [s * 9.05, 72.6, -0.9];     // außen am Kopf entlang, dann über das Ohr
+    glasses.push(hinge, bar(mid, [h[0], h[1], h[2] - 0.6]), bar(ear, mid));
+  }
   const head = [
     // Hals und längliches Gesicht
     P3(gCyl(4.2, 4.6, 5, 10), skin, 0, 60, 0.5),
     P3(gSph(1, 16, 12), skin, 0, 69.5, 1, 0, 0, 0, 8.6, 10.8, 9.2), P3(gSph(1, 10, 8), skin, 0, 62.8, 3.4, 0, 0, 0, 5.8, 4.4, 6),
     P3(gSph(1, 8, 6), skin, -8.7, 69, 0.3, 0, 0, 0, 1.7, 3.3, 2.3), P3(gSph(1, 8, 6), skin, 8.7, 69, 0.3, 0, 0, 0, 1.7, 3.3, 2.3),
-    P3(gBox(2.2, 4.4, 2.6), skinD, 0, 66.3, 9.9, -0.22), P3(gSph(1.5, 8, 6), skinD, 0, 64.3, 11),
-    ...spEyes(70.4, 9.3, { w: 2.9, h: 3.0, sp: 2.75, turn: 0.3, tilt: 0.1, d: 1.3, pupil: '#3a2a20', pr: 0.78 }),
-    P3(gBox(3.8, 0.55, 0.6), hair, -3.1, 74.6, 8.7, 0, -0.3, 0.05), P3(gBox(3.8, 0.55, 0.6), hair, 3.1, 74.6, 8.7, 0, 0.3, -0.05),
+    // markante Nase unter den Augen
+    P3(gBox(1.9, 3.8, 2.4), skinD, 0, 65.7, 9.95, -0.22), P3(gSph(1.45, 8, 6), skinD, 0, 64, 10.9),
+    ...spEyes(EY, EZ, { w: 2.6, h: 2.9, sp: EX, turn: TURN, tilt: 0.08, d: 1.3, pupil: '#3a2a20', pr: 0.72 }),
+    P3(gBox(3.8, 0.55, 0.6), hair, -3.4, 74.6, 8.6, 0, -0.3, 0.05), P3(gBox(3.8, 0.55, 0.6), hair, 3.4, 74.6, 8.6, 0, 0.3, -0.05),
     P3(gBox(4.4, 0.5, 0.6), '#b9806c', 0, 61.6, 9.1), P3(gBox(1, 0.5, 0.6), '#b9806c', -2.5, 61.9, 9, 0, 0, 0.45), P3(gBox(1, 0.5, 0.6), '#b9806c', 2.5, 61.9, 9, 0, 0, -0.45),
     P3(gBox(0.5, 1.8, 0.4), skinD, -4, 63.2, 8.4, 0, 0, 0.2), P3(gBox(0.5, 1.8, 0.4), skinD, 4, 63.2, 8.4, 0, 0, -0.2),
-    // randlose, schmale Brille (ohne Tusche-Rand, damit sie filigran bleibt)
-    ...noInk(
-      P3(gBox(1.2, 0.4, 0.4), frame, 0, 71.3, 11.8),
-      lens(-1, 73.75, 5.9, 0.35), lens(1, 73.75, 5.9, 0.35), lens(-1, 67.05, 5.7, 0.3), lens(1, 67.05, 5.7, 0.3),
-      P3(gBox(0.35, 6.9, 0.35), frame, -6.12, 70.4, 10.03), P3(gBox(0.35, 6.9, 0.35), frame, 6.12, 70.4, 10.03),
-      P3(gBox(0.35, 0.35, 9.8), frame, -7.36, 72.6, 5.25, 0, 0.257, 0), P3(gBox(0.35, 0.35, 9.8), frame, 7.36, 72.6, 5.25, 0, -0.257, 0)),
-    // braune Haare: oben voller, an den Schläfen zurückgehend, Seiten kurz
+    ...glasses,
+  // braune Haare: oben voller, an den Schläfen zurückgehend, Seiten kurz
     P3(gSph(1, 14, 10), hair, 0, 75.2, -1.2, 0, 0, 0, 9.3, 5.6, 9.6), P3(gSph(1, 12, 8), hair, 0, 71, -4.3, 0, 0, 0, 9.5, 7.8, 6.6),
     P3(gSph(1, 8, 6), hair, -8.5, 72, -1.5, 0, 0, 0, 1.6, 3.6, 5), P3(gSph(1, 8, 6), hair, 8.5, 72, -1.5, 0, 0, 0, 1.6, 3.6, 5),
     P3(gSph(1, 8, 6), hair2, 0, 78, 4.2, 0, 0, 0, 4.6, 2.3, 3.8), P3(gSph(1, 8, 6), hair2, -2.8, 79, 0.5, 0, 0, 0, 3.5, 2, 4), P3(gSph(1, 8, 6), hair2, 3, 78.8, 1, 0, 0, 0, 3.2, 2, 3.6),
@@ -3282,10 +3335,10 @@ function faudtHead(skin, skinD, hair, hair2, frame) {
   return head;
 }
 function makeBaron() {
-  const sw = '#aaa49b', swd = '#938d84', skin = '#ecc6aa', skinD = '#dcae90', hair = '#5b3f2b', hair2 = '#6f5039', frame = '#c0c6cd';
+  const sw = '#aaa49b', swd = '#938d84', skin = '#ecc6aa', skinD = '#dcae90', hair = '#5b3f2b', hair2 = '#6f5039', frame = '#8f98a4';
   const ribs = [];
   for (let i = 0; i < 14; i++) { const an = i / 14 * PI * 2; ribs.push(P3(gBox(0.9, 9, 0.9), swd, Math.sin(an) * 8.3, 56.5, Math.cos(an) * 8.3, 0, an, 0)); }
-  const m = biped('baron4', () => [
+  const m = biped('baron5', () => [
     // melierter Strickpullover mit hohem, geripptem Stehkragen (Troyer)
     P3(gCyl(12, 13, 32, 14), sw, 0, 37, 0), P3(gSph(1, 14, 8), sw, 0, 50, 0, 0, 0, 0, 15, 7, 10),
     ...[25, 30, 35, 40, 45].map(y => P3(gCyl(12.25, 12.7, 0.8, 14), swd, 0, y, 0)),
@@ -3561,6 +3614,19 @@ function updateCrystalsIM() {
   }
   if (ch) { crystalIM.instanceMatrix.needsUpdate = true; crystalRockIM.instanceMatrix.needsUpdate = true; }
 }
+let decoAt = null;
+function updateDecoIM() {
+  const cx = camTarget.x, cz = camTarget.z, R = 950 + camDist * 1.15;
+  if (decoAt && Math.hypot(cx - decoAt[0], cz - decoAt[1]) < 70 && decoAt[2] === R) return;
+  decoAt = [cx, cz, R];
+  let n = 0;
+  for (const t of decoTrees) {
+    const dx = t.x - cx, dy = t.y - cz;
+    if (dx * dx + dy * dy > R * R) continue;
+    _e.set(0, t.x * 0.01, 0); _q.setFromEuler(_e); _m4.compose(_p.set(t.x, 0, t.y), _q, _s.set(t.s, t.s, t.s)); decoIM.setMatrixAt(n++, _m4);
+  }
+  decoIM.count = n; decoIM.instanceMatrix.needsUpdate = true;
+}
 function updateTreesIM() {
   let changed = false;
   for (const t of trees) {
@@ -3568,10 +3634,11 @@ function updateTreesIM() {
     t.wasShaking = t.shake > 0; t.dirty = false; changed = true;
     const alive = t.logs > 0;
     _e.set(0, t.x * 0.01, alive && t.shake > 0 ? Math.sin(t.shake * 70) * 0.08 : 0); _q.setFromEuler(_e);
-    _m4.compose(_p.set(t.x, 0, t.y), _q, alive ? _s.set(t.s, t.s, t.s) : _s.set(0.0001, 0.0001, 0.0001)); treeIM.setMatrixAt(t.i, _m4);
-    _m4.compose(_p.set(t.x, 0, t.y), _q.identity(), alive ? _s.set(0.0001, 0.0001, 0.0001) : _s.set(t.s, t.s, t.s)); stumpIM.setMatrixAt(t.i, _m4);
+    const c = treeChunks[t.ch]; c.dirty = true;
+    _m4.compose(_p.set(t.x, 0, t.y), _q, alive ? _s.set(t.s, t.s, t.s) : _s.set(0.0001, 0.0001, 0.0001)); c.tim.setMatrixAt(t.j, _m4);
+    _m4.compose(_p.set(t.x, 0, t.y), _q.identity(), alive ? _s.set(0.0001, 0.0001, 0.0001) : _s.set(t.s, t.s, t.s)); c.sim.setMatrixAt(t.j, _m4);
   }
-  if (changed) { treeIM.instanceMatrix.needsUpdate = true; stumpIM.instanceMatrix.needsUpdate = true; }
+  if (changed) for (const c of treeChunks) if (c.dirty) { c.dirty = false; c.tim.instanceMatrix.needsUpdate = true; c.sim.instanceMatrix.needsUpdate = true; }
 }
 
 /* ---------- Kamera, Licht, Wetter ---------- */
@@ -3718,6 +3785,7 @@ function render3D(dt) {
   updateCamera(dt, menu);
   updateLights(dt);
   updateTreesIM();
+  updateDecoIM();
   updateCrystalsIM();
   renderEntities(dt);
   renderItems();
@@ -3725,6 +3793,8 @@ function render3D(dt) {
   updateGoal3D();
   renderLabels();
   syncInk();
+  updateLock(dt);
+  patchLock();
   renderer.render(scene, camera);
 }
 function reset3D() {
@@ -3736,6 +3806,7 @@ function reset3D() {
   for (const [k, L] of LB) { L.el.remove(); LB.delete(k); }
   for (const t of trees) t.dirty = true;
   for (const c of crystals) c.dirty = true;
+  decoAt = null; LOCK_U.value.set(lv('east') ? 0 : 1, lv('glacier') ? 0 : 1);
 }
 
 const $ = id => document.getElementById(id);
