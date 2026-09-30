@@ -124,6 +124,13 @@
     align-items: center; justify-content: center; font-size: 17px; text-shadow: none; border: 2px solid #4a5568; box-shadow: 0 2px 6px rgba(0,0,0,.25); }
   .bubble b { font-size: 13px; margin-top: -3px; }
   .bossname { font-size: 18px; color: #ffd84a; }
+  .lb.sp { z-index: 4; }
+  .speech { position: relative; background: #fff; color: #1d2a3e; font-size: 20px; font-weight: 900; padding: 9px 16px; border-radius: 18px;
+    border: 3px solid #23344f; text-shadow: none; white-space: normal; max-width: 280px; width: max-content; box-shadow: 0 4px 10px rgba(0,0,0,.25);
+    animation: pop .25s ease-out; transform-origin: 50% 100%; margin-bottom: 20px; }
+  .speech::after { content: ''; position: absolute; left: 50%; bottom: -14px; margin-left: -10px; border: 10px solid transparent; border-top: 14px solid #23344f; border-bottom: 0; }
+  .speech::before { content: ''; position: absolute; left: 50%; bottom: -9px; margin-left: -7px; border: 7px solid transparent; border-top: 10px solid #fff; border-bottom: 0; z-index: 1; }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .lockt { font-size: 32px; } .locks { font-size: 16px; color: #e3ecf7; }
   #bossbar { position: fixed; top: calc(env(safe-area-inset-top) + 70px); left: 50%; transform: translateX(-50%); z-index: 6; width: min(520px, 60vw);
     text-align: center; color: #ffd84a; font-weight: 900; font-size: 20px; text-shadow: 0 2px 0 rgba(0,0,0,.6); pointer-events: none; }
@@ -1984,7 +1991,7 @@ const BOSSES = {
     first: 'Du hast den reichsten Mann des Nordens bezwungen – der Weg zum Observatorium ist frei!<br><br>Als Trophäe trägst du jetzt seine <b>goldene Krone</b>.' },
   baron: { id: 'baron', key: 'boss_baron', type: 'baron', name: 'Herr Faudt', icon: '❄️👿', akk: 'Herrn Faudt', zone: 'C', gate: null, final: true, guards: 'frostwolf',
     spawn: { x: 1100, y: 1880 }, center: { x: 1100, y: 1880 }, base: 1700, trophy: 'eiszepter',
-    lines: ['„Erstarre!“', '„Das Nordlicht gehört mir!“', '„Spürst du die Kälte?“', '„Niemand entkommt dem Frost!“'], intro: '„Endlich … das Nordlicht wird MIR gehören!“', angry: '„Genug gespielt – jetzt friert alles ein!“',
+    lines: ['„Du Checker!“', '„Trivial.“', '„Die Messe ist gelesen.“', '„Das ist ein Perpetuum mobile!“', '„Du bist nicht John Doppelspalt!“'], intro: '„Endlich … das Nordlicht wird MIR gehören!“', angry: '„Trivial. Jetzt wird es ernst!“', say: 4.2, outro: '„Die Messe ist gelesen.“',
     first: '' },
 };
 const bossLvl = id => (M.bossLvl && M.bossLvl[id]) || 0;
@@ -2025,7 +2032,7 @@ function summonBoss(id, random) {
   b.boss = { id, state: 'intro', t: 1.8, atkCd: 3, dashCd: 7, phase: 1, away: 0, dashV: null, hitDone: false, random, shots: 0 };
   burst(b.x, b.y, 40, id === 'alex' ? '#e8f6ff' : id === 'philip' ? '#ffcc40' : '#ffd84a', 40, 260);
   shake(1);
-  addText(b.x, b.y, 160, D.intro, '#ffe98a', 22);
+  bossSay(b, D.intro, 3.5);
 }
 function bossLeaves(b, msg) {
   b.gone = true; hazards = []; shots = [];
@@ -2050,7 +2057,7 @@ function defeatBoss(b) {
     i === n - 1 ? () => { S.cash += reward; popPill('pCash'); sfx('coin'); } : null, 90, i * 0.06);
   burst(b.x, b.y, 50, '#ffd84a', 60, 300);
   shake(0.8);
-  banner(`🏆 ${D.name} besiegt! +${fmt(reward)} $ +${st} ⭐`, 'good');
+  banner(`🏆 ${D.name} besiegt!${D.outro ? ' ' + D.outro : ''} +${fmt(reward)} $ +${st} ⭐`, 'good');
   sfx('win');
   if (D.final && !S.win4) {
     S.win4 = true; M.stars += 10; M.starsTotal += 10;
@@ -2063,8 +2070,18 @@ function defeatBoss(b) {
   save();
 }
 let shots = [];
+function bossSay(b, text, t = 3) { b.say = { text, t }; }
 function updateBoss(b, dt) {
   const B = b.boss, D = BOSSES[B.id], p = player;
+  if (b.say) { b.say.t -= dt; if (b.say.t <= 0) b.say = null; }
+  if (B.state !== 'intro') {
+    B.sayCd = (B.sayCd === undefined ? 1.5 : B.sayCd) - dt;
+    if (B.sayCd <= 0 && !b.say) {
+      B.sayCd = D.say || rand(6, 9);
+      if (!B.bag || !B.bag.length) { B.bag = D.lines.slice(); for (let i = B.bag.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [B.bag[i], B.bag[k]] = [B.bag[k], B.bag[i]]; } }
+      bossSay(b, B.bag.pop(), 3);
+    }
+  }
   b.hitT = Math.max(0, b.hitT - dt); b.lunge = Math.max(0, b.lunge - dt); b.atkCd -= dt; b.orbitCd -= dt;
   b.spawnT = Math.min(1, b.spawnT + dt * 1.5);
   if (B.state === 'intro') { B.t -= dt; if (B.t <= 0) B.state = 'fight'; return; }
@@ -2079,7 +2096,7 @@ function updateBoss(b, dt) {
       w.x = clamp(b.x + rand(-70, 70), area.x0, area.x1); w.y = clamp(b.y + rand(-70, 70), area.y0, area.y1);
       w.guard = true; w.aggro = 30; w.spawnT = 0;
     }
-    addText(b.x, b.y, 160, D.angry, '#ffe98a', 22);
+    bossSay(b, D.angry, 3);
   }
   const fast = B.phase === 2 ? 1.3 : 1;
   const dp = dist(b, p);
@@ -2123,7 +2140,6 @@ function bossAttack(b, D, B, fast) {
   const p = player, dmgL = (1 + 0.15 * bossLvl(D.id)) * dmgScale();
   const area = areaOf(D.zone);
   b.lunge = 0.3; B.shots++;
-  if (Math.random() < 0.35) addText(b.x, b.y, 160, pick(D.lines), '#ffe98a', 20);
   if (D.id === 'benedict') {
     B.atkCd = rand(6, 8) / fast;
     const n = B.phase === 2 ? 8 : 5;
@@ -3465,7 +3481,9 @@ function label3(key, html, x, y, z, cls, dy = 0) {
   L.f = lbFrame;
   const sp = toScreen(x, y, z);
   if (!sp) { if (L.shown) { L.el.style.display = 'none'; L.shown = false; } return L; }
-  L.el.style.transform = `translate(${sp[0].toFixed(1)}px,${(sp[1] + dy).toFixed(1)}px) translate(-50%,-50%)`;
+  let lx = sp[0], ly = sp[1] + dy;
+  if (cls === 'sp') { lx = clamp(lx, 160, CW - 160); ly = clamp(ly, Math.min(260, CH * 0.32), CH - 40); }
+  L.el.style.transform = `translate(${lx.toFixed(1)}px,${ly.toFixed(1)}px) translate(-50%,-50%)`;
   if (!L.shown) { L.el.style.display = ''; L.shown = true; }
   return L;
 }
@@ -3491,6 +3509,7 @@ function renderLabels() {
     }
     for (const b of animals) {
       if (b.dead) continue;
+      if (b.say) label3('~say' + b.id, `<div class="speech">${b.say.text}</div>`, b.x, b.y, 175, 'sp', -30);
       const hh = b.type.kind === 'boss' ? 150 : b.type.kind === 'yeti' ? 150 : b.type.kind === 'mking' ? 140 : b.type.kind === 'mammoth' ? 95 : b.type.kind === 'wolf' ? 50 : 62 * b.type.size;
       if (b.hp < b.type.hp && !b.boss) {
         const w = b.type.kind === 'yeti' || b.type.kind === 'mking' ? 90 : b.type.kind === 'mammoth' ? 70 : Math.round(46 * b.type.size);
