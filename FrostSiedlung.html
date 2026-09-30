@@ -969,7 +969,7 @@ function showWin(title, text) {
 function shopOpen(sh) { return sh.id === 'meat' || lv('fishmarket') > 0; }
 function shopSprite(sh) { return sh.id === 'meat' ? (lv('grill') ? 'steak' : 'meat') : (lv('smokehouse') ? 'smoked' : 'fish'); }
 function shopPrice(sh) {
-  let p = sh.id === 'meat' ? (lv('grill') ? 12 : 5) : (lv('smokehouse') ? 38 : 17);   // Fisch kommt später, ist dafür deutlich mehr wert
+  let p = sh.id === 'meat' ? (lv('grill') ? 12 : 5) : (lv('smokehouse') ? 60 : 26);   // Fisch kommt später, ist dafür deutlich mehr wert
   if (lv('furnace')) p = p * 1.5;
   return Math.round(p * priceMult(sh));
 }
