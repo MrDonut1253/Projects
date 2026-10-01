@@ -249,8 +249,8 @@
   <div class="info panel" style="padding:16px 24px">Jage Eisbären, verkaufe Fleisch und Fisch an die Überlebenden, verteidige dein Tor in der Nacht und baue die Siedlung immer weiter aus.<br>
     Ziehe mit dem Finger irgendwo über den Bildschirm, um zu laufen. Angreifen, Holz hacken, Angeln und Einsammeln passiert automatisch.<br>
     <b>Zehn Kapitel</b> in sieben verschiedenen Welten, Expeditionen, Fähigkeiten, Erfolge und Trophäen warten auf dich.<br>
-    <b style="color:#2f73c9">Neu:</b> Frostschlag, Hundeschlitten, Schatzsuche, Pinguine, Ereignisse – und zwei neue Bosse: der Eissee-Krake und der Frostdrache!<br>
-    <i style="opacity:.75">Doch Bosse versperren dir den Weg: Philip Krüger, Alexander Karbowiak, Benedict Million – und am Ende wartet Herr Faudt …</i></div>
+    <b style="color:#2f73c9">Neu:</b> Frostschlag, Hundeschlitten, Schatzsuche, Pinguine, Ereignisse – und neue Bosse wie der Eissee-Krake!<br>
+    <i style="opacity:.75">Doch Bosse versperren dir den Weg: Philip Krüger, Alexander Karbowiak, Benedict Million, Herr Faudt – und danach Max Erdmann, Vladislav Kniazev, Armin Schmidt, Herr Uebbing, Frau Rose, Daan Ehlers und Jeffrey E. …</i></div>
   <button class="big-btn" id="bPlay">Spielen</button>
   <button class="big-btn grey hidden" id="bNew">Neues Spiel</button>
   <div class="small">Der Fortschritt wird automatisch gespeichert.<br>Tipp: Über „Teilen → Zum Home-Bildschirm“ bleibt der Spielstand auf dem iPad dauerhaft erhalten.</div>
@@ -1934,7 +1934,7 @@ function ach(id, name, stars, cur, goal) { ACH.push({ id, name, stars, cur, goal
 [[50, 2], [500, 6]].forEach(([g, s]) => ach('quest' + g, `Erfülle ${g} Aufträge`, s, () => tot('quests'), g));
 [[1000, 3], [10000, 8]].forEach(([g, s]) => ach('crys' + g, `Sammle ${fmt(g)} Kristalle`, s, () => tot('crystals'), g));
 [[10, 5], [25, 10], [50, 20]].forEach(([g, s]) => ach('time' + g, `Spiele ${g} Stunden`, s, () => Math.floor(tot('time') / 3600), g));
-[[1, 10], [5, 15], [25, 30]].forEach(([g, s]) => ach('drache' + g, g === 1 ? 'Besiege den Frostdrachen' : `Besiege den Frostdrachen ${g}-mal`, s, () => totKill('dragon'), g));
+[[1, 10], [5, 15], [25, 30]].forEach(([g, s]) => ach('drache' + g, g === 1 ? 'Besiege Max Erdmann' : `Besiege Max Erdmann ${g}-mal`, s, () => totKill('dragon'), g));
 [[1, 4], [10, 10]].forEach(([g, s]) => ach('krake' + g, g === 1 ? 'Besiege den Eissee-Kraken' : `Besiege den Eissee-Kraken ${g}-mal`, s, () => totKill('kraken'), g));
 [[10, 2], [100, 6], [500, 12]].forEach(([g, s]) => ach('schatz' + g, `Grabe ${g} Schätze aus`, s, () => tot('treasures'), g));
 [[100, 2], [1000, 6]].forEach(([g, s]) => ach('frost' + g, `Setze ${fmt(g)}-mal den Frostschlag ein`, s, () => tot('frosts'), g));
@@ -2185,7 +2185,7 @@ const BOSSES = {
     spawn: { x: LAKE.x, y: LAKE.y }, center: { x: LAKE.x, y: LAKE.y }, base: 1300, trophy: 'krakenauge', appear: '🐙 Das Eis des Sees bricht – der Eissee-Krake taucht auf!',
     lines: ['„Blubb.“', '„BLUBB BLUBB!“', '„*schlürf*“', '„Das ist MEIN See!“', '„Finger weg von meinen Fischen!“'], intro: '„Wer angelt hier meine Fische?!“', angry: '„Jetzt gibt’s Tinte!“',
     first: 'Der Eissee-Krake ist besiegt und zieht sich in die Tiefe zurück – der See gehört wieder dir!<br><br>Er hat einen ganzen Berg Fische fallen gelassen. Als Trophäe kannst du manchmal sein <b>Krakenauge</b> finden (+25 % Fischpreis). Ab und zu taucht er wieder auf – jedes Mal stärker.' },
-  dragon: { id: 'dragon', key: 'boss_dragon', type: 'dragon', name: 'Frostdrache', icon: '🐉', akk: 'den Frostdrachen', zone: 'C', gate: null, after: 'boss_baron', guards: 'frostwolf',
+  dragon: { id: 'dragon', key: 'boss_dragon', type: 'dragon', name: 'Max Erdmann', icon: '🐉', akk: 'Max Erdmann', zone: 'C', gate: null, after: 'boss_baron', guards: 'frostwolf',
     spawn: { x: 1500, y: 1950 }, center: { x: 1500, y: 1950 }, base: 2600, trophy: 'drachenschuppe', appear: '🐉 Ein Brüllen erschüttert den Gletscher – der Frostdrache erwacht!',
     lines: ['„ROOOAAAR!“', '„*schnaub*“', '„Ich hab Hunger.“', '„Mein Gletscher!“', '„Grrrr …“'], intro: '„WER WAGT ES, MICH ZU WECKEN?!“', angry: '„JETZT WIRD ES RICHTIG KALT!“',
     first: 'Unglaublich – du hast den <b>Frostdrachen</b> bezwungen, das mächtigste Wesen des Nordens!<br><br>Er kehrt ab und zu zurück, jedes Mal stärker. Als Trophäe winkt eine <b>Drachenschuppe</b> (+15 % Schaden).' },
@@ -2722,7 +2722,7 @@ const ZDEF = [
     done: 'Der Wetterturm zähmt den Sturm – Blitze liefern jetzt Energie für die ganze Siedlung.' },
   { id: 'J', ch: 10, name: 'Herz des Winters', icon: '❄️', ground: '#bcdcf7', path: '#9cc6ea', accent: '#e1f5fe', boss: 'eternal',
     mobs: [['shadowwolf', 0.6], ['iceelemental', 0.4]], keyName: 'Sonnentor', keyIcon: '☀️', mat: 'Sternenkristall',
-    teaser: 'Das Herz des Winters – hier entsteht die Kälte der ganzen Welt. Hier wartet der Ewige Winter selbst.',
+    teaser: 'Das Herz des Winters – hier entsteht die Kälte der ganzen Welt. Hier wartet Jeffrey E., der Ewige Winter.',
     done: '' },
 ];
 const ZONE_H = 1000;
@@ -2820,37 +2820,37 @@ const ZOBST = [
 {
   const D0 = BOSSES.dragon;
   delete D0.after;
-  Object.assign(D0, { zone: 'D', gate: 'key_D', spawn: { ...ZONES[0].bossPos }, center: { ...ZONES[0].bossPos }, base: 5000, appear: '🐉 Ein Brüllen hallt durch die Schlucht – der Frostdrache erwacht!',
-    first: 'Unglaublich – du hast den <b>Frostdrachen</b> bezwungen! Der Weg zur <b>Drachenwacht</b> ist frei.<br><br>Er kehrt ab und zu zurück, jedes Mal stärker. Als Trophäe winkt eine <b>Drachenschuppe</b> (+15 % Schaden).' });
+  Object.assign(D0, { zone: 'D', gate: 'key_D', spawn: { ...ZONES[0].bossPos }, center: { ...ZONES[0].bossPos }, base: 5000, appear: '🐉 Ein Brüllen hallt durch die Schlucht – Max Erdmann, der Frostdrache, erwacht!',
+    first: 'Unglaublich – du hast <b>Max Erdmann</b>, den Frostdrachen, bezwungen! Der Weg zur <b>Drachenwacht</b> ist frei.<br><br>Er kehrt ab und zu zurück, jedes Mal stärker. Als Trophäe winkt eine <b>Drachenschuppe</b> (+15 % Schaden).' });
   const add = (id, Z, o) => {
     BOSSES[id] = Object.assign({ id, key: 'boss_' + id, type: id, zone: Z.id, gate: Z.key, guards: Z.mobs[0][0], spawn: { ...Z.bossPos }, center: { ...Z.bossPos },
       base: Math.round(5000 * Z.g), pow: Z.dd }, o);
   };
   const [, E, F, G, Hh, I, J] = ZONES;
-  add('frostbart', E, { name: 'Kapitän Frostbart', icon: '🏴‍☠️', akk: 'Kapitän Frostbart', trophy: 'enterhaken', attacks: ['lob', 'fan', 'lob', 'summon', 'ring'], lob: 'cannon', shot: 'ice',
+  add('frostbart', E, { name: 'Vladislav Kniazev', icon: '🏴‍☠️', akk: 'Vladislav Kniazev', trophy: 'enterhaken', attacks: ['lob', 'fan', 'lob', 'summon', 'ring'], lob: 'cannon', shot: 'ice',
     lines: ['„Arrr!“', '„Alle Mann an Deck!“', '„Kanonen feuern!“', '„Mein Schatz gehört MIR!“', '„Ihr Landratten!“'], intro: '„Wer betritt mein Packeis?! Arrr!“', angry: '„Volle Breitseite!“',
-    appear: '🏴‍☠️ Das Geisterschiff knarrt – Kapitän Frostbart geht an Land!',
-    first: 'Kapitän Frostbart ist besiegt und sein Geisterschiff gehört dir! Der Weg zum <b>Eishafen</b> ist frei.<br><br>Trophäe: <b>Frostbarts Enterhaken</b> (+3 Rucksackplätze).' });
-  add('lavagiant', F, { name: 'Der Lavariese', icon: '🌋', akk: 'den Lavariesen', trophy: 'magmaherz', attacks: ['stomp', 'fire', 'fan', 'stomp', 'rain'], shot: 'fire', haz: 'fire',
+    appear: '🏴‍☠️ Das Geisterschiff knarrt – Kapitän Vladislav Kniazev geht an Land!',
+    first: 'Vladislav Kniazev ist besiegt und das Geisterschiff gehört dir! Der Weg zum <b>Eishafen</b> ist frei.<br><br>Trophäe: <b>Vladislavs Enterhaken</b> (+3 Rucksackplätze).' });
+  add('lavagiant', F, { name: 'Armin Schmidt', icon: '🌋', akk: 'Armin Schmidt', trophy: 'magmaherz', attacks: ['stomp', 'fire', 'fan', 'stomp', 'rain'], shot: 'fire', haz: 'fire',
     lines: ['„HEISS!“', '„Ich schmelze alles!“', '„BRODEL!“', '„Mehr Feuer!“'], intro: '„WER STÖRT MEINEN VULKAN?!“', angry: '„JETZT BRICHT ER AUS!“',
-    appear: '🌋 Der Vulkan bebt – der Lavariese steigt aus der Glut!',
-    first: 'Der Lavariese ist erloschen! Der Weg zur <b>Lavaschmiede</b> ist frei.<br><br>Trophäe: <b>Magmaherz</b> (+10 % Schaden).' });
-  add('witch', G, { name: 'Die Schneehexe', icon: '🧙', akk: 'die Schneehexe', trophy: 'hexenbesen', attacks: ['ring', 'teleport', 'spikes', 'summon', 'fan'], shot: 'ice',
-    lines: ['„Hihihi!“', '„Simsalabim!“', '„Du wirst zu Eis!“', '„Meine Geister holen dich!“'], intro: '„Hihihi … ein Besucher in meinem Wald!“', angry: '„Jetzt wird gezaubert!“',
-    appear: '🧙 Ein Kichern hallt durch den Wald – die Schneehexe erscheint!',
-    first: 'Die Schneehexe ist verschwunden – zurück blieb nur ihr Besen. Der Weg zum <b>Waldtempel</b> ist frei.<br><br>Trophäe: <b>Hexenbesen</b> (+8 % Laufgeschwindigkeit).' });
-  add('frostking', Hh, { name: 'Der Frostkönig', icon: '👑', akk: 'den Frostkönig', trophy: 'koenigskrone', attacks: ['line', 'ring', 'summon', 'spikes', 'line'], shot: 'ice',
+    appear: '🌋 Der Vulkan bebt – Armin Schmidt steigt als Lavariese aus der Glut!',
+    first: 'Armin Schmidt ist besiegt und die Glut erlischt! Der Weg zur <b>Lavaschmiede</b> ist frei.<br><br>Trophäe: <b>Magmaherz</b> (+10 % Schaden).' });
+  add('witch', G, { name: 'Herr Uebbing', icon: '🧙', akk: 'Herrn Uebbing', trophy: 'hexenbesen', attacks: ['ring', 'teleport', 'spikes', 'summon', 'fan'], shot: 'ice',
+    lines: ['„Simsalabim!“', '„Aufgepasst, jetzt kommt was!“', '„Du wirst zu Eis!“', '„Meine Geister helfen mir!“'], intro: '„Ah, Besuch in meinem Zauberwald!“', angry: '„Jetzt wird richtig gezaubert!“',
+    appear: '🧙 Ein Zauberspruch hallt durch den Wald – Herr Uebbing erscheint!',
+    first: 'Herr Uebbing ist besiegt – zurück blieb nur ein Zauberbesen. Der Weg zum <b>Waldtempel</b> ist frei.<br><br>Trophäe: <b>Herr Uebbings Zauberbesen</b> (+8 % Laufgeschwindigkeit).' });
+  add('frostking', Hh, { name: 'Frau Rose', icon: '👑', akk: 'Frau Rose', trophy: 'koenigskrone', attacks: ['line', 'ring', 'summon', 'spikes', 'line'], shot: 'ice',
     lines: ['„Knie nieder!“', '„Für die Krone!“', '„Wachen!“', '„Mein Reich ist ewig!“'], intro: '„Wer wagt es, meine Festung zu betreten?“', angry: '„Ritter, zu den Waffen!“',
-    appear: '👑 Die Tore der Festung öffnen sich – der Frostkönig erhebt sich von seinem Thron!',
-    first: 'Der Frostkönig ist gestürzt! Der Weg zum <b>Thronsaal</b> ist frei.<br><br>Trophäe: <b>Krone des Frostkönigs</b> (+15 % Verkaufspreise).' });
-  add('thunderbird', I, { name: 'Der Donnervogel', icon: '⚡', akk: 'den Donnervogel', trophy: 'donnerfeder', attacks: ['bolt', 'fan', 'bolt', 'ring', 'summon'], shot: 'snow',
+    appear: '👑 Die Tore der Festung öffnen sich – Frau Rose erhebt sich vom Eisthron!',
+    first: 'Frau Rose ist besiegt! Der Weg zum <b>Thronsaal</b> ist frei.<br><br>Trophäe: <b>Krone von Frau Rose</b> (+15 % Verkaufspreise).' });
+  add('thunderbird', I, { name: 'Daan Ehlers', icon: '⚡', akk: 'Daan Ehlers', trophy: 'donnerfeder', attacks: ['bolt', 'fan', 'bolt', 'ring', 'summon'], shot: 'snow',
     lines: ['„KRAAAH!“', '„*Donnergrollen*“', '„KRAH KRAH!“', '„Spür den Blitz!“'], intro: '„KRAAAAAH!“', angry: '„*Der Himmel verdunkelt sich*“',
-    appear: '⚡ Blitze zucken über den Gipfel – der Donnervogel stößt herab!',
-    first: 'Der Donnervogel ist besiegt und der Himmel klart auf. Der Weg zum <b>Wetterturm</b> ist frei.<br><br>Trophäe: <b>Donnerfeder</b> (+20 % Tempo aller Helfer).' });
-  add('eternal', J, { name: 'Der Ewige Winter', icon: '❄️👑', akk: 'den Ewigen Winter', trophy: 'sonnenstein', attacks: ['spikes', 'ring', 'line', 'rain', 'summon', 'teleport', 'fan'], shot: 'ice',
+    appear: '⚡ Blitze zucken über den Gipfel – Daan Ehlers stößt als Donnervogel herab!',
+    first: 'Daan Ehlers ist besiegt und der Himmel klart auf. Der Weg zum <b>Wetterturm</b> ist frei.<br><br>Trophäe: <b>Donnerfeder</b> (+20 % Tempo aller Helfer).' });
+  add('eternal', J, { name: 'Jeffrey E.', icon: '❄️👑', akk: 'Jeffrey E.', trophy: 'sonnenstein', attacks: ['spikes', 'ring', 'line', 'rain', 'summon', 'teleport', 'fan'], shot: 'ice',
     lines: ['„ICH BIN DER WINTER.“', '„Alles wird zu Eis.“', '„Die Sonne kehrt nie zurück.“', '„Friere!“'], intro: '„NIEMAND BRINGT DIE SONNE ZURÜCK.“', angry: '„SPÜRE DIE EWIGE KÄLTE!“',
-    appear: '❄️ Die Luft gefriert – der Ewige Winter erwacht!',
-    first: 'DU HAST DEN EWIGEN WINTER BESIEGT! Jetzt fehlt nur noch das <b>Sonnentor</b>, um die Sonne zurückzubringen.<br><br>Trophäe: <b>Sonnenstein</b> (+25 % Erfahrung).' });
+    appear: '❄️ Die Luft gefriert – Jeffrey E., der Ewige Winter, erwacht!',
+    first: 'DU HAST JEFFREY E. BESIEGT, DEN EWIGEN WINTER! Jetzt fehlt nur noch das <b>Sonnentor</b>, um die Sonne zurückzubringen.<br><br>Trophäe: <b>Sonnenstein</b> (+25 % Erfahrung).' });
 }
 // generische Angriffe der neuen Bosse
 function genericBossAttack(b, D, B, fast, dmgL) {
@@ -3056,10 +3056,10 @@ function portalize(g) {
 
 /* ---------- Trophäen, Erfolge, Fähigkeiten ---------- */
 TROPHIES.push(
-  { id: 'enterhaken', name: 'Frostbarts Enterhaken', icon: '🪝', desc: '+3 Rucksackplätze', hint: 'Ein Kapitän auf dem Packeis …' },
+  { id: 'enterhaken', name: 'Vladislavs Enterhaken', icon: '🪝', desc: '+3 Rucksackplätze', hint: 'Ein Kapitän auf dem Packeis …' },
   { id: 'magmaherz', name: 'Magmaherz', icon: '❤️‍🔥', desc: '+10 % Schaden', hint: 'Im Feuerberg glüht ein Herz.' },
-  { id: 'hexenbesen', name: 'Hexenbesen', icon: '🧹', desc: '+8 % Laufgeschwindigkeit', hint: 'Im Geisterwald kichert jemand.' },
-  { id: 'koenigskrone', name: 'Krone des Frostkönigs', icon: '👑', desc: '+15 % Verkaufspreise', hint: 'Ein König ohne Reich …' },
+  { id: 'hexenbesen', name: 'Herr Uebbings Zauberbesen', icon: '🧹', desc: '+8 % Laufgeschwindigkeit', hint: 'Im Geisterwald wird gezaubert.' },
+  { id: 'koenigskrone', name: 'Krone von Frau Rose', icon: '👑', desc: '+15 % Verkaufspreise', hint: 'Auf dem Eisthron der Frostfestung …' },
   { id: 'donnerfeder', name: 'Donnerfeder', icon: '🪶', desc: '+20 % Tempo aller Helfer', hint: 'Hoch über dem Sturmgipfel kreist etwas.' },
   { id: 'sonnenstein', name: 'Sonnenstein', icon: '🌞', desc: '+25 % Erfahrung', hint: 'Das Herz des Winters birgt ein Geheimnis.' },
 );
@@ -5123,7 +5123,7 @@ function makeWitch() {
     P3(gCone(17, 48, 14), robe, 0, 26, 0), P3(gTor(9.5, 1.6, 4, 14), '#c9a227', 0, 36, 0, PI / 2),
     P3(gSph(1, 16, 12), skin, 0, 56, 1, 0, 0, 0, 10.5, 10, 10), P3(gSph(1, 12, 8), '#f4f9ff', 0, 54, -4, 0, 0, 0, 11.5, 13, 8),
     ...spEyes(57.5, 9.6, { w: 3, h: 3.6, sp: 2.8, turn: 0.3, pupil: '#9c27b0' }),
-    P3(gCone(1.8, 9, 6), '#b9d8c9', 0, 53, 13, PI / 2 + 0.25), P3(gSph(1, 5, 4), '#7cb342', 0.8, 52, 15.5),
+    P3(gCone(1.8, 7, 6), '#b9d8c9', 0, 53.5, 12.5, PI / 2 + 0.25),
     ...spMouth(49.5, 9.6, 3.4, '#3b1650', 0.5),
     P3(gCyl(16, 16, 1.6, 18), robeD, 0, 64, 0), P3(gCone(9, 28, 14), robeD, 0, 78, -3, -0.28), P3(gCyl(9.3, 9.6, 2.5, 14), '#c9a227', 0, 66.5, 0),
   ], () => [P3(gBox(6, 8, 7), robeD, 0, -4, 0), P3(gBox(7, 3, 11), '#1b1b22', 0, -8, 2)],
@@ -5134,13 +5134,14 @@ function makeWitch() {
   return m;
 }
 function makeFrostKing() {
-  const m = biped('frostking', () => [
+  const m = biped('frostqueen', () => [
     P3(gBox(24, 28, 15), '#dfe9f5', 0, 34, 0), P3(gBox(18, 16, 2), '#ffffff', 0, 38, 8), P3(gBox(25, 3, 16), '#ffd84a', 0, 22, 0), P3(gBox(4, 4, 1), '#4fc3f7', 0, 38, 9.2),
     P3(gBox(30, 46, 2.5), '#1e3a8a', 0, 34, -9, 0.1), P3(gSph(7, 8, 6), '#ffd84a', -14, 47, 0), P3(gSph(7, 8, 6), '#ffd84a', 14, 47, 0),
     P3(gSph(1, 16, 12), '#cfe3f2', 0, 62, 1, 0, 0, 0, 11.5, 10.8, 10.8),
     ...spEyes(63, 10.4, { w: 3.2, h: 3.8, sp: 3.0, turn: 0.3, pupil: '#1565c0' }),
     P3(gBox(5.2, 1.4, 1.2), '#e8f6ff', -3.4, 68.4, 9.8, 0, -0.25, -0.3), P3(gBox(5.2, 1.4, 1.2), '#e8f6ff', 3.4, 68.4, 9.8, 0, 0.25, 0.3),
-    P3(gSph(1, 12, 8), '#f4f9ff', 0, 54.5, 6.5, 0, 0, 0, 10, 8, 6.5), P3(gCone(4, 10, 8), '#f4f9ff', 0, 47, 8, PI),
+    P3(gSph(1, 12, 8), '#e8f6ff', 0, 60, -4.5, 0, 0, 0, 12.6, 13.5, 9), P3(gSph(1, 10, 8), '#e8f6ff', -10.5, 52, -1, 0, 0, 0, 3.6, 10, 5), P3(gSph(1, 10, 8), '#e8f6ff', 10.5, 52, -1, 0, 0, 0, 3.6, 10, 5),
+    ...spMouth(56.5, 10.4, 3.4, '#8a4b3c', 0.4),
     P3(gCyl(9, 8.5, 6, 12), '#ffd84a', 0, 74, 0.5), ...[0, 1, 2, 3, 4, 5].map(i => P3(gCone(2, 8, 4), '#ffd84a', Math.cos(i * PI / 3) * 8, 80, 0.5 + Math.sin(i * PI / 3) * 8)),
     P3(gSph(1.6, 6, 4), '#4fc3f7', 0, 75, 9.3),
   ], () => [P3(gBox(9, 20, 10), '#9fb3c8', 0, -10, 0), P3(gBox(10, 4, 14), '#4b5563', 0, -20, 2)],
@@ -5518,7 +5519,7 @@ function startGame(fresh) {
       '🛷 <b>Hundeschlitten</b> – rase durch die Wildnis und überfahre Tiere<br>' +
       '🗺️ <b>Schatzsuche</b> – grabe rote X aus, oder heuere einen Schatzsucher an<br>' +
       '🐙 <b>Eissee-Krake</b> – ein neuer Boss bricht durch das Eis des Sees<br>' +
-      '🐉 <b>Frostdrache</b> – der ultimative Boss nach Herrn Faudt<br>' +
+      '🐉 <b>Max Erdmann</b> als Frostdrache – ein Boss nach Herrn Faudt<br>' +
       '🌠 <b>Ereignisse</b> – Goldrausch, Sternschnuppen, Pinguin-Parade, Polarlicht, Blutmond<br>' +
       '🐧 <b>Pinguine</b> an den Eisseen – füttere sie!<br>' +
       '🏆 Neue Trophäen, Erfolge, Fähigkeiten und Aufträge</div>');
