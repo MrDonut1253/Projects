@@ -248,7 +248,7 @@
   <div class="logo">FROST-SIEDLUNG<small>Überleben im Eis</small></div>
   <div class="info panel" style="padding:16px 24px">Jage Eisbären, verkaufe Fleisch und Fisch an die Überlebenden, verteidige dein Tor in der Nacht und baue die Siedlung immer weiter aus.<br>
     Ziehe mit dem Finger irgendwo über den Bildschirm, um zu laufen. Angreifen, Holz hacken, Angeln und Einsammeln passiert automatisch.<br>
-    Drei Kapitel, Expeditionen, Fähigkeiten, Erfolge und Trophäen warten auf dich.<br>
+    <b>Zehn Kapitel</b> in sieben verschiedenen Welten, Expeditionen, Fähigkeiten, Erfolge und Trophäen warten auf dich.<br>
     <b style="color:#2f73c9">Neu:</b> Frostschlag, Hundeschlitten, Schatzsuche, Pinguine, Ereignisse – und zwei neue Bosse: der Eissee-Krake und der Frostdrache!<br>
     <i style="opacity:.75">Doch Bosse versperren dir den Weg: Philip Krüger, Alexander Karbowiak, Benedict Million – und am Ende wartet Herr Faudt …</i></div>
   <button class="big-btn" id="bPlay">Spielen</button>
@@ -360,12 +360,12 @@ const AREA_L = { x0: LAKE.x - 60, x1: LAKE.x + 60, y0: LAKE.y - 40, y1: LAKE.y +
 const RUNE = { x: 620, y: 1120 }, KENNEL = { x: 40, y: 780 };
 const SMOKEHOUSE = { x: 2050, y: 800 };
 const CHEST = { x: 70, y: 105 };
-const H_C = 2150, FENCE2_Y = 1600, Y_MAX = H_C + WM;
-const AREA_C = { x0: X_MIN + 160, x1: X_MAX - 160, y0: FENCE2_Y + 60, y1: Y_MAX - 180 };
+const H_C = 2150, FENCE2_Y = 1600, Y_C = H_C + WM, Y_MAX = Y_C + 7 * 1000;   // unterhalb des Gletschers: 7 Gebiete der Kapitel 4–10
+const AREA_C = { x0: X_MIN + 160, x1: X_MAX - 160, y0: FENCE2_Y + 60, y1: Y_C - 180 };
 const CRYSTALPILE = { x: 560, y: 1420, n: 0 };
 const MKING_LAIR = { x: 1900, y: 1950 };
 const FORGE = { x: 1150, y: 1450 }, OBSERVATORY = { x: 1550, y: 1450 };
-const worldH = () => lv('glacier') ? Y_MAX : H;
+const worldH = () => { if (!lv('glacier')) return H; let y = Y_C; for (const Z of ZONES) { if (!lv(Z.pad)) break; y = Z.y1; } return y; };
 const TORCHES = [{ x: 615, y: 700 }, { x: 785, y: 700 }, { x: 470, y: 1000 }, { x: 1165, y: 930 }];
 const SNOWMEN = [{ x: 350, y: 1270 }, { x: 1360, y: 770 }, { x: 2240, y: 1280 }, { x: -170, y: 1240 }, { x: 2520, y: 1270 }, { x: -60, y: 1900 }];
 const DAY_LEN = 300;
@@ -458,7 +458,7 @@ const PAD_DEFS = [
     levels: [L({ cash: 150000, wood: 800, gold: 400, crystal: 800 }, ['forge:3', 'drill2', 'tower4', 'hunter4', 'boss_benedict'])] },
 ];
 const PAD_HALF = 38;
-const TOTAL_LEVELS = PAD_DEFS.reduce((a, p) => a + p.levels.length, 0);
+let TOTAL_LEVELS = PAD_DEFS.reduce((a, p) => a + p.levels.length, 0);
 
 /* =========================================================
    Tier-Typen
@@ -515,7 +515,7 @@ function newState() {
   gate = { hp: 200, max: 200, broken: false, hitT: 0 };
   pads = PAD_DEFS.map(p => ({ ...p, paid: { cash: 0, wood: 0, gold: 0, crystal: 0 } }));
   makeTrees();
-  makeCritters(); waves = []; chestPops = [];
+  makeCritters(); waves = []; chestPops = []; resetChapters();
   rebuildObstacles();
   for (let i = 0; i < 9; i++) spawnAnimal('A', true);
 }
@@ -528,12 +528,13 @@ function makeTrees() {
   const wob = (x, y) => Math.sin(x * 0.013 + 0.7) + Math.sin(y * 0.011 + 1.3) + Math.sin((x - y) * 0.0071 + 2.1);   // −3 … 3
   const inset = (x, y) => Math.min(x - X_MIN, X_MAX - x, y - Y_MIN, Y_MAX - y);                                       // > 0: innerhalb der Welt
   const GROVES = [[-120, 20, 105], [420, -190, 95], [980, -120, 100], [1720, -160, 105], [2280, 60, 95], [2420, -240, 90], [60, 430, 85],
-    [-80, 2150, 100], [2480, 1850, 95], [700, 2330, 90]];
+    [-80, 2150, 100], [2480, 1850, 95], [980, 2220, 90]];
   const forestInside = (x, y) => {
     if (y > FENCE_Y - 34 && y < FENCE2_Y + 44) return false;                      // Lager bleibt frei
     if (Math.hypot(CHEST.x - x, CHEST.y - y) < 50) return false;
     if (inset(x, y) < 165 + wob(x, y) * 24) return true;                         // Waldgürtel am Rand, ausgefranste Innenkante
     for (const pd of PONDS) if (Math.hypot(x - pd.x, y - pd.y) < pd.r + 26) return false;       // Eisseen bleiben frei
+    const zf = zoneForest(x, y, wob); if (zf !== null) return zf;                                  // Gebiete der Kapitel 4–10
     if (x > 1246 + wob(y, x) * 6 && x < 1386 && y < FENCE_Y - 34) return true;    // Streifen zwischen Jagdgebiet und Eissee
     for (const [gx, gy, gr] of GROVES) if (Math.hypot(x - gx, y - gy) < gr + wob(x, y) * 14) return true;   // Wäldchen
     return false;
@@ -542,7 +543,7 @@ function makeTrees() {
   for (let gx = X_MIN - 640; gx <= X_MAX + 640; gx += S0) for (let gy = Y_MIN - 640; gy <= Y_MAX + 640; gy += S0) {
     const x = gx + (r() - 0.5) * J, y = gy + (r() - 0.5) * J, s = 0.9 + r() * 0.45, d = inset(x, y);
     if (d < 0) {
-      if (-d > 560 + wob(y, x) * 50) continue;
+      if (-d > 560 + wob(y, x) * 50 || decoSkip(x, y)) continue;
       if (Math.abs(y - FENCE_Y) < 16 || Math.abs(y - FENCE2_Y) < 16) continue;               // Zäune laufen in den Wald hinein
       // grenzt innen kein Wald an (Lager), franst der Waldrand unregelmäßig aus statt gerade zu beginnen
       const cx = clamp(x, X_MIN + 1, X_MAX - 1), cy = clamp(y, Y_MIN + 1, Y_MAX - 1);
@@ -572,7 +573,7 @@ function makeTrees() {
   crates = [{ x: 780, y: 1090 }, { x: 805, y: 1106 }, { x: 772, y: 1122 }];
 }
 
-function areaOf(zone) { return zone === 'B' ? AREA_B : zone === 'C' ? AREA_C : zone === 'L' ? AREA_L : AREA_A; }
+function areaOf(zone) { return zone === 'B' ? AREA_B : zone === 'C' ? AREA_C : zone === 'L' ? AREA_L : ZONE_BY[zone] ? ZONE_BY[zone].area : AREA_A; }
 function spawnAnimal(zone, initial, typeName, raider) {
   const area = areaOf(zone);
   let x, y, tries = 0;
@@ -613,6 +614,7 @@ function rebuildObstacles() {
   if (lv('observatory')) OBST.push({ x0: OBSERVATORY.x - 55, y0: OBSERVATORY.y - 55, x1: OBSERVATORY.x + 55, y1: OBSERVATORY.y + 55 });
   if (lv('sled')) OBST.push({ x0: KENNEL.x - 32, y0: KENNEL.y - 26, x1: KENNEL.x + 62, y1: KENNEL.y + 26 });
   if (lv('rune')) OBST.push({ x0: RUNE.x - 12, y0: RUNE.y - 9, x1: RUNE.x + 12, y1: RUNE.y + 9 });
+  chapterObstacles();
 }
 
 /* =========================================================
@@ -627,7 +629,7 @@ function serialize() {
     grillQ: grill ? grill.q : 0, woodPile: WOODPILE.n, goldPile: GOLDPILE.n, crystalPile: CRYSTALPILE.n, crystal: S.crystal, mkingTimer: S.mkingTimer, meta: M,
     stack: player.stack, gate: { hp: Math.round(gate.hp), broken: gate.broken },
     raid: { timer: Math.max(S.raid.timer, S.raid.active ? 20 : 0), no: S.raid.no }, yetiTimer: S.yetiTimer,
-    win1: S.win1, win2: S.win2, win4: S.win4, day: S.day, quests: S.quests, chestCd: S.chestCd, savedAt: Date.now(),
+    win1: S.win1, win2: S.win2, win4: S.win4, zp: ZONES.map(Z => Z.pile.amount), day: S.day, quests: S.quests, chestCd: S.chestCd, savedAt: Date.now(),
   };
 }
 let lastSaveOk = 0;
@@ -683,7 +685,8 @@ function applySave(d) {
   if (d.yetiTimer) S.yetiTimer = d.yetiTimer;
   S.win1 = !!d.win1; S.win2 = !!d.win2;
   if (typeof d.day === 'number') S.day = d.day % DAY_LEN;
-  for (const k of ['boss_philip', 'boss_alex', 'boss_benedict', 'boss_baron', 'boss_kraken', 'boss_dragon']) if (d.lv && d.lv[k]) S.lv[k] = 1;
+  if (Array.isArray(d.zp)) ZONES.forEach((Z, i) => { Z.pile.amount = d.zp[i] | 0; });
+  for (const k of Object.values(BOSSES).map(D => D.key)) if (d.lv && d.lv[k]) S.lv[k] = 1;
   S.win4 = !!d.win4;
   if (Array.isArray(d.quests)) S.quests = d.quests.filter(q => QUEST_TYPES[q.type]);
   S.chestCd = d.chestCd > 0 && d.chestCd < 2000 ? d.chestCd : 700;
@@ -980,6 +983,7 @@ function applyLevel(id, n, silent) {
     case 'rune': p.frostCd = 0; if (!silent) banner(n === 1 ? '🔮 Frost-Rune! Tippe unten rechts auf ❄️ (oder Leertaste) für einen Frostschlag' : '🔮 Frostschlag verstärkt!', 'info'); break;
     case 'sled': if (!silent) banner(['', '🛷 Hundeschlitten! Draußen in der Wildnis bist du jetzt viel schneller', '🛷 Rammschlitten! Du überfährst jetzt Tiere', '🛷 Turbo-Schlitten mit Eisrammbock!'][n], 'info'); break;
     case 'digger': workers.push(makeWorker('digger', 1450, 1140)); if (!silent) banner('🧭 Der Schatzsucher gräbt jetzt alle Schätze für dich aus', 'info'); break;
+    default: applyChapterLevel(id, n, silent); break;
     case 'glacier': if (!silent) { banner('🏔️ Der Gletscher ist offen!', 'info'); for (let i = 0; i < 6; i++) spawnAnimal('C', true); } break;
     case 'drill1': case 'drill2': workers.push(makeWorker('driller', CRYSTALPILE.x + 30, CRYSTALPILE.y + 30)); break;
     case 'forge': refreshStats(); break;
@@ -1068,6 +1072,11 @@ function killAnimal(b) {
   if (k === 'mammoth') rollTrophy('mammutzahn', 0.08);
   if (k === 'mking') { rollTrophy('eiskrone', 0.3); S.mkingTimer = 480; banner('🏆 Der Mammutkönig ist besiegt!', 'good'); }
   for (let i = 0; i < (b.type.crystal || 0); i++) dropItem('crystal', b.x, b.y, 30);
+  if (b.type.bounty && !b.boss) {   // Kopfgeld in den Gebieten der Kapitel 4–10
+    const c = Math.round(b.type.bounty * (1 + 0.5 * EXP())); S.stats.cashEarned += c;
+    fly('cash', { x: b.x, y: b.y, z: 30 }, () => ({ x: player.x, y: player.y, z: 40 }), 0.5, () => { S.cash += c; popPill('pCash'); sfx('coin'); }, 60);
+    addText(b.x, b.y, 95, '+' + fmt(c) + ' $', '#7CFC7C', 20);
+  }
   if (b.boss) { defeatBoss(b); return; }
   for (let i = 0; i < b.type.meat; i++) dropItem('meat', b.x, b.y);
   for (let i = 0; i < (b.type.gold || 0); i++) dropItem('gold', b.x, b.y, 30);
@@ -1376,8 +1385,9 @@ function updateAnimals(dt) {
     if (b.frozen > 0) { b.frozen -= dt; continue; }
     const dp = dist(b, p);
     const reach = 44 * b.type.size;
-    const inCampB = b.y > FENCE_Y && b.zone !== 'C';
-    const playerReachable = p.dead <= 0 && (b.zone === 'C' ? p.y > FENCE2_Y + 8 : (p.y < FENCE_Y - 8 || (b.raider && (gate.broken || inCampB))));
+    const north = b.zone === 'A' || b.zone === 'B';
+    const inCampB = b.y > FENCE_Y && north;
+    const playerReachable = p.dead <= 0 && (!north ? p.y > FENCE2_Y + 8 : (p.y < FENCE_Y - 8 || (b.raider && (gate.broken || inCampB))));
     const sight = (b.type.kind === 'yeti' ? 260 : 190) * (isNight() ? 1.35 : 1);
     let tx = null, ty = null, spd = 0;
 
@@ -1723,7 +1733,7 @@ function updateTowers(dt) {
     const b = nearestAnimal(t, 360);
     if (!b) continue;
     t.cd = 0.9; t.aim = isoX(b.x - t.x, b.y - t.y) > 0 ? 1 : -1;
-    arrows.push({ kind: 'arrow', x0: t.x, y0: t.y, z0: 95, tgt: b, t: 0, dur: 0.35, x: t.x, y: t.y, z: 95, dmg: Math.round(14 * hpScale() * (1 + 0.15 * pk('wache'))) });
+    arrows.push({ kind: 'arrow', x0: t.x, y0: t.y, z0: 95, tgt: b, t: 0, dur: 0.35, x: t.x, y: t.y, z: 95, dmg: Math.round(14 * hpScale() * (1 + 0.15 * pk('wache')) * (t.mult || 1)) });
     sfx('arrow');
   }
   for (const a of arrows) {
@@ -1950,7 +1960,7 @@ function checkAchievements(dt) {
 
 /* ---------- Erfahrung & Stufen ---------- */
 function xpFor(L) { return Math.floor(50 * Math.pow(L, 1.45)); }
-function xpMult() { return (1 + 0.1 * pk('erfahrung')) * (hasT('nordlicht') ? 1.1 : 1) * (1 + 0.25 * EXP()) * (evOn('aurora') ? 2 : 1); }
+function xpMult() { return (1 + 0.1 * pk('erfahrung')) * (hasT('nordlicht') ? 1.1 : 1) * (1 + 0.25 * EXP()) * (evOn('aurora') ? 2 : 1) * (hasT('sonnenstein') ? 1.25 : 1); }
 function gainXP(n) {
   M.xp += n * xpMult();
   let up = false;
@@ -1963,17 +1973,18 @@ function gainXP(n) {
 }
 function killXP(b) {
   const k = b.type.kind;
-  return b.boss ? 400 * (1 + bossLvl(b.boss.id)) : k === 'mking' ? 800 : k === 'yeti' ? 150 : k === 'mammoth' ? 60 : k === 'wolf' ? (b.type.name === 'frostwolf' ? 10 : 4) : b.type.name === 'spiky' ? 9 : 5;
+  if (b.type.xp && !b.boss) return b.type.xp;
+  return b.boss ? 400 * (1 + bossLvl(b.boss.id)) * (b.type.dmg > 40 ? 3 : 1) : k === 'mking' ? 800 : k === 'yeti' ? 150 : k === 'mammoth' ? 60 : k === 'wolf' ? (b.type.name === 'frostwolf' ? 10 : 4) : b.type.name === 'spiky' ? 9 : 5;
 }
 
 /* ---------- Werte-Multiplikatoren ---------- */
 function hpScale() { return 1 + 0.4 * EXP(); }
 function dmgScale() { return 1 + 0.2 * EXP(); }
-function workerMult() { return (1 + 0.05 * sk('anfuehrer')) * (1 + 0.08 * pk('helfer')); }
+function workerMult() { return (1 + 0.05 * sk('anfuehrer')) * (1 + 0.08 * pk('helfer')) * (hasT('donnerfeder') ? 1.2 : 1); }
 function workerDmg(base) { return Math.round(base * hpScale() * workerMult() * (hasT('eiszepter') ? 1.15 : 1)); }
 function forgeMult() { return 1 + 0.2 * lv('forge'); }
 function priceMult(sh) {
-  return (1 + 0.04 * sk('handel')) * (1 + 0.1 * pk('haendler')) * (1 + 0.5 * EXP()) * (hasT('monokel') ? 1.1 : 1) * (sh && sh.id === 'fish' && hasT('goldfisch') ? 1.1 : 1) * (sh && sh.id === 'fish' && hasT('krakenauge') ? 1.25 : 1);
+  return (1 + 0.04 * sk('handel')) * (1 + 0.1 * pk('haendler')) * (1 + 0.5 * EXP()) * (hasT('monokel') ? 1.1 : 1) * (sh && sh.id === 'fish' && hasT('goldfisch') ? 1.1 : 1) * (sh && sh.id === 'fish' && hasT('krakenauge') ? 1.25 : 1) * (hasT('koenigskrone') ? 1.15 : 1) * chapterPriceMult();
 }
 function costScale(res) { return res === 'cash' ? 1 + 0.5 * EXP() : 1 + 0.15 * EXP(); }
 function critChance() { return 0.02 * sk('glueck'); }
@@ -1986,11 +1997,11 @@ function scaledType(name) {
 }
 function refreshStats() {
   const p = player, b = p.base;
-  const hpMax = Math.round(b.hp * (1 + 0.1 * sk('ausdauer')) * (hasT('silberpelz') ? 1.05 : 1) * (hasT('bierkrug') ? 1.1 : 1));
+  const hpMax = Math.round(b.hp * (1 + 0.1 * sk('ausdauer')) * (hasT('silberpelz') ? 1.05 : 1) * (hasT('bierkrug') ? 1.1 : 1) * gearMult());
   if (hpMax !== p.maxHp) { p.hp = Math.max(1, p.hp * hpMax / (p.maxHp || hpMax)); p.maxHp = hpMax; }
-  p.cap = b.cap + 2 * sk('sammler') + 3 * pk('ruecken') + (hasT('mammutzahn') ? 3 : 0);
-  p.speed = b.speed * (1 + 0.025 * sk('tempo') + 0.04 * pk('fuesse')) * (hasT('zylinder') ? 1.05 : 1) * (hasT('pinguinfeder') ? 1.05 : 1);
-  const dm = (1 + 0.06 * sk('kraft')) * (1 + 0.1 * pk('arme')) * forgeMult() * (hasT('wolfszahn') ? 1.05 : 1) * (hasT('eiskrone') ? 1.1 : 1) * (hasT('drachenschuppe') ? 1.15 : 1);
+  p.cap = b.cap + 2 * sk('sammler') + 3 * pk('ruecken') + (hasT('mammutzahn') ? 3 : 0) + (hasT('enterhaken') ? 3 : 0);
+  p.speed = b.speed * (1 + 0.025 * sk('tempo') + 0.04 * pk('fuesse')) * (hasT('zylinder') ? 1.05 : 1) * (hasT('pinguinfeder') ? 1.05 : 1) * (hasT('hexenbesen') ? 1.08 : 1);
+  const dm = (1 + 0.06 * sk('kraft')) * (1 + 0.1 * pk('arme')) * forgeMult() * (hasT('wolfszahn') ? 1.05 : 1) * (hasT('eiskrone') ? 1.1 : 1) * (hasT('drachenschuppe') ? 1.15 : 1) * (hasT('magmaherz') ? 1.1 : 1) * gearMult();
   p.dmg = Math.round(b.dmg * dm);
   p.orbitDmg = Math.round(b.orbitDmg * dm * (1 + 0.08 * sk('wirbel')) * (hasT('yetihorn') ? 1.1 : 1));
   p.spearMult = dm * (1 + 0.08 * sk('speer')) * (hasT('handschuh') ? 1.1 : 1);
@@ -2041,7 +2052,7 @@ function offlineEarnings(savedAt) {
   const eff = 0.3 * away;
   const r = {
     away,
-    cash: Math.round(eff * (n('hunter') * 0.45 * shopPrice(SHOPS.meat) + (shopOpen(SHOPS.fish) ? n('fisher') * 0.35 * shopPrice(SHOPS.fish) : 0) + housesBuilt() * 0.3 * shopPrice(SHOPS.meat))),
+    cash: Math.round(eff * (n('hunter') * 0.45 * shopPrice(SHOPS.meat) + (shopOpen(SHOPS.fish) ? n('fisher') * 0.35 * shopPrice(SHOPS.fish) : 0) + housesBuilt() * 0.3 * shopPrice(SHOPS.meat)) + chapterOffline(away)),
     wood: Math.round(eff * n('lumber') * 0.8),
     gold: cart ? Math.round(eff / 12 * (cart.cap + pk('goldader'))) : 0,
     crystal: Math.round(eff * n('driller') * 0.4),
@@ -2180,7 +2191,7 @@ const BOSSES = {
 const bossLvl = id => (M.bossLvl && M.bossLvl[id]) || 0;
 function bossAlive() { return animals.some(b => b.boss && !b.dead && !b.gone); }
 function gateReqs(D) { return PAD_DEFS.find(p => p.id === D.gate).levels[0].req.filter(r => r !== D.key); }
-function bossZoneOpen(D) { return D.zone === 'A' || (D.zone === 'B' && lv('east')) || (D.zone === 'C' && lv('glacier')) || (D.zone === 'L' && lv('fishmarket')); }
+function bossZoneOpen(D) { return (ZONE_BY[D.zone] && lv(ZONE_BY[D.zone].pad)) || D.zone === 'A' || (D.zone === 'B' && lv('east')) || (D.zone === 'C' && lv('glacier')) || (D.zone === 'L' && lv('fishmarket')); }
 let bossCheckT = 0;
 function updateChest(dt) { // Boss-Auftritte steuern
   if (S.bossIntro > 0) { S.bossIntro -= dt; if (S.bossIntro <= 0) summonBoss(S.bossPending, S.bossRandom); return; }
@@ -2249,10 +2260,10 @@ function defeatBoss(b) {
   sfx('win');
   if (D.final && !S.win4) {
     S.win4 = true; M.stars += 10; M.starsTotal += 10;
-    setTimeout(() => showWin('🏆 Du hast Frost-Siedlung durchgespielt! 🏆',
-      'Herr Faudt ist besiegt und das Nordlicht strahlt frei über deiner Siedlung. Alle Überlebenden feiern dich!<br><br>' +
-      '<b>+10 ⭐ Bonus.</b> Jetzt beginnt das große Abenteuer: Starte im 📘-Menü eine <b>neue Expedition</b> – das Observatorium bringt dir <b>+50 % Polarsterne</b>. ' +
-      'Jede Expedition wird schwerer, aber lohnender. Schaffst du alle Erfolge und Trophäen?'), 1500);
+    setTimeout(() => showWin('❄️ Kapitel 3 geschafft! ❄️',
+      'Herr Faudt ist besiegt und das Nordlicht strahlt frei über deiner Siedlung. <b>+10 ⭐ Bonus.</b><br><br>' +
+      'Doch das Abenteuer fängt gerade erst an – es warten noch <b>sieben weitere Kapitel</b>!<br><br>' +
+      '<b>Kapitel 4: Drachenschlucht</b> 🐉<br>' + ZONES[0].teaser + '<br><br>Schalte das neue Gebiet am südlichen Ende des Gletschers frei.'), 1500);
   } else if (bl === 1) setTimeout(() => showWin(`${D.icon} ${D.name} besiegt! ${D.icon}`, D.first), 1500);
   else if (firstRun && !b.boss.random) banner(`🏆 ${D.name} besiegt – der Weg ist frei!`, 'good');
   save();
@@ -2284,7 +2295,8 @@ function updateBoss(b, dt) {
     for (let i = 0; i < 4; i++) { const q = a + rand(-0.16, 0.16), s = rand(320, 560);
       parts.push({ x: b.x + Math.cos(a) * 80, y: b.y + Math.sin(a) * 80, z: 105, vx: Math.cos(q) * s, vy: Math.sin(q) * s, vz: rand(-260, -80), color: Math.random() < 0.5 ? '#ffffff' : '#9fe4ff', t: 0, life: 0.55, r: rand(3, 6.5) }); }
   }
-  const inArena = p.dead <= 0 && (D.zone === 'L' ? Math.hypot(p.x - LAKE.x, p.y - LAKE.y) < 280 : D.zone === 'C' ? p.y > FENCE2_Y + 5 : p.y < FENCE_Y - 5);
+  const Zb = ZONE_BY[D.zone];
+  const inArena = p.dead <= 0 && (Zb ? p.y > Zb.y0 - 60 && p.y < Zb.y1 + 60 : D.zone === 'L' ? Math.hypot(p.x - LAKE.x, p.y - LAKE.y) < 280 : D.zone === 'C' ? p.y > FENCE2_Y + 5 : p.y < FENCE_Y - 5);
   if (!inArena) { B.away += dt; if (B.random && B.away > 150) { bossLeaves(b, `${D.name} verschwindet wieder …`); return; } }
   else B.away = 0;
   if (B.phase === 1 && b.hp < b.type.hp * 0.5) {
@@ -2398,6 +2410,8 @@ function bossAttack(b, D, B, fast) {
       }
       sfx('arrow');
     }
+  } else if (D.attacks) {
+    genericBossAttack(b, D, B, fast, dmgL);
   } else if (D.id === 'baron') {
     B.atkCd = (B.phase === 2 ? 2.0 : 2.6) / fast;
     if (B.shots % 2) {
@@ -2443,9 +2457,9 @@ function updateShots(dt) {
     if (s.big) s.r = Math.min(34, s.r + 6 * dt);
     if (p.dead <= 0 && Math.hypot(p.x - s.x, p.y - s.y) < s.r + 14) {
       s.done = true; hurtPlayer(s.dmg);
-      p.slowT = s.big ? 1.6 : s.ice ? 0.8 : s.ink ? 1.4 : 1.0; p.slowK = s.big ? 0.3 : s.ink ? 0.45 : 0.5;
-      addText(p.x, p.y, 90, s.big ? 'Eingeschneit!' : s.ice ? 'Eiskalt!' : s.ink ? 'Tinte!' : 'Brrr!', s.ink ? '#d6a8ff' : '#bfe6ff', 20);
-      burst(s.x, s.y, s.z, s.ink ? '#4a1f66' : '#ffffff', s.big ? 18 : 8, 150);
+      p.slowT = s.big ? 1.6 : s.ice ? 0.8 : s.ink ? 1.4 : s.fire ? 0.4 : 1.0; p.slowK = s.big ? 0.3 : s.ink ? 0.45 : s.fire ? 0.8 : 0.5;
+      addText(p.x, p.y, 90, s.big ? 'Eingeschneit!' : s.ice ? 'Eiskalt!' : s.ink ? 'Tinte!' : s.fire ? 'Heiß!' : 'Brrr!', s.ink ? '#d6a8ff' : s.fire ? '#ffb070' : '#bfe6ff', 20);
+      burst(s.x, s.y, s.z, s.ink ? '#4a1f66' : s.fire ? '#ff7a2e' : '#ffffff', s.big ? 18 : 8, 150);
     }
     if (s.t > s.life) { s.done = true; burst(s.x, s.y, s.z, '#ffffff', 4, 80); }
   }
@@ -2457,6 +2471,9 @@ function updateHazards(dt) {
     if (!h.hit && h.t >= h.delay) {
       h.hit = true;
       if (h.stomp || h.ice) { burst(h.x, h.y, 5, '#dff4ff', 16, 220); burst(h.x, h.y, 5, '#8fd3ff', 8, 160); shake(0.35); }
+      else if (h.fire) { burst(h.x, h.y, 6, '#ff7a2e', 16, 200); burst(h.x, h.y, 10, '#ffd166', 8, 140); }
+      else if (h.bolt) { burst(h.x, h.y, 6, '#fff59d', 18, 240); burst(h.x, h.y, 6, '#ffffff', 10, 180); shake(0.3); }
+      else if (h.lob) { burst(h.x, h.y, 8, '#444a55', 14, 200); burst(h.x, h.y, 10, '#ff9a2e', 10, 160); shake(0.35); }
       else if (h.tent) { burst(h.x, h.y, 8, '#eaf6ff', 16, 220); burst(h.x, h.y, 10, '#9c5bd6', 8, 150); shake(0.3); }
       else if (h.beer) { burst(h.x, h.y, 8, '#ffcc40', 14, 170); burst(h.x, h.y, 10, '#ffffff', 8, 120); burst(h.x, h.y, 6, '#bfe6ff', 5, 150); }
       else { burst(h.x, h.y, 10, '#ffd84a', 10, 160); burst(h.x, h.y, 10, '#fff4b0', 4, 100); }
@@ -2465,7 +2482,7 @@ function updateHazards(dt) {
         if (h.ice) { player.slowT = 1.2; player.slowK = 0.4; }
         if (h.beer) { player.slowT = 2.2; player.slowK = 0.55; addText(player.x, player.y, 90, 'Rutschig!', '#ffd84a', 20); }
       }
-      sfx(h.stomp || h.tent ? 'hurt' : h.beer ? 'splash' : h.ice ? 'hit' : 'coin');
+      sfx(h.stomp || h.tent || h.lob ? 'hurt' : h.beer ? 'splash' : h.ice || h.fire || h.bolt ? 'hit' : 'coin');
     }
   }
   hazards = hazards.filter(h => h.t < h.delay + 0.35);
@@ -2505,7 +2522,7 @@ const TDIG = 1.5;
 function spawnTreasure(x, y) {
   if (S.treasures.length >= 6) return;
   if (x === undefined) {
-    const zones = ['A']; if (lv('east')) zones.push('B'); if (lv('glacier')) zones.push('C');
+    const zones = ['A']; if (lv('east')) zones.push('B'); if (lv('glacier')) zones.push('C'); for (const Z of ZONES) if (lv(Z.pad)) zones.push(Z.id);
     const ar = areaOf(pick(zones));
     for (let k = 0; k < 25; k++) {
       const tx = rand(ar.x0 + 30, ar.x1 - 30), ty = rand(ar.y0 + 30, ar.y1 - 30);
@@ -2615,7 +2632,7 @@ function dropMeteor() {
 /* ---------- Pinguine ---------- */
 function makeCritters() {
   critters = [];
-  for (const pd of PONDS) for (let i = 0; i < 2; i++) {
+  for (const pd of PONDS.concat(CRIT_HOMES)) for (let i = 0; i < (pd.r > 85 ? 3 : 2); i++) {
     const a = Math.random() * Math.PI * 2;
     critters.push({ id: ++UID, kind: 'peng', home: pd, x: pd.x + Math.cos(a) * (pd.r + 10), y: pd.y + Math.sin(a) * (pd.r * 0.8 + 10), tx: pd.x, ty: pd.y,
       t: rand(0, 3), walkT: rand(0, 6), face: 1, moving: false, slide: false, jump: 0, fedCd: 0, side: 1 });
@@ -2664,6 +2681,7 @@ function updateCritters(dt) {
 /* ---------- Takt ---------- */
 function updateContent(dt) {
   updateEvents(dt);
+  updateChapters(dt);
   updateCritters(dt);
   if (lv('hunter1')) {
     S.treasureCd -= dt * (lv('digger') ? 1.8 : 1);
@@ -2671,9 +2689,388 @@ function updateContent(dt) {
   }
 }
 
+/* =========================================================
+   Kapitel 4–10: sieben neue Gebiete südlich des Gletschers
+   ========================================================= */
+const ZDEF = [
+  { id: 'D', ch: 4, name: 'Drachenschlucht', icon: '🐉', ground: '#c3cfdc', path: '#a9b6c6', accent: '#4fc3f7', boss: 'dragon',
+    mobs: [['icelizard', 0.65], ['wyrmling', 0.35]], keyName: 'Drachenwacht', keyIcon: '🏯', mat: 'Drachenstahl',
+    teaser: 'Hinter dem Gletscher liegt eine tiefe Schlucht voller Drachenknochen – und etwas Großes schläft dort …',
+    done: 'Die Drachenwacht steht! Von hier oben überblickst du die ganze Schlucht.' },
+  { id: 'E', ch: 5, name: 'Packeis-Meer', icon: '🚢', ground: '#dceefa', path: '#b9d3e6', accent: '#29b6f6', boss: 'frostbart',
+    mobs: [['seal', 0.65], ['walrus', 0.35]], keyName: 'Eishafen', keyIcon: '⚓', mat: 'Walrossleder',
+    teaser: 'Ein zugefrorenes Meer voller Eisberge. Mittendrin steckt ein Geisterschiff im Eis …',
+    done: 'Der Eishafen ist fertig – jetzt kommen Händler über das Packeis zu dir.' },
+  { id: 'F', ch: 6, name: 'Feuerberg', icon: '🌋', ground: '#5a4b47', path: '#7a6660', accent: '#ff7a2e', boss: 'lavagiant',
+    mobs: [['lavahound', 0.65], ['magmagolem', 0.35]], keyName: 'Lavaschmiede', keyIcon: '⚒️', mat: 'Magmastahl',
+    teaser: 'Mitten im ewigen Eis brodelt ein Vulkan! Vorsicht vor den Lavaseen …',
+    done: 'Die Lavaschmiede glüht – mit ihrer Hitze schmiedest du die besten Waffen des Nordens.' },
+  { id: 'G', ch: 7, name: 'Geisterwald', icon: '🌲', ground: '#d4e6da', path: '#b7cdbd', accent: '#00e676', boss: 'witch',
+    mobs: [['lynx', 0.65], ['spirit', 0.35]], keyName: 'Waldtempel', keyIcon: '⛩️', mat: 'Geisterholz',
+    teaser: 'Ein dunkler, verzauberter Wald. Zwischen den Bäumen leuchten Geisterlichter …',
+    done: 'Der Waldtempel bannt die Geister – der Wald gehört jetzt dir (und er hat sehr viel Holz).' },
+  { id: 'H', ch: 8, name: 'Frostfestung', icon: '🏰', ground: '#d7dde6', path: '#b8c0cc', accent: '#90caf9', boss: 'frostking',
+    mobs: [['frostknight', 0.65], ['icewarden', 0.35]], keyName: 'Thronsaal', keyIcon: '👑', mat: 'Königsrüstung',
+    teaser: 'Die Ruinen einer uralten Festung. Ihre eisigen Ritter bewachen sie noch immer …',
+    done: 'Der Thronsaal ist wieder aufgebaut – du bist jetzt der Herrscher der Frostfestung!' },
+  { id: 'I', ch: 9, name: 'Sturmgipfel', icon: '⛰️', ground: '#e9eef3', path: '#c9d2dc', accent: '#ffd600', boss: 'thunderbird',
+    mobs: [['stormeagle', 0.6], ['snowleopard', 0.4]], keyName: 'Wetterturm', keyIcon: '🌩️', mat: 'Sturmfedern',
+    teaser: 'Hoch oben pfeift der Wind. Böen schieben dich herum, und am Himmel kreist ein riesiger Vogel …',
+    done: 'Der Wetterturm zähmt den Sturm – Blitze liefern jetzt Energie für die ganze Siedlung.' },
+  { id: 'J', ch: 10, name: 'Herz des Winters', icon: '❄️', ground: '#bcdcf7', path: '#9cc6ea', accent: '#e1f5fe', boss: 'eternal',
+    mobs: [['shadowwolf', 0.6], ['iceelemental', 0.4]], keyName: 'Sonnentor', keyIcon: '☀️', mat: 'Sternenkristall',
+    teaser: 'Das Herz des Winters – hier entsteht die Kälte der ganzen Welt. Hier wartet der Ewige Winter selbst.',
+    done: '' },
+];
+const ZONE_H = 1000;
+const ZONES = ZDEF.map((d, i) => {
+  const y0 = Y_C + i * ZONE_H, y1 = y0 + ZONE_H, f = Math.pow(1.85, d.ch - 4);
+  return { ...d, i, y0, y1, f, r: Math.pow(1.25, d.ch - 4), g: Math.pow(1.35, d.ch - 4), dd: Math.pow(1.28, d.ch - 4),
+    area: { x0: X_MIN + 220, x1: X_MAX - 220, y0: y0 + 140, y1: y1 - 140 },
+    pad: 'z_' + d.id, out: 'out_' + d.id, trade: 'trade_' + d.id, tower: 'tower_' + d.id, gear: 'gear_' + d.id, market: 'market_' + d.id, key: 'key_' + d.id,
+    outPos: { x: 260, y: y0 + 200 }, tradePos: { x: 470, y: y0 + 200 }, keyPos: { x: 1250, y: y0 + 470 },
+    portal: { x: 110, y: y0 + 330 }, land: { x: 110, y: y0 + 405 },
+    campPortal: { x: [-330, -250, -170, -90, -330, -250, -170][i], y: i < 4 ? 1080 : 1170 },
+    pile: { x: 470, y: y0 + 290, amount: 0, acc: 0 }, rate: 60 * f, racc: 0, bossPos: { x: 1650, y: y0 + 560 } };
+});
+const ZONE_BY = Object.fromEntries(ZONES.map(Z => [Z.id, Z]));
+const CAMP_LAND = { x: -40, y: 1245 };
+const zoneAt = y => ZONES.find(Z => y >= Z.y0 && y < Z.y1) || null;
+
+// Bereiche, die frei von Bäumen und Deko bleiben (Außenposten, Weg, Boss-Arena)
+function zoneClear(x, y, Z, m = 0) {
+  if (x > 540 - m && x < 860 + m) return true;
+  if (x > 20 - m && x < 1500 + m && y > Z.y0 + 110 - m && y < Z.y0 + 640 + m) return true;
+  if (Math.hypot(x - Z.bossPos.x, y - Z.bossPos.y) < 290 + m) return true;
+  return false;
+}
+// Waldgürtel zwischen den Gebieten mit einem Pass in der Mitte, dichter Geisterwald
+function zoneForest(x, y, wob) {
+  if (y < Y_C - 140) return null;
+  for (let i = 0; i < ZONES.length; i++) {
+    const yb = Y_C + i * ZONE_H;
+    if (Math.abs(y - yb) < 72 + wob(x, y) * 18) return !(x > 570 + wob(y, x) * 10 && x < 830);
+  }
+  const Z = zoneAt(y);
+  if (!Z) return null;
+  if (zoneClear(x, y, Z, 20)) return false;
+  for (const L of LAVA) if (Math.hypot(x - L.x, y - L.y) < L.r + 40) return false;
+  if (Z.id === 'G') return wob(x * 0.55, y * 0.55) > 0.45;
+  return false;
+}
+// Deko-Wald außerhalb der Welt: Platz für den Vulkan lassen
+const VOLCANO = { x: X_MAX + 300, y: Y_C + 2 * ZONE_H + 480, r: 380 };
+function decoSkip(x, y) { return Math.hypot(x - VOLCANO.x, y - VOLCANO.y) < VOLCANO.r; }
+
+// Lavaseen im Feuerberg, Eislöcher im Packeis, Pinguine auf dem Packeis
+const LAVA = [];
+{
+  const Z = ZONES[2], r = mulberry32(606);
+  for (let k = 0; k < 400 && LAVA.length < 10; k++) {
+    const x = rand0(r, Z.area.x0 + 60, Z.area.x1 - 60), y = rand0(r, Z.area.y0 + 60, Z.area.y1 - 60), rr = rand0(r, 42, 72);
+    if (zoneClear(x, y, Z, rr + 30) || LAVA.some(L => Math.hypot(L.x - x, L.y - y) < L.r + rr + 90)) continue;
+    LAVA.push({ x, y, r: rr });
+  }
+}
+function rand0(r, a, b) { return a + r() * (b - a); }
+{ const E = ZONES[1]; for (const [x, dy] of [[1000, 720], [1220, 780], [1960, 260], [2330, 430]]) HOLES.push({ x, y: E.y0 + dy }); }
+const CRIT_HOMES = [{ x: 1150, y: ZONES[1].y0 + 760, r: 90 }, { x: 2200, y: ZONES[1].y0 + 300, r: 80 }, { x: 300, y: ZONES[1].y0 + 820, r: 80 }];
+// feste Hindernisse der Deko (Geisterschiff, Festungsmauern)
+const ZOBST = [
+  { z: 'E', x0: 2040, y0: ZONES[1].y0 + 650, x1: 2290, y1: ZONES[1].y0 + 740 },
+  { z: 'H', x0: 1820, y0: ZONES[4].y0 + 250, x1: 2060, y1: ZONES[4].y0 + 280 }, { z: 'H', x0: 2100, y0: ZONES[4].y0 + 730, x1: 2140, y1: ZONES[4].y0 + 900 },
+  { z: 'H', x0: 200, y0: ZONES[4].y0 + 760, x1: 440, y1: ZONES[4].y0 + 790 }, { z: 'H', x0: 2300, y0: ZONES[4].y0 + 320, x1: 2330, y1: ZONES[4].y0 + 520 },
+];
+
+/* ---------- Tiere ---------- */
+{
+  const T = (name, kind, Z, strong, o) => {
+    TYPES[name] = Object.assign({ name, kind, hp: Math.round((strong ? 1500 : 600) * Z.g), dmg: Math.round((strong ? 35 : 22) * Z.dd), speed: strong ? 85 : 150,
+      size: strong ? 1.5 : 1.1, meat: strong ? 9 : 5, gold: strong ? 3 + Z.ch - 4 : 1 + Math.floor((Z.ch - 4) / 2), crystal: strong ? 1 + Math.floor((Z.ch - 4) / 2) : 0,
+      xp: Math.round((strong ? 50 : 20) * Z.g), bounty: Math.round((strong ? 400 : 150) * Z.f) }, o);
+  };
+  const [D, E, F, G, Hh, I, J] = ZONES;
+  T('icelizard', 'lizard', D, false, { speed: 165, scale3: 1.3, hh: 40 });
+  T('wyrmling', 'wyrm', D, true, { speed: 120, scale3: 0.62, hh: 80, size: 1.3 });
+  T('seal', 'seal', E, false, { speed: 120, scale3: 1.4, hh: 50 });
+  T('walrus', 'walrus', E, true, { speed: 70, scale3: 2.0, hh: 70, size: 1.6 });
+  T('lavahound', 'lavahound', F, false, { speed: 175, scale3: 1.25, hh: 55 });
+  T('magmagolem', 'magma', F, true, { speed: 75, scale3: 1.15, hh: 150, size: 1.6 });
+  T('lynx', 'lynx', G, false, { speed: 185, scale3: 1.15, hh: 50 });
+  T('spirit', 'spirit', G, true, { speed: 95, scale3: 1.0, hh: 135, size: 1.5 });
+  T('frostknight', 'knight', Hh, false, { speed: 130, scale3: 1.45, hh: 100 });
+  T('icewarden', 'warden', Hh, true, { speed: 80, scale3: 1.2, hh: 150, size: 1.6 });
+  T('stormeagle', 'eagle', I, false, { speed: 175, scale3: 1.1, hh: 90 });
+  T('snowleopard', 'leopard', I, true, { speed: 160, scale3: 1.4, hh: 60, size: 1.4 });
+  T('shadowwolf', 'shadow', J, false, { speed: 185, scale3: 1.35, hh: 60 });
+  T('iceelemental', 'elemental', J, true, { speed: 80, scale3: 1.25, hh: 160, size: 1.7 });
+  const B = (name, Z, o) => { TYPES[name] = Object.assign({ name, kind: name, hp: 2000, dmg: Math.round(30 * Z.dd), speed: 105, size: 1.7, meat: 30, gold: Math.round(80 * Z.r), crystal: 40 }, o); };
+  B('frostbart', E, { scale3: 1.9, sayZ: 210 });
+  B('lavagiant', F, { scale3: 2.1, sayZ: 300, speed: 85 });
+  B('witch', G, { scale3: 1.9, sayZ: 210 });
+  B('frostking', Hh, { scale3: 2.0, sayZ: 220 });
+  B('thunderbird', I, { scale3: 2.4, sayZ: 260, speed: 125 });
+  B('eternal', J, { scale3: 2.5, sayZ: 320, speed: 90 });
+}
+
+/* ---------- Bosse ---------- */
+{
+  const D0 = BOSSES.dragon;
+  delete D0.after;
+  Object.assign(D0, { zone: 'D', gate: 'key_D', spawn: { ...ZONES[0].bossPos }, center: { ...ZONES[0].bossPos }, base: 5000, appear: '🐉 Ein Brüllen hallt durch die Schlucht – der Frostdrache erwacht!',
+    first: 'Unglaublich – du hast den <b>Frostdrachen</b> bezwungen! Der Weg zur <b>Drachenwacht</b> ist frei.<br><br>Er kehrt ab und zu zurück, jedes Mal stärker. Als Trophäe winkt eine <b>Drachenschuppe</b> (+15 % Schaden).' });
+  const add = (id, Z, o) => {
+    BOSSES[id] = Object.assign({ id, key: 'boss_' + id, type: id, zone: Z.id, gate: Z.key, guards: Z.mobs[0][0], spawn: { ...Z.bossPos }, center: { ...Z.bossPos },
+      base: Math.round(5000 * Z.g), pow: Z.dd }, o);
+  };
+  const [, E, F, G, Hh, I, J] = ZONES;
+  add('frostbart', E, { name: 'Kapitän Frostbart', icon: '🏴‍☠️', akk: 'Kapitän Frostbart', trophy: 'enterhaken', attacks: ['lob', 'fan', 'lob', 'summon', 'ring'], lob: 'cannon', shot: 'ice',
+    lines: ['„Arrr!“', '„Alle Mann an Deck!“', '„Kanonen feuern!“', '„Mein Schatz gehört MIR!“', '„Ihr Landratten!“'], intro: '„Wer betritt mein Packeis?! Arrr!“', angry: '„Volle Breitseite!“',
+    appear: '🏴‍☠️ Das Geisterschiff knarrt – Kapitän Frostbart geht an Land!',
+    first: 'Kapitän Frostbart ist besiegt und sein Geisterschiff gehört dir! Der Weg zum <b>Eishafen</b> ist frei.<br><br>Trophäe: <b>Frostbarts Enterhaken</b> (+3 Rucksackplätze).' });
+  add('lavagiant', F, { name: 'Der Lavariese', icon: '🌋', akk: 'den Lavariesen', trophy: 'magmaherz', attacks: ['stomp', 'fire', 'fan', 'stomp', 'rain'], shot: 'fire', haz: 'fire',
+    lines: ['„HEISS!“', '„Ich schmelze alles!“', '„BRODEL!“', '„Mehr Feuer!“'], intro: '„WER STÖRT MEINEN VULKAN?!“', angry: '„JETZT BRICHT ER AUS!“',
+    appear: '🌋 Der Vulkan bebt – der Lavariese steigt aus der Glut!',
+    first: 'Der Lavariese ist erloschen! Der Weg zur <b>Lavaschmiede</b> ist frei.<br><br>Trophäe: <b>Magmaherz</b> (+10 % Schaden).' });
+  add('witch', G, { name: 'Die Schneehexe', icon: '🧙', akk: 'die Schneehexe', trophy: 'hexenbesen', attacks: ['ring', 'teleport', 'spikes', 'summon', 'fan'], shot: 'ice',
+    lines: ['„Hihihi!“', '„Simsalabim!“', '„Du wirst zu Eis!“', '„Meine Geister holen dich!“'], intro: '„Hihihi … ein Besucher in meinem Wald!“', angry: '„Jetzt wird gezaubert!“',
+    appear: '🧙 Ein Kichern hallt durch den Wald – die Schneehexe erscheint!',
+    first: 'Die Schneehexe ist verschwunden – zurück blieb nur ihr Besen. Der Weg zum <b>Waldtempel</b> ist frei.<br><br>Trophäe: <b>Hexenbesen</b> (+8 % Laufgeschwindigkeit).' });
+  add('frostking', Hh, { name: 'Der Frostkönig', icon: '👑', akk: 'den Frostkönig', trophy: 'koenigskrone', attacks: ['line', 'ring', 'summon', 'spikes', 'line'], shot: 'ice',
+    lines: ['„Knie nieder!“', '„Für die Krone!“', '„Wachen!“', '„Mein Reich ist ewig!“'], intro: '„Wer wagt es, meine Festung zu betreten?“', angry: '„Ritter, zu den Waffen!“',
+    appear: '👑 Die Tore der Festung öffnen sich – der Frostkönig erhebt sich von seinem Thron!',
+    first: 'Der Frostkönig ist gestürzt! Der Weg zum <b>Thronsaal</b> ist frei.<br><br>Trophäe: <b>Krone des Frostkönigs</b> (+15 % Verkaufspreise).' });
+  add('thunderbird', I, { name: 'Der Donnervogel', icon: '⚡', akk: 'den Donnervogel', trophy: 'donnerfeder', attacks: ['bolt', 'fan', 'bolt', 'ring', 'summon'], shot: 'snow',
+    lines: ['„KRAAAH!“', '„*Donnergrollen*“', '„KRAH KRAH!“', '„Spür den Blitz!“'], intro: '„KRAAAAAH!“', angry: '„*Der Himmel verdunkelt sich*“',
+    appear: '⚡ Blitze zucken über den Gipfel – der Donnervogel stößt herab!',
+    first: 'Der Donnervogel ist besiegt und der Himmel klart auf. Der Weg zum <b>Wetterturm</b> ist frei.<br><br>Trophäe: <b>Donnerfeder</b> (+20 % Tempo aller Helfer).' });
+  add('eternal', J, { name: 'Der Ewige Winter', icon: '❄️👑', akk: 'den Ewigen Winter', trophy: 'sonnenstein', attacks: ['spikes', 'ring', 'line', 'rain', 'summon', 'teleport', 'fan'], shot: 'ice',
+    lines: ['„ICH BIN DER WINTER.“', '„Alles wird zu Eis.“', '„Die Sonne kehrt nie zurück.“', '„Friere!“'], intro: '„NIEMAND BRINGT DIE SONNE ZURÜCK.“', angry: '„SPÜRE DIE EWIGE KÄLTE!“',
+    appear: '❄️ Die Luft gefriert – der Ewige Winter erwacht!',
+    first: 'DU HAST DEN EWIGEN WINTER BESIEGT! Jetzt fehlt nur noch das <b>Sonnentor</b>, um die Sonne zurückzubringen.<br><br>Trophäe: <b>Sonnenstein</b> (+25 % Erfahrung).' });
+}
+// generische Angriffe der neuen Bosse
+function genericBossAttack(b, D, B, fast, dmgL) {
+  const p = player, ph2 = B.phase === 2, k = dmgL * (D.pow || 1), area = areaOf(D.zone);
+  const kind = D.attacks[B.shots % D.attacks.length], sh = D.shot || 'snow', hz = D.haz || 'ice';
+  B.atkCd = (ph2 ? 1.7 : 2.4) / fast;
+  const base = Math.atan2(p.y - b.y, p.x - b.x);
+  const shot = (a, spd, r, dmg) => { const s = { x: b.x + Math.cos(a) * 34, y: b.y + Math.sin(a) * 34, z: 45, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, t: 0, life: 1.8, r, dmg: Math.round(dmg * k) }; s[sh] = true; shots.push(s); };
+  const haz = (x, y, r, delay, dmg, extra) => { const h = { x: clamp(x, area.x0 - 80, area.x1 + 80), y: clamp(y, area.y0 - 80, area.y1 + 80), r, t: 0, delay, dmg: Math.round(dmg * k), id: ++UID }; h[hz] = true; hazards.push(Object.assign(h, extra)); };
+  switch (kind) {
+    case 'fan': { const n = ph2 ? 7 : 4; for (let i = 0; i < n; i++) shot(base + (i - (n - 1) / 2) * 0.2, 430, 11, 12); sfx('arrow'); break; }
+    case 'ring': { const n = ph2 ? 18 : 12, off = Math.random(); for (let i = 0; i < n; i++) shot(off + i / n * Math.PI * 2, 330, 10, 12); sfx('arrow'); break; }
+    case 'spikes': case 'fire': case 'rain': {
+      const n = kind === 'rain' ? (ph2 ? 9 : 6) : (ph2 ? 6 : 4);
+      for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, r = i === 0 ? 0 : rand(50, kind === 'rain' ? 170 : 130); haz(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, 44, 1.0 + i * 0.09, 20); }
+      sfx('hit'); break;
+    }
+    case 'line': {
+      for (const a of ph2 ? [base - 0.3, base, base + 0.3] : [base]) for (let i = 0; i < 9; i++) haz(b.x + Math.cos(a) * (60 + i * 44), b.y + Math.sin(a) * (60 + i * 44), 40, 0.7 + i * 0.07, 20);
+      sfx('roar'); break;
+    }
+    case 'lob': {
+      const n = ph2 ? 3 : 1;
+      for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, r = i === 0 ? 0 : rand(50, 120); hazards.push({ lob: D.lob || 'rock', fx: b.x, fy: b.y, x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r, r: 52, t: 0, delay: 1.1 + i * 0.15, dmg: Math.round(22 * k), id: ++UID }); }
+      sfx('arrow'); break;
+    }
+    case 'stomp': {
+      hazards.push({ stomp: true, x: p.x, y: p.y, r: 95, t: 0, delay: 1.0, dmg: Math.round(28 * k), id: ++UID });
+      if (ph2) for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2; haz(p.x + Math.cos(a) * 140, p.y + Math.sin(a) * 140, 60, 1.3, 22, { stomp: true }); }
+      addText(b.x, b.y, 170, 'STAMPF!', '#ffd0a0', 24); break;
+    }
+    case 'bolt': {
+      const n = ph2 ? 7 : 4;
+      for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, r = i === 0 ? 0 : rand(60, 160); hazards.push({ bolt: true, x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r, r: 42, t: 0, delay: 0.9 + i * 0.13, dmg: Math.round(22 * k), id: ++UID }); }
+      sfx('alarm'); break;
+    }
+    case 'teleport': {
+      burst(b.x, b.y, 40, D.id === 'witch' ? '#ce93d8' : '#bfe6ff', 20, 200);
+      const a = Math.random() * Math.PI * 2;
+      b.x = clamp(p.x + Math.cos(a) * 160, area.x0, area.x1); b.y = clamp(p.y + Math.sin(a) * 160, area.y0, area.y1);
+      burst(b.x, b.y, 40, D.id === 'witch' ? '#ce93d8' : '#bfe6ff', 20, 200);
+      const n = ph2 ? 14 : 10; for (let i = 0; i < n; i++) shot(i / n * Math.PI * 2, 300, 10, 10);
+      sfx('frost'); break;
+    }
+    case 'summon': {
+      for (let i = 0; i < (ph2 ? 3 : 2); i++) { const w = spawnAnimal(D.zone, false, D.guards); w.x = clamp(b.x + rand(-80, 80), area.x0, area.x1); w.y = clamp(b.y + rand(-80, 80), area.y0, area.y1); w.guard = true; w.aggro = 30; w.spawnT = 0; }
+      B.atkCd *= 0.6; burst(b.x, b.y, 30, '#ffffff', 16, 160); break;
+    }
+  }
+}
+
+/* ---------- Ausbauten ---------- */
+{
+  const C = (Z, cash, wood, gold, crystal) => {
+    const o = { cash: Math.round(cash * Z.f) };
+    if (wood) o.wood = Math.round(wood * Z.r); if (gold) o.gold = Math.round(gold * Z.r); if (crystal) o.crystal = Math.round(crystal * Z.r);
+    return o;
+  };
+  ZONES.forEach((Z, i) => {
+    const prev = i === 0 ? null : ZONES[i - 1], oy = Z.y0;
+    const unlockAt = { x: 700, y: (prev ? prev.y1 : Y_C) - 170 };
+    PAD_DEFS.push(
+      { id: Z.pad, name: `Neues Gebiet: ${Z.name}`, icon: Z.icon, x: unlockAt.x, y: unlockAt.y, big: true, levels: [L(C(Z, 120000, 400, 200, 150), prev ? [prev.key] : ['boss_baron'])] },
+      { id: Z.out, name: 'Außenposten mit Portal', icon: '🌀', x: Z.outPos.x, y: Z.outPos.y, levels: [L(C(Z, 50000, 300), [Z.pad])] },
+      { id: Z.trade, name: 'Handelsposten', icon: '💰', x: Z.tradePos.x, y: Z.tradePos.y, levels: [L(C(Z, 70000, 0, 150), [Z.out])] },
+      { id: Z.tower, name: 'Wachturm', icon: '🗼', x: 1000, y: oy + 260, levels: [L(C(Z, 60000, 250, 100), [Z.out])] },
+      { id: Z.gear, name: `Ausrüstung: ${Z.mat}`, icon: '🛡️', x: 260, y: oy + 400, levels: [L(C(Z, 100000, 0, 150, 200), [Z.out])] },
+      { id: Z.market, name: 'Handelsroute', icon: '🐫', x: 470, y: oy + 400, levels: [L(C(Z, 90000, 200), [Z.trade])] },
+      { id: Z.key, name: `${Z.keyName}`, icon: Z.keyIcon, x: Z.keyPos.x, y: Z.keyPos.y, big: true,
+        levels: [L(C(Z, 300000, 800, 500, 500), [Z.out, Z.trade, Z.tower, Z.gear, Z.market, 'boss_' + Z.boss])] },
+    );
+    TOWER_POS[Z.tower] = { x: 1000, y: oy + 260, mult: Math.pow(2.2, Z.ch - 3) };
+  });
+  TOTAL_LEVELS = PAD_DEFS.reduce((a, p) => a + p.levels.length, 0);
+}
+const nBuilt = k => ZONES.reduce((n, Z) => n + (lv(Z[k]) ? 1 : 0), 0);
+function gearMult() { return Math.pow(1.3, nBuilt('gear')); }
+function chapterPriceMult() { return Math.pow(1.35, nBuilt('market')) * Math.pow(1.4, nBuilt('key')); }
+function chapterNo() {
+  let c = S.win4 ? 4 : S.win2 ? 3 : S.win1 ? 2 : 1;
+  for (const Z of ZONES) if (lv(Z.key)) c = Z.ch + 1;
+  return Math.min(10, c);
+}
+function chapterOffline(away) { let c = 0; for (const Z of ZONES) if (lv(Z.trade)) c += Z.rate * away * 0.5; return c * (1 + 0.5 * EXP()); }
+
+function applyChapterLevel(id, n, silent) {
+  const Z = ZONES.find(q => [q.pad, q.out, q.trade, q.tower, q.gear, q.market, q.key].includes(id));
+  if (!Z) return;
+  if (id === Z.pad && !silent) {
+    banner(`${Z.icon} Neues Gebiet: ${Z.name}! (Kapitel ${Z.ch})`, 'info');
+    for (let i = 0; i < 6; i++) spawnAnimal(Z.id, true, pickMob(Z));
+  }
+  if (id === Z.out && !silent) banner(`🌀 Portal aktiv! Im Lager (Westseite) gibt es jetzt ein Portal nach ${Z.name}`, 'info');
+  if (id === Z.trade && !silent) banner('💰 Der Handelsposten verdient laufend Geld und liefert Holz, Gold und Kristalle ins Lager', 'info');
+  if (id === Z.tower) towers.push({ id, ...TOWER_POS[id], cd: 0, aim: 0 });
+  if (id === Z.gear) { refreshStats(); player.hp = player.maxHp; if (!silent) banner(`🛡️ ${Z.mat}: +30 % Schaden und Lebenspunkte`, 'good'); }
+  if (id === Z.market && !silent) banner('🐫 Handelsroute: +35 % Verkaufspreise', 'good');
+  if (id === Z.key && !silent) {
+    const st = 5 + 3 * (Z.ch - 4); M.stars += st; M.starsTotal += st; sfx('win');
+    const next = ZONES[Z.i + 1];
+    if (next) setTimeout(() => showWin(`${Z.keyIcon} Kapitel ${Z.ch} geschafft! ${Z.keyIcon}`,
+      `${Z.done}<br><br>Alle Kunden zahlen jetzt 40 % mehr. <b>+${st} ⭐</b><br><br><b>Kapitel ${next.ch}: ${next.name}</b> ${next.icon}<br>${next.teaser}<br><br>` +
+      'Tipp: Das neue Gebiet schaltest du am südlichen Pass frei.'), 1000);
+    else { M.stars += 50; M.starsTotal += 50;
+      setTimeout(() => showWin('☀️ ALLE 10 KAPITEL GESCHAFFT! ☀️',
+        'Das Sonnentor öffnet sich – zum ersten Mal seit tausend Jahren scheint die Sonne über dem Norden! Der Ewige Winter ist gebrochen und deine Siedlung ist die größte der Welt.<br><br>' +
+        `<b>+${st + 50} ⭐ Bonus.</b> Du bist eine echte Legende. Jetzt warten noch Expeditionen, Erfolge und Trophäen – schaffst du sie alle?`), 1000); }
+  }
+}
+function pickMob(Z) { let r = Math.random(); for (const [t, w] of Z.mobs) { r -= w; if (r <= 0) return t; } return Z.mobs[0][0]; }
+function chapterObstacles() {
+  for (const Z of ZONES) {
+    if (lv(Z.out)) OBST.push({ x0: Z.outPos.x - 34, y0: Z.outPos.y - 28, x1: Z.outPos.x + 34, y1: Z.outPos.y + 28 });
+    if (lv(Z.trade)) OBST.push({ x0: Z.tradePos.x - 32, y0: Z.tradePos.y - 22, x1: Z.tradePos.x + 32, y1: Z.tradePos.y + 22 });
+    if (lv(Z.key)) OBST.push({ x0: Z.keyPos.x - 58, y0: Z.keyPos.y - 58, x1: Z.keyPos.x + 58, y1: Z.keyPos.y + 58 });
+  }
+  for (const o of ZOBST) if (lv(ZONE_BY[o.z].pad)) OBST.push(o);
+}
+function resetChapters() { for (const Z of ZONES) { Z.pile.amount = 0; Z.pile.acc = 0; } }
+
+/* ---------- Takt: Tiere, Handelsposten, Portale, Lava, Sturm ---------- */
+let chT = 0, chapterWind = 0;
+function updateChapters(dt) {
+  const p = player;
+  // Handelsposten
+  for (const Z of ZONES) {
+    if (!lv(Z.trade)) continue;
+    const pl = Z.pile; pl.acc += Z.rate * (1 + 0.5 * EXP()) * dt;
+    if (pl.acc >= 1) { const n = Math.floor(pl.acc); pl.acc -= n; pl.amount += n; }
+    Z.racc += dt;
+    if (Z.racc >= 5) {   // Rohstoffe gehen direkt in die Lager im Lager
+      Z.racc -= 5; const k = Z.ch - 3;
+      if (lv('lumber')) WOODPILE.n += Math.round(1.5 * k);
+      if (lv('mine')) GOLDPILE.n += Math.round(0.5 * k);
+      if (lv('glacier')) CRYSTALPILE.n += Math.round(0.4 * k);
+    }
+    if (p.dead <= 0 && dist(p, pl) < 55 && pl.amount > 0 && p.pickCd <= 0) {
+      p.pickCd = 0.05; const c = takeChunk(pl, 'amount'); pl.amount -= c; S.stats.cashEarned += c;
+      fly('cash', { x: pl.x, y: pl.y, z: 10 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.cash += c; popPill('pCash'); sfx('coin'); });
+    }
+  }
+  // Tiere in der Nähe des Spielers auffüllen, weit entfernte verschwinden
+  chT -= dt;
+  if (chT <= 0) {
+    chT = 2;
+    for (const Z of ZONES) {
+      if (!lv(Z.pad)) break;
+      const near = p.y > Z.y0 - 1300 && p.y < Z.y1 + 1300;
+      if (!near) { for (const b of animals) if (b.zone === Z.id && !b.boss && !b.dead) { b.dead = true; b.deadT = 99; } continue; }
+      const alive = animals.filter(b => !b.dead && !b.gone && b.zone === Z.id && !b.boss && !b.guard).length;
+      if (alive < 10) spawnAnimal(Z.id, false, pickMob(Z));
+    }
+  }
+  // Portale
+  if (p.dead <= 0) {
+    let on = null;
+    for (const Z of ZONES) {
+      if (!lv(Z.out)) continue;
+      if (dist(p, Z.campPortal) < 32) on = { Z, to: Z.land, name: `${Z.icon} ${Z.name}` };
+      else if (dist(p, Z.portal) < 32) on = { Z, to: CAMP_LAND, name: '🏠 Lager' };
+    }
+    if (!on) p.portT = 0;
+    else {
+      p.portT = (p.portT || 0) + dt;
+      if (Math.random() < 0.5) parts.push({ x: p.x + rand(-20, 20), y: p.y + rand(-20, 20), z: 4, vx: 0, vy: 0, vz: rand(250, 420), color: on.Z.accent, t: 0, life: 0.5, r: rand(2, 4) });
+      if (p.portT > 0.7) {
+        burst(p.x, p.y, 20, on.Z.accent, 26, 200);
+        p.x = on.to.x; p.y = on.to.y; p.portT = 0; p.knock = null;
+        camTarget.set(p.x, 0, p.y);
+        if (pet) { pet.x = p.x - 30; pet.y = p.y + 30; }
+        burst(p.x, p.y, 20, on.Z.accent, 26, 200); sfx('frost'); banner(`🌀 ${on.name}`, 'info');
+      }
+    }
+  }
+  // Gebiet betreten
+  const z = zoneAt(p.y);
+  if (z !== p.zoneNow) { p.zoneNow = z; if (z && p.dead <= 0) banner(`${z.icon} ${z.name} · Kapitel ${z.ch}`, 'info'); }
+  // Lava verbrennt
+  if (z && z.id === 'F' && p.dead <= 0) {
+    for (const Lv of LAVA) if (Math.hypot(p.x - Lv.x, p.y - Lv.y) < Lv.r * 0.85) {
+      p.hp -= p.maxHp * 0.16 * dt; p.lastHit = 0; p.hurtT = Math.max(p.hurtT, 0.05);
+      if (Math.random() < dt * 3) { addText(p.x, p.y, 80, '🔥 Heiß!', '#ff8a3d', 20); burst(p.x, p.y, 4, '#ff7a2e', 4, 120); }
+      if (p.hp <= 0) playerDown();
+      break;
+    }
+  }
+  // Sturmböen auf dem Gipfel
+  chapterWind = 0;
+  if (z && z.id === 'I' && p.dead <= 0) {
+    const dir = Math.sin(gameTime * 0.16) > 0 ? 1 : -1, gust = 0.5 + 0.5 * Math.sin(gameTime * 0.9);
+    chapterWind = dir * (50 + 90 * gust);
+    moveEntity(p, chapterWind * dt, 0);
+  }
+}
+function portalize(g) {
+  if (!g) return g;
+  const p = player, zt = zoneAt(g.y), zp = zoneAt(p.y);
+  if (!zt || zt === zp || !lv(zt.out) || Math.abs(g.y - p.y) < 1400) return g;
+  if (p.y < FENCE2_Y) return { text: `🌀 Portal nach ${zt.name}: ${g.text}`, x: zt.campPortal.x, y: zt.campPortal.y, pad: true };
+  if (zp && lv(zp.out)) return { text: `🌀 Portal ins Lager: ${g.text}`, x: zp.portal.x, y: zp.portal.y, pad: true };
+  return g;
+}
+
+/* ---------- Trophäen, Erfolge, Fähigkeiten ---------- */
+TROPHIES.push(
+  { id: 'enterhaken', name: 'Frostbarts Enterhaken', icon: '🪝', desc: '+3 Rucksackplätze', hint: 'Ein Kapitän auf dem Packeis …' },
+  { id: 'magmaherz', name: 'Magmaherz', icon: '❤️‍🔥', desc: '+10 % Schaden', hint: 'Im Feuerberg glüht ein Herz.' },
+  { id: 'hexenbesen', name: 'Hexenbesen', icon: '🧹', desc: '+8 % Laufgeschwindigkeit', hint: 'Im Geisterwald kichert jemand.' },
+  { id: 'koenigskrone', name: 'Krone des Frostkönigs', icon: '👑', desc: '+15 % Verkaufspreise', hint: 'Ein König ohne Reich …' },
+  { id: 'donnerfeder', name: 'Donnerfeder', icon: '🪶', desc: '+20 % Tempo aller Helfer', hint: 'Hoch über dem Sturmgipfel kreist etwas.' },
+  { id: 'sonnenstein', name: 'Sonnenstein', icon: '🌞', desc: '+25 % Erfahrung', hint: 'Das Herz des Winters birgt ein Geheimnis.' },
+);
+ZONES.forEach(Z => {
+  ach('kap' + Z.ch, `Schließe Kapitel ${Z.ch} ab: ${Z.name}`, 3 + 2 * (Z.ch - 4), () => lv(Z.key) ? 1 : 0, 1);
+  const D = BOSSES[Z.boss];
+  if (Z.boss !== 'dragon') [[1, 5 + Z.ch], [10, 10 + 2 * Z.ch]].forEach(([g, s]) => ach('b_' + Z.boss + g, g === 1 ? `Besiege ${D.akk}` : `Besiege ${D.akk} ${g}-mal`, s, () => totKill(D.type), g));
+});
+for (const s of SKILLS) s.max = 20;
+
 
 function nearestOf(list, p) { let best = null, bd = 1e9; for (const o of list) { const d = dist(p, o); if (d < bd) { bd = d; best = o; } } return best; }
-function currentGoal() {
+function currentGoal() { return portalize(currentGoal0()); }
+function currentGoal0() {
   const p = player;
   if (p.dead > 0) return null;
   const vis = pads.filter(padVisible);
@@ -2838,7 +3235,7 @@ function ensureInkAttr(geo) {
 /* ---------- Gesperrte Gebiete: weicher Nebel pro Pixel ----------
    Statt einer Nebel-Box mit harter Kante wird jedes Material abhängig von seiner Weltposition
    sanft eingenebelt (auch hohe Objekte, ohne Versatz durch die Kameraperspektive). */
-const LOCK_U = { value: new THREE.Vector2(1, 1) }, LOCK_C = { value: new THREE.Color(0.93, 0.95, 0.98) };
+const LOCK_U = { value: new THREE.Vector3(1, 1, H) }, LOCK_C = { value: new THREE.Color(0.93, 0.95, 0.98) };
 function lockPatch(sh) {
   sh.uniforms.uLock = LOCK_U; sh.uniforms.uLockC = LOCK_C;
   sh.vertexShader = sh.vertexShader
@@ -2847,10 +3244,10 @@ function lockPatch(sh) {
       { mat3 lv3 = mat3( viewMatrix ); vec3 lp = mvPosition.xyz;
         vLockW = cameraPosition.xz + vec2( dot( lv3[ 0 ], lp ), dot( lv3[ 2 ], lp ) ); }`);
   sh.fragmentShader = sh.fragmentShader
-    .replace('#include <fog_pars_fragment>', '#include <fog_pars_fragment>\nvarying vec2 vLockW;\nuniform vec2 uLock;\nuniform vec3 uLockC;')
+    .replace('#include <fog_pars_fragment>', '#include <fog_pars_fragment>\nvarying vec2 vLockW;\nuniform vec3 uLock;\nuniform vec3 uLockC;')
     .replace('#include <fog_fragment>', `#include <fog_fragment>
       { float le = uLock.x * smoothstep( ${W_A - 30}.0, ${W_A + 240}.0, vLockW.x );
-        float lg = uLock.y * smoothstep( ${H - 30}.0, ${H + 240}.0, vLockW.y );
+        float lg = smoothstep( uLock.z - 30.0, uLock.z + 240.0, vLockW.y );
         gl_FragColor.rgb = mix( gl_FragColor.rgb, uLockC, 0.92 * max( le, lg ) ); }`);
 }
 function lockOnBeforeCompile(sh) { lockPatch(sh); }
@@ -2866,6 +3263,7 @@ function patchLock() {
 function updateLock(dt) {
   const v = LOCK_U.value, k = Math.min(1, dt * 1.2);
   v.x += ((lv('east') ? 0 : 1) - v.x) * k; v.y += ((lv('glacier') ? 0 : 1) - v.y) * k;
+  const wh = worldH() >= Y_MAX ? Y_MAX + 2000 : worldH(); v.z += (wh - v.z) * Math.min(1, dt * 0.9);
   _col.set('#eef3fa').lerp(_v2col.set('#27344f'), nightAmount() * 0.85).getRGB(LOCK_C.value, THREE.SRGBColorSpace);
 }
 const _v2col = new THREE.Color();
@@ -3011,10 +3409,10 @@ function treeParts(snowy = true) {
   return a;
 }
 function buildWorld() {
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.MeshLambertMaterial({ map: snowTexture() }));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(12000, 18000), new THREE.MeshLambertMaterial({ map: snowTexture() }));
   ground.material.map.wrapS = ground.material.map.wrapT = THREE.RepeatWrapping;
-  ground.material.map.repeat.set(70, 70);
-  ground.rotation.x = -PI / 2; at(ground, W_B / 2, H / 2, 0); ground.receiveShadow = true;
+  ground.material.map.repeat.set(93, 140);
+  ground.rotation.x = -PI / 2; at(ground, W_B / 2, (Y_MIN + Y_MAX) / 2, 0); ground.receiveShadow = true;
   scene.add(ground);
   const dirt = '#e6b08f';
   decal(GATE_X0 + 15, FENCE_Y - 70, GATE_X1 - 15, FENCE_Y + 40, dirt, null);
@@ -3033,7 +3431,7 @@ function buildWorld() {
     m.rotation.x = -PI / 2; at(m, FURNACE.x, FURNACE.y, 1); m.receiveShadow = true; scene.add(m); decals.push({ m, cond: () => lv('furnace') }); }
 
   // Gletscher (Kapitel 3)
-  decal(X_MIN - 700, FENCE2_Y, X_MAX + 700, Y_MAX + 700, '#d3e9f9', () => lv('glacier'), 0.3);
+  decal(X_MIN - 700, FENCE2_Y, X_MAX + 700, Y_C, '#d3e9f9', () => lv('glacier'), 0.3);
   decal(GATE_X0 + 15, 1290, GATE_X1 - 15, FENCE2_Y + 70, dirt, () => lv('glacier'), 0.95);
   decal(250, 1370, 2200, 1500, dirt, () => lv('glacier'), 1.0);
   decal(1640, 1290, 1760, 1380, dirt, () => lv('glacier'), 1.05);
@@ -3176,7 +3574,7 @@ function buildWorld() {
   for (const p of PAD_DEFS) makePadObj(p);
 
   // Gegenstände, Partikel usw. (instanziert)
-  for (const t of ['meat', 'steak', 'fish', 'smoked', 'wood', 'gold', 'cash', 'crystal', 'beer', 'snow', 'tentacle', 'ink']) {
+  for (const t of ['meat', 'steak', 'fish', 'smoked', 'wood', 'gold', 'cash', 'crystal', 'beer', 'snow', 'tentacle', 'ink', 'fireball', 'flame', 'bolt', 'cannon', 'rock']) {
     const im = new THREE.InstancedMesh(itemGeo(t), VC, 1600); im.count = 0; im.castShadow = true; im.frustumCulled = false;
     scene.add(im); inkIM(im); itemIM[t] = im;
   }
@@ -3232,6 +3630,12 @@ function itemGeo(t) {
       case 'crystal': return [P3(gCone(4.5, 13, 5), '#6fe7ff', 0, 6.5, 0), P3(gCone(3, 9, 5), '#b8f6ff', 4.5, 4.5, 1.5, 0, 0, -0.5), P3(gCone(3, 8, 5), '#4fc9f0', -4, 4, -1, 0, 0, 0.5)];
       case 'beer': return [P3(gCyl(5, 4.6, 12, 10), '#f2a900', 0, 6, 0), P3(gCyl(5.5, 5.5, 3.5, 10), '#fffdf2', 0, 13.2, 0), P3(gSph(2.4, 6, 4), '#fffdf2', 2, 15, 1), P3(gTor(3.4, 1.2, 4, 10), '#e0b040', 6.5, 6.5, 0)];
       case 'snow': return [P3(gSph(9, 10, 8), '#ffffff', 0, 0, 0), P3(gSph(4, 6, 4), '#e3f2fd', 3, -4, 5)];
+      case 'fireball': return [P3(gSph(9, 10, 8), '#ff7a1a', 0, 0, 0), P3(gSph(6, 8, 6), '#ffd166', 2, 2, 4), P3(gCone(6, 14, 6), '#ff9a2e', 0, 0, -10, -PI / 2)];
+      case 'flame': return [P3(gCone(7, 22, 6), '#ff6a1a', 0, 11, 0), P3(gCone(4.5, 16, 6), '#ffb347', 2, 9, 1), P3(gCone(2.5, 10, 6), '#fff2a0', 0, 6, 2)];
+      case 'bolt': return [P3(gBox(5, 40, 5), '#fff59d', 0, 20, 0, 0, 0, 0.35), P3(gBox(5, 40, 5), '#ffeb3b', -6, 56, 0, 0, 0, -0.4), P3(gBox(5, 40, 5), '#fff59d', 2, 92, 0, 0, 0, 0.35),
+        P3(gBox(4, 38, 4), '#ffffff', -4, 128, 0, 0, 0, -0.35), P3(gSph(10, 8, 6), '#ffffff', 0, 0, 0, 0, 0, 0, 1, 0.3, 1)];
+      case 'cannon': return [P3(gSph(9, 10, 8), '#2b2f36', 0, 0, 0), P3(gSph(2.5, 6, 4), '#9aa3ae', -3, 4, 6), P3(gCyl(1.2, 1.2, 6, 5), '#c9a227', 0, 9, 0)];
+      case 'rock': return [P3(gIco(10, 0), '#5a4b47', 0, 0, 0), P3(gIco(5, 0), '#ff7a2e', 4, 3, 5)];
       case 'ink': return [P3(gSph(9, 10, 8), '#2a1238', 0, 0, 0), P3(gSph(4, 6, 4), '#6a3290', 3, 3, 5), P3(gSph(3, 6, 4), '#2a1238', -5, -2, -7)];
       case 'tentacle': return [P3(gCyl(5.5, 8.5, 28, 10), '#8e4fc4', 0, 14, 0), P3(gCyl(3.4, 5.5, 24, 10), '#8e4fc4', 0, 37, 3.5, 0.3), P3(gCyl(1.2, 3.4, 20, 8), '#a066d4', 0, 55, 10.5, 0.62),
         P3(gSph(1.8, 6, 4), '#f0d4ff', 0, 8, 7.6), P3(gSph(1.6, 6, 4), '#f0d4ff', 0, 20, 7), P3(gSph(1.4, 6, 4), '#f0d4ff', 0, 32, 8.4), P3(gSph(1.2, 6, 4), '#f0d4ff', 0, 43, 11)];
@@ -3501,8 +3905,9 @@ function syncWorld() {
   ensure('observatory', lv('observatory'), buildObservatory);
   fence2Group.visible = !!lv('glacier');
   const n = nightAmount();
-  aurora.visible = (!!lv('observatory') || evOn('aurora')) && n > 0.05;
-  if (aurora.visible) { at(aurora, camTarget.x, camTarget.z); aurora.children.forEach((m, i) => { m.material.opacity = n * (0.55 + 0.25 * Math.sin(t * 0.5 + i * 2)); m.position.y = 700 + i * 60 + Math.sin(t * 0.3 + i) * 30; }); }
+  const inJ = running && zoneAt(player.y) === ZONE_BY.J, an = inJ ? Math.max(n, 0.75) : n;
+  aurora.visible = (!!lv('observatory') || evOn('aurora') || inJ) && an > 0.05;
+  if (aurora.visible) { at(aurora, camTarget.x, camTarget.z); aurora.children.forEach((m, i) => { m.material.opacity = an * (0.55 + 0.25 * Math.sin(t * 0.5 + i * 2)); m.position.y = 700 + i * 60 + Math.sin(t * 0.3 + i) * 30; }); }
   syncExtra();
   const ra = ensure('radio', lv('radio'), buildRadio);
   if (ra) ra.userData.beacon.visible = Math.sin(t * 4) > 0;
@@ -3869,9 +4274,9 @@ function renderEntities(dt) {
   // Tiere
   for (const b of animals) {
     const kind = b.type.kind;
-    const m = ensureModel(b, () => kind === 'bear' ? makeBear(b.type.name === 'spiky', b.raider) : kind === 'wolf' ? makeWolf(b.guard, false, b.type.name === 'frostwolf') : kind === 'yeti' ? makeYeti() : kind === 'mammoth' ? makeMammoth(false) : kind === 'mking' ? makeMammoth(true) : kind === 'baron' ? makeBaron() : kind === 'philip' ? makePhilip() : kind === 'alex' ? makeAlex() : kind === 'kraken' ? makeKraken() : kind === 'dragon' ? makeDragon() : makeBenedict());
+    const m = ensureModel(b, () => kind === 'bear' ? makeBear(b.type.name === 'spiky', b.raider) : kind === 'wolf' ? makeWolf(b.guard, false, b.type.name === 'frostwolf') : kind === 'yeti' ? makeYeti() : kind === 'mammoth' ? makeMammoth(false) : kind === 'mking' ? makeMammoth(true) : kind === 'baron' ? makeBaron() : kind === 'philip' ? makePhilip() : kind === 'alex' ? makeAlex() : kind === 'kraken' ? makeKraken() : kind === 'dragon' ? makeDragon() : CH_MODELS[b.type.name] ? CH_MODELS[b.type.name]() : makeBenedict());
     at(m.root, b.x, b.y);
-    const s = (kind === 'kraken' ? 1.7 : kind === 'dragon' ? 1.45 : kind === 'bear' ? b.type.size * 1.1 : kind === 'yeti' ? 1.25 : kind === 'boss' || kind === 'philip' || kind === 'alex' || kind === 'baron' ? 1.85 : kind === 'mking' ? 1.6 : kind === 'wolf' ? b.type.size : 1) * (0.3 + 0.7 * b.spawnT);
+    const s = (b.type.scale3 ? b.type.scale3 : kind === 'kraken' ? 1.7 : kind === 'dragon' ? 1.45 : kind === 'bear' ? b.type.size * 1.1 : kind === 'yeti' ? 1.25 : kind === 'boss' || kind === 'philip' || kind === 'alex' || kind === 'baron' ? 1.85 : kind === 'mking' ? 1.6 : kind === 'wolf' ? b.type.size : 1) * (0.3 + 0.7 * b.spawnT);
     m.root.scale.setScalar(s);
     const dp = dist(b, p);
     const attacking = !b.dead && p.dead <= 0 && dp < 80 * b.type.size;
@@ -3893,7 +4298,7 @@ function renderEntities(dt) {
       if (b.boss.state === 'dash') m.inner.rotation.x = 0.35;
       if (b.boss.state === 'intro') m.root.rotation.y = m.rot = Math.atan2(p.x - b.x, p.y - b.y);
     }
-    if (kind === 'kraken' || kind === 'dragon') animBigBoss(m, b, p);
+    if (m.tents || m.wings) animBigBoss(m, b, p);
     if (b.dead) { m.inner.rotation.z = Math.min(1.5, b.deadT * 5); m.root.position.y = -Math.max(0, b.deadT - 0.6) * 40; }
     if (b.hitT > 0.08 && gameTime - (m.flashAt || -9) > 0.25) m.flashAt = gameTime;
     setFlash(m, gameTime - (m.flashAt || -9) < 0.07, b.frozen > 0 && !b.dead);
@@ -3963,10 +4368,13 @@ function renderItems() {
     const k = (h.t - (h.delay - 0.5)) / 0.5;
     if (h.ice) { if (h.t > h.delay) for (let i = 0; i < 4; i++) pushItem('crystal', h.x + Math.cos(i * 1.57 + 0.4) * 16, h.y + Math.sin(i * 1.57 + 0.4) * 16, -10 + Math.min(1, (h.t - h.delay) * 8) * 10, i, 2.6); continue; }
     if (h.tent) { if (h.t > h.delay - 0.15) pushItem('tentacle', h.x, h.y, -58 + 58 * clamp((h.t - (h.delay - 0.15)) / 0.15, 0, 1), h.id * 1.7, 1.25); continue; }
+    if (h.fire) { if (h.t > h.delay) for (let i = 0; i < 3; i++) pushItem('flame', h.x + Math.cos(i * 2.1 + h.id) * 15, h.y + Math.sin(i * 2.1 + h.id) * 15, -10 + Math.min(1, (h.t - h.delay) * 8) * 10, gameTime * 3 + i, 2); continue; }
+    if (h.bolt) { if (h.t > h.delay - 0.12) pushItem('bolt', h.x, h.y, Math.max(0, (h.delay - h.t) * 1500), h.id, 1.6); continue; }
+    if (h.lob) { const q = Math.min(1, h.t / h.delay); if (h.t < h.delay) pushItem(h.lob, lerp(h.fx, h.x, q), lerp(h.fy, h.y, q), 70 + Math.sin(PI * q) * 200 - 60 * q, h.t * 6, 1.5); continue; }
     if (h.beer) { const q = Math.min(1, h.t / h.delay); pushItem('beer', lerp(h.fx, h.x, q), lerp(h.fy, h.y, q), 70 + Math.sin(PI * q) * 170 - 60 * q, h.t * 9); continue; }
     if (k > 0 && k < 1 && !h.stomp) for (let i = 0; i < 5; i++) pushItem('gold', h.x + Math.cos(i * 1.3) * 18, h.y + Math.sin(i * 1.3) * 18, 320 * (1 - k) + i * 12, i + gameTime * 8, 0.9);
   }
-  for (const sh of shots) { if (sh.ice) pushItem('crystal', sh.x, sh.y, sh.z, Math.atan2(sh.vx, sh.vy), 1.3); else pushItem(sh.ink ? 'ink' : 'snow', sh.x, sh.y, sh.z, sh.t * 8, sh.r / 9); }
+  for (const sh of shots) { if (sh.ice) pushItem('crystal', sh.x, sh.y, sh.z, Math.atan2(sh.vx, sh.vy), 1.3); else pushItem(sh.fire ? 'fireball' : sh.ink ? 'ink' : 'snow', sh.x, sh.y, sh.z, sh.t * 8, sh.r / 9); }
   renderExtraItems();
   flushItems();
 }
@@ -4095,7 +4503,7 @@ function updateLights(dt) {
   TORCHES.forEach((t, i) => { pointLights['torch' + i].intensity = (0.2 + 2.2 * n) * (0.9 + 0.1 * Math.sin(gameTime * 13 + i)); });
   torchFlames.forEach((f, i) => { const s = 0.9 + 0.2 * Math.sin(gameTime * 12 + i * 2); f.scale.set(s, 1 + 0.3 * Math.sin(gameTime * 9 + i), s); });
   // Schneefall
-  const pos = snowPos, spd = 40 + stormK * 110, wind = 20 + stormK * 260;
+  const pos = snowPos, spd = 40 + stormK * 110, wind = 20 + stormK * 260 + chapterWind * 2.5;
   for (let i = 0; i < pos.length; i += 3) {
     pos[i + 1] -= spd * dt * (0.7 + (i % 7) * 0.08);
     pos[i] += (wind + Math.sin(gameTime + i) * 10) * dt;
@@ -4165,8 +4573,8 @@ function renderLabels() {
     }
     for (const b of animals) {
       if (b.dead) continue;
-      if (b.say) label3('~say' + b.id, `<div class="speech">${b.say.text}</div>`, b.x, b.y, b.type.kind === 'dragon' ? 240 : b.type.kind === 'kraken' ? 200 : 175, 'sp', -30);
-      const hh = b.type.kind === 'boss' ? 150 : b.type.kind === 'yeti' ? 150 : b.type.kind === 'mking' ? 140 : b.type.kind === 'mammoth' ? 95 : b.type.kind === 'wolf' ? 50 : 62 * b.type.size;
+      if (b.say) label3('~say' + b.id, `<div class="speech">${b.say.text}</div>`, b.x, b.y, b.type.sayZ || (b.type.kind === 'dragon' ? 240 : b.type.kind === 'kraken' ? 200 : 175), 'sp', -30);
+      const hh = b.type.hh ? b.type.hh : b.type.kind === 'boss' ? 150 : b.type.kind === 'yeti' ? 150 : b.type.kind === 'mking' ? 140 : b.type.kind === 'mammoth' ? 95 : b.type.kind === 'wolf' ? 50 : 62 * b.type.size;
       if (b.hp < b.type.hp && !b.boss) {
         const w = b.type.kind === 'yeti' || b.type.kind === 'mking' ? 90 : b.type.kind === 'mammoth' ? 70 : Math.round(46 * b.type.size);
         label3('~hp' + b.id, `<div class="hp" style="width:${w}px"><i style="width:${Math.max(0, b.hp / b.type.hp * 100).toFixed(0)}%"></i></div>`, b.x, b.y, hh, '');
@@ -4226,7 +4634,7 @@ function reset3D() {
   for (const [k, L] of LB) { L.el.remove(); LB.delete(k); }
   for (const t of trees) t.dirty = true;
   for (const c of crystals) c.dirty = true;
-  decoAt = null; LOCK_U.value.set(lv('east') ? 0 : 1, lv('glacier') ? 0 : 1);
+  decoAt = null; LOCK_U.value.set(lv('east') ? 0 : 1, lv('glacier') ? 0 : 1, worldH() >= Y_MAX ? Y_MAX + 2000 : worldH());
 }
 
 /* =========================================================
@@ -4277,10 +4685,11 @@ function makeKraken() {
   return { root, inner, body, tents, meshes: [body, ...tents], rot: 0, px: null, py: null };
 }
 
-function makeDragon() {
+function makeDragon(P) {
+  P = P || {}; const kk = P.key || '';
   const root = new THREE.Group(), inner = new THREE.Group(); root.add(inner);
-  const sc = '#5fa8e0', scD = '#3d7fb8', bel = '#d6efff', horn = '#f4ecd8', spike = '#eaf8ff';
-  const body = mesh(model('dragon', () => {
+  const sc = P.sc || '#5fa8e0', scD = P.scD || '#3d7fb8', bel = P.bel || '#d6efff', horn = P.horn || '#f4ecd8', spike = P.spike || '#eaf8ff';
+  const body = mesh(model('dragon' + kk, () => {
     const a = [
       P3(gSph(1, 16, 12), sc, 0, 0, 0, 0, 0, 0, 16, 15, 28), P3(gSph(1, 14, 10), bel, 0, -5, 3, 0, 0, 0, 12.5, 10.5, 23),
       P3(gCyl(6.5, 9, 26, 10), sc, 0, 10, 30, 0.9),                                                     // Hals
@@ -4299,8 +4708,8 @@ function makeDragon() {
     for (let i = 0; i < 3; i++) a.push(P3(gCone(2.4, 7, 4), spike, 0, 25 - i * 2, 39 - i * 5, -0.6));
     return a;
   }));
-  const wg = model('dragonWing', () => {
-    const m = P3(gWing(), '#9fd3f5', 0, 0, 0); m.ink = 0;
+  const wg = model('dragonWing' + kk, () => {
+    const m = P3(gWing(), P.mem || '#9fd3f5', 0, 0, 0); m.ink = 0;
     return [m, P3(gBox(50, 2.8, 3.2), scD, 25, 0, 3),
       rodXZ([5, 2], [40, -18], 1.8, scD), rodXZ([5, 2], [27, -31], 1.8, scD), rodXZ([4, 2], [12, -28], 1.8, scD),
       P3(gCone(1.9, 7, 4), horn, 52, 0, 3, 0, 0, -PI / 2)];
@@ -4323,7 +4732,8 @@ function animBigBoss(m, b, p) {
     const fast = b.boss && (b.boss.state === 'dash' || b.boss.state === 'windup');
     const fl = Math.sin(t * (fast ? 13 : 5.5)) * (fast ? 0.35 : 0.6);
     m.wings[0].rotation.z = 0.12 + fl; m.wings[1].rotation.z = -(0.12 + fl);
-    m.inner.position.y = b.dead ? Math.max(0, 52 - b.deadT * 80) : 52 + Math.sin(t * 5.5 - 0.6) * 5;
+    const hv = m.hover || 52;
+    m.inner.position.y = b.dead ? Math.max(0, hv - b.deadT * 80) : hv + Math.sin(t * 5.5 - 0.6) * 5;
   }
 }
 
@@ -4428,6 +4838,7 @@ function buildRune() {
   return at(g, RUNE.x, RUNE.y);
 }
 function syncExtra() {
+  syncChapters();
   ensure('kennel', lv('sled'), buildKennel);
   const ru = ensure('rune', lv('rune'), buildRune);
   if (ru) {
@@ -4460,8 +4871,10 @@ function buildExtra() {
     const r = new THREE.Mesh(new THREE.RingGeometry(0.82, 1, 56), new THREE.MeshBasicMaterial({ color: '#bfe9ff', transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
     r.rotation.x = -PI / 2; r.visible = false; scene.add(r); WAVEM.push(r);
   }
+  buildChapters();
 }
 function renderExtra(dt) {
+  renderChapters(dt);
   const tr = running ? S.treasures : [];
   TRES.forEach((g, i) => {
     const t = tr[i]; g.visible = !!t; if (!t) return;
@@ -4493,6 +4906,396 @@ function renderExtraItems() {
   }
 }
 
+/* =========================================================
+   3D für die Kapitel 4–10: Gegner, Bosse, Gebäude, Landschaften, Portale
+   ========================================================= */
+
+/* ---------- Gegner-Baukästen ---------- */
+function wolfLike(key, c) {
+  return quadruped('wl_' + key, () => {
+    const a = [
+      P3(gSph(1, 10, 8), c.fur, 0, 21, 0, 0, 0, 0, 10, 10, 22), P3(gSph(1, 8, 6), c.dark, 0, 26, -2, 0, 0, 0, 8, 5, 18), P3(gSph(1, 8, 6), c.light, 0, 17, 2, 0, 0, 0, 8, 5, 16),
+      P3(gSph(8, 8, 6), c.fur, 0, 27, 20), P3(gCone(4.5, 12, 6), c.fur, 0, 25, 30, PI / 2), P3(gSph(1.8, 5, 4), '#222', 0, 25, 36.5),
+      P3(gCone(3, 7, 4), c.dark, -4, 35, 18), P3(gCone(3, 7, 4), c.dark, 4, 35, 18),
+      ...spEyes(29.7, 26.3, { w: 2.2, h: 2.7, sp: 2.1, turn: 0.4, d: 1.2, pr: 0.72, ink: 0.55, pupil: c.eye }),
+      P3(gCyl(2.5, 4, 22, 6), c.fur, 0, 26, -28, -0.9),
+    ];
+    if (c.extra) a.push(...c.extra());
+    return a;
+  }, 'wlLeg_' + key, () => [P3(gCyl(2.4, 2, 17, 6), c.dark, 0, -8.5, 0)], [[-5, 17, 12], [5, 17, 12], [-5, 17, -12], [5, 17, -12]]);
+}
+const spots = (col, n, y0, r = 1.8) => { const a = []; for (let i = 0; i < n; i++) a.push(P3(gSph(r, 5, 4), col, (i % 2 ? 1 : -1) * 9.4, y0 + (i % 3) * 2.2, -14 + i * (30 / n))); return a; };
+function yetiLike(key, c) {
+  const root = new THREE.Group(), inner = new THREE.Group(); root.add(inner);
+  const body = mesh(model('yl_' + key, () => {
+    const a = [
+      P3(gSph(1, 12, 10), c.fur, 0, 52, 0, 0, 0, 0, 27, 32, 21), P3(gSph(1, 10, 8), c.light, 0, 48, 9, 0, 0, 0, 16, 21, 12),
+      P3(gSph(16, 10, 8), c.fur, 0, 88, 4), P3(gSph(1, 10, 8), c.face, 0, 86, 13, 0, 0, 0, 11, 10, 6),
+      ...spEyes(90, 17.5, { w: 3.8, h: 4.5, sp: 3.6, turn: 0.3, pupil: c.eye, pr: 1.05 }),
+      P3(gBox(6.5, 1.5, 1.4), c.brow || '#2b3446', -3.9, 95.3, 17.4, 0, 0, -0.35), P3(gBox(6.5, 1.5, 1.4), c.brow || '#2b3446', 3.9, 95.3, 17.4, 0, 0, 0.35),
+      P3(gBox(9, 3, 2), '#2b3446', 0, 81, 18.5),
+    ];
+    if (c.horn) a.push(P3(gCone(3.5, 16, 6), c.horn, -10, 101, 2, 0, 0, 0.5), P3(gCone(3.5, 16, 6), c.horn, 10, 101, 2, 0, 0, -0.5));
+    if (c.extra) a.push(...c.extra());
+    return a;
+  }));
+  inner.add(body);
+  const legGeo = model('ylLeg_' + key, () => [P3(gCyl(7, 6, 26, 8), c.leg || c.fur, 0, -13, 0), P3(gBox(12, 4, 14), c.dark, 0, -25, 2)]);
+  const armGeo = model('ylArm_' + key, () => [P3(gCyl(6.5, 5.5, 40, 8), c.fur, 0, -20, 0), P3(gSph(6.5, 8, 6), c.face, 0, -41, 0)]);
+  const legL = mesh(legGeo), legR = mesh(legGeo); legL.position.set(-10, 26, 0); legR.position.set(10, 26, 0);
+  const armL = mesh(armGeo), armR = mesh(armGeo); armL.position.set(-29, 72, 0); armR.position.set(29, 72, 0);
+  inner.add(legL, legR, armL, armR);
+  return { root, inner, body, legL, legR, armL, armR, meshes: [body, legL, legR, armL, armR], rot: 0, px: null, py: null, biped: true };
+}
+function makeLizard() {
+  return quadruped('lizard', () => [
+    P3(gSph(1, 12, 8), '#5fb8a8', 0, 10, 0, 0, 0, 0, 9, 6, 22), P3(gSph(1, 10, 6), '#cdeee6', 0, 8, 2, 0, 0, 0, 7, 4, 18),
+    P3(gSph(1, 10, 8), '#5fb8a8', 0, 12, 23, 0, 0, 0, 6.5, 5.5, 9),
+    ...spEyes(16.5, 25, { w: 2.2, h: 2.6, sp: 2.2, turn: 0.45, d: 1.1, pr: 0.75, ink: 0.5, pupil: '#ff6f00' }),
+    P3(gBox(4, 0.6, 0.6), '#1d4f48', 0, 10, 31.5), P3(gCyl(1, 5, 32, 6), '#5fb8a8', 0, 8, -34, -PI / 2 + 0.08),
+    ...[0, 1, 2, 3, 4, 5].map(i => P3(gCone(2.4, 7, 4), '#e8fff8', 0, 15.5 - Math.abs(i - 2) * 0.5, -14 + i * 6, -0.3)),
+  ], 'lizLeg', () => [P3(gCyl(2.2, 2, 10, 6), '#2f7f74', 0, -5, 0), P3(gBox(4, 1.4, 5), '#2f7f74', 0, -9.5, 1.5)], [[-9, 10, 11], [9, 10, 11], [-9, 10, -10], [9, 10, -10]]);
+}
+function makeSealLike(key, c, tusks) {
+  return quadruped('seal_' + key, () => {
+    const a = [
+      P3(gSph(1, 12, 10), c.fur, 0, 12, 0, 0, 0, 0, 13, 11, 26), P3(gSph(1, 10, 8), c.light, 0, 9, 3, 0, 0, 0, 10.5, 8, 22),
+      P3(gSph(1, 12, 10), c.fur, 0, 21, 21, 0, 0, 0, 10, 9.5, 10), P3(gSph(1, 8, 6), c.light, 0, 18, 29, 0, 0, 0, 6, 4.2, 4), P3(gSph(1.7, 6, 4), '#222', 0, 20, 32.8),
+      ...spEyes(24.5, 30.2, { w: 2.5, h: 2.9, sp: 2.5, turn: 0.35, d: 1.1, pr: 0.85, ink: 0.5, pupil: '#111111' }),
+      P3(gCone(5, 10, 4), c.dark, 0, 9, -27, -PI / 2, 0, 0, 1.7, 1, 0.35),
+    ];
+    if (c.spots) for (let i = 0; i < 8; i++) a.push(P3(gSph(1.8, 5, 4), c.dark, (i % 2 ? 1 : -1) * 12.4, 13 + (i % 3) * 2, -14 + i * 4));
+    if (tusks) a.push(P3(gCone(1.5, 13, 6), '#f4ecd8', -2.6, 11.5, 31, PI - 0.2), P3(gCone(1.5, 13, 6), '#f4ecd8', 2.6, 11.5, 31, PI - 0.2), P3(gBox(9, 1, 1), c.dark, 0, 17, 32.6));
+    return a;
+  }, 'sealFl_' + key, () => [P3(gBox(10, 2, 7), c.dark, 0, -3, 0)], [[-13, 6, 10], [13, 6, 10]]);
+}
+function makeBird(key, c, hover) {
+  const root = new THREE.Group(), inner = new THREE.Group(); root.add(inner);
+  const body = mesh(model('bird_' + key, () => {
+    const a = [
+      P3(gSph(1, 12, 10), c.body, 0, 0, 0, 0, 0, 0, 9, 9, 16), P3(gSph(1, 10, 8), c.belly, 0, -3, 3, 0, 0, 0, 7, 6.5, 12),
+      P3(gSph(1, 12, 10), c.head, 0, 7, 15, 0, 0, 0, 7, 7, 7.5), P3(gCone(2.6, 9, 6), c.beak, 0, 5, 25, PI / 2 + 0.3),
+      ...spEyes(9.5, 21.4, { w: 2.2, h: 2.6, sp: 2.2, turn: 0.4, d: 1, pr: 0.7, ink: 0.5, pupil: c.eye, tilt: -0.2 }),
+      P3(gBox(5.5, 1.3, 1.3), '#1b1b22', -2.6, 12.6, 20.6, 0, 0, -0.35), P3(gBox(5.5, 1.3, 1.3), '#1b1b22', 2.6, 12.6, 20.6, 0, 0, 0.35),
+      P3(gBox(4, 1.2, 15), c.wing, -4, 0, -21, 0, 0.3, 0), P3(gBox(4, 1.2, 16), c.wing, 0, 0.6, -22), P3(gBox(4, 1.2, 15), c.wing, 4, 0, -21, 0, -0.3, 0),
+      P3(gBox(2, 7, 2), c.beak, -3, -10, 3), P3(gBox(2, 7, 2), c.beak, 3, -10, 3),
+    ];
+    if (c.crest) for (let i = 0; i < 3; i++) a.push(P3(gCone(1.6, 8, 4), c.crest, 0, 14 - i, 12 - i * 3.5, -0.9));
+    return a;
+  }));
+  const wg = model('birdWing_' + key, () => { const m = P3(gWing(), c.wing, 0, 0, 0, 0, 0, 0, 0.95, 1, 0.8); m.ink = 0; return [m, P3(gBox(48, 2.4, 3), c.wingD, 24, 0, 3), P3(gBox(12, 1.6, 6), c.tip, 47, 0, -1)]; });
+  const wR = mesh(wg), wL = mesh(wg); wR.position.set(7, 4, 2); wL.position.set(-7, 4, 2); wL.scale.x = -1;
+  inner.add(body, wR, wL);
+  return { root, inner, body, wings: [wR, wL], meshes: [body, wR, wL], rot: 0, px: null, py: null, hover };
+}
+function makeKnight() {
+  const m = biped('knight', () => [
+    P3(gBox(20, 24, 13), '#aeb9c6', 0, 30, 0), P3(gBox(16, 13, 2), '#d6dee8', 0, 34, 7), P3(gBox(21, 3, 14), '#4a3a2a', 0, 20, 0), P3(gBox(11, 15, 1.2), '#2f6fc9', 0, 23, 7.2),
+    P3(gSph(5.5, 8, 6), '#c6d1dd', -12, 41, 0), P3(gSph(5.5, 8, 6), '#c6d1dd', 12, 41, 0),
+    P3(gSph(1, 14, 10), '#aeb9c6', 0, 52, 0.5, 0, 0, 0, 10, 10.5, 10), P3(gBox(13, 1.8, 2), '#1b2430', 0, 51.5, 9.6),
+    P3(gSph(1.1, 6, 4), '#4fc3f7', -2.8, 51.6, 10.3), P3(gSph(1.1, 6, 4), '#4fc3f7', 2.8, 51.6, 10.3), P3(gCone(2.2, 12, 6), '#e53935', 0, 64, -2, -0.4),
+  ], () => [P3(gBox(7, 14, 8), '#7d8896', 0, -7, 0), P3(gBox(8, 3, 10), '#4b5563', 0, -14, 1.5)],
+  () => [P3(gBox(5.5, 16, 5.5), '#aeb9c6', 0, -8, 0), P3(gSph(3.2, 6, 4), '#7d8896', 0, -17, 0)], [5, 15], [13.5, 40]);
+  const sw = mesh(model('kSword', () => [P3(gBox(1.4, 3.2, 30), '#dff4ff', 0, 0, 18), P3(gBox(9, 1.6, 2.2), '#8a6d2b', 0, 0, 2.5), P3(gBox(1.8, 1.8, 6), '#5b3a22', 0, 0, -1.5)]));
+  sw.position.set(0, -17, 0); m.armR.add(sw); m.meshes.push(sw);
+  return m;
+}
+
+/* ---------- Bosse ---------- */
+function makeFrostbart() {
+  const coat = '#1f3a5f', skin = '#bfe3f0';
+  const m = biped('frostbart', () => [
+    P3(gCyl(12, 15, 36, 12), coat, 0, 33, 0), P3(gBox(4, 30, 1.5), '#c9a227', 0, 34, 13),
+    ...[44, 37, 30].map(y => P3(gSph(1.4, 6, 4), '#ffd84a', 3.2, y, 13.6)),
+    P3(gCyl(13.2, 14, 3, 12), '#3a2a1a', 0, 26, 0), P3(gBox(5, 4, 1.5), '#ffd84a', 0, 26, 14),
+    P3(gSph(1, 16, 12), skin, 0, 63, 1, 0, 0, 0, 11.5, 10.8, 10.8),
+    ...spEyes(64, 10.4, { w: 3.2, h: 3.8, sp: 3.0, turn: 0.3, pupil: '#00bcd4' }),
+    P3(gCyl(3.8, 3.8, 1, 12), '#111111', 3.1, 64.3, 12.3, PI / 2), P3(gBox(23, 1, 1), '#111111', 0, 67.5, 6.2, 0, 0, 0.35),
+    P3(gSph(1, 12, 8), '#f4f9ff', 0, 55, 7, 0, 0, 0, 10.5, 8.5, 6.5), P3(gCone(4.5, 12, 8), '#f4f9ff', 0, 46, 8, PI),
+    P3(gCyl(15, 15, 2.5, 3), '#1b1b22', 0, 72.5, 0, 0, PI / 6), P3(gCyl(8.5, 10.5, 9, 10), '#1b1b22', 0, 78, 0), P3(gSph(2.2, 6, 4), '#ffffff', 0, 78, 9.8),
+  ], () => [P3(gBox(9, 20, 10), '#2a2a2a', 0, -10, 0), P3(gBox(10, 4, 14), '#1b1b22', 0, -20, 2)],
+  () => [P3(gCyl(5, 4.5, 22, 8), coat, 0, -11, 0), P3(gCyl(5.2, 5.2, 3, 8), '#f4f9ff', 0, -21, 0), P3(gSph(4, 8, 6), skin, 0, -24, 0)], [6.5, 20], [16.5, 50]);
+  const sabre = mesh(model('sabre', () => [P3(gBox(1.3, 3.2, 32), '#e8f6ff', 0, 0, 19, 0.12), P3(gTor(3.5, 0.8, 4, 10, PI), '#c9a227', 0, 0, 3, 0, PI / 2, 0)]));
+  sabre.position.set(0, -24, 0); m.armR.add(sabre);
+  const hook = mesh(model('hook', () => [P3(gCyl(1.1, 1.1, 7, 6), '#c0c8d4', 0, -3, 0), P3(gTor(3.6, 0.9, 5, 10, PI * 1.3), '#c0c8d4', 0, -8.5, 2, 0, PI / 2, 0)]));
+  hook.position.set(0, -26, 0); m.armL.add(hook); m.meshes.push(sabre, hook);
+  return m;
+}
+function makeWitch() {
+  const robe = '#5b2a86', robeD = '#3a1458', skin = '#d9f0e6';
+  const m = biped('witch', () => [
+    P3(gCone(17, 48, 14), robe, 0, 26, 0), P3(gTor(9.5, 1.6, 4, 14), '#c9a227', 0, 36, 0, PI / 2),
+    P3(gSph(1, 16, 12), skin, 0, 56, 1, 0, 0, 0, 10.5, 10, 10), P3(gSph(1, 12, 8), '#f4f9ff', 0, 54, -4, 0, 0, 0, 11.5, 13, 8),
+    ...spEyes(57.5, 9.6, { w: 3, h: 3.6, sp: 2.8, turn: 0.3, pupil: '#9c27b0' }),
+    P3(gCone(1.8, 9, 6), '#b9d8c9', 0, 53, 13, PI / 2 + 0.25), P3(gSph(1, 5, 4), '#7cb342', 0.8, 52, 15.5),
+    ...spMouth(49.5, 9.6, 3.4, '#3b1650', 0.5),
+    P3(gCyl(16, 16, 1.6, 18), robeD, 0, 64, 0), P3(gCone(9, 28, 14), robeD, 0, 78, -3, -0.28), P3(gCyl(9.3, 9.6, 2.5, 14), '#c9a227', 0, 66.5, 0),
+  ], () => [P3(gBox(6, 8, 7), robeD, 0, -4, 0), P3(gBox(7, 3, 11), '#1b1b22', 0, -8, 2)],
+  () => [P3(gCyl(4.5, 6, 22, 8), robe, 0, -11, 0), P3(gSph(3.6, 8, 6), skin, 0, -24, 0)], [5, 8], [13, 44]);
+  const staff = mesh(model('witchStaff', () => [P3(gCyl(1.3, 1.3, 50, 6), '#5b3a22', 0, -14, 5, 0.3), P3(gCone(4, 12, 5), '#e1bee7', 0, 14, -3.5)]));
+  staff.position.set(0, -24, 0); m.armR.add(staff); m.meshes.push(staff);
+  const orb = new THREE.Mesh(gSph(3.5, 8, 6), glow('#ce93d8')); orb.position.set(0, 12, -3); staff.add(orb);
+  return m;
+}
+function makeFrostKing() {
+  const m = biped('frostking', () => [
+    P3(gBox(24, 28, 15), '#dfe9f5', 0, 34, 0), P3(gBox(18, 16, 2), '#ffffff', 0, 38, 8), P3(gBox(25, 3, 16), '#ffd84a', 0, 22, 0), P3(gBox(4, 4, 1), '#4fc3f7', 0, 38, 9.2),
+    P3(gBox(30, 46, 2.5), '#1e3a8a', 0, 34, -9, 0.1), P3(gSph(7, 8, 6), '#ffd84a', -14, 47, 0), P3(gSph(7, 8, 6), '#ffd84a', 14, 47, 0),
+    P3(gSph(1, 16, 12), '#cfe3f2', 0, 62, 1, 0, 0, 0, 11.5, 10.8, 10.8),
+    ...spEyes(63, 10.4, { w: 3.2, h: 3.8, sp: 3.0, turn: 0.3, pupil: '#1565c0' }),
+    P3(gBox(5.2, 1.4, 1.2), '#e8f6ff', -3.4, 68.4, 9.8, 0, -0.25, -0.3), P3(gBox(5.2, 1.4, 1.2), '#e8f6ff', 3.4, 68.4, 9.8, 0, 0.25, 0.3),
+    P3(gSph(1, 12, 8), '#f4f9ff', 0, 54.5, 6.5, 0, 0, 0, 10, 8, 6.5), P3(gCone(4, 10, 8), '#f4f9ff', 0, 47, 8, PI),
+    P3(gCyl(9, 8.5, 6, 12), '#ffd84a', 0, 74, 0.5), ...[0, 1, 2, 3, 4, 5].map(i => P3(gCone(2, 8, 4), '#ffd84a', Math.cos(i * PI / 3) * 8, 80, 0.5 + Math.sin(i * PI / 3) * 8)),
+    P3(gSph(1.6, 6, 4), '#4fc3f7', 0, 75, 9.3),
+  ], () => [P3(gBox(9, 20, 10), '#9fb3c8', 0, -10, 0), P3(gBox(10, 4, 14), '#4b5563', 0, -20, 2)],
+  () => [P3(gCyl(5, 4.5, 22, 8), '#dfe9f5', 0, -11, 0), P3(gSph(4.2, 8, 6), '#9fb3c8', 0, -24, 0)], [6.5, 20], [17, 50]);
+  const sw = mesh(model('fkSword', () => [P3(gBox(2.2, 5, 44), '#bfe9ff', 0, 0, 25), P3(gBox(14, 2.2, 3), '#ffd84a', 0, 0, 3), P3(gBox(2.5, 2.5, 8), '#1e3a8a', 0, 0, -2)]));
+  sw.position.set(0, -24, 0); m.armR.add(sw); m.meshes.push(sw);
+  return m;
+}
+const MAGMA = { fur: '#3d3533', light: '#ff7a2e', face: '#6a5650', eye: '#ffcc00', horn: '#ff9a1f', dark: '#2a201e', brow: '#1b1412',
+  extra: () => [P3(gBox(2, 18, 1), '#ffb347', -8, 55, 20.2, 0, 0, 0.4), P3(gBox(2, 14, 1), '#ffb347', 9, 46, 20, 0, 0, -0.5), P3(gBox(2, 12, 1), '#ffd166', 2, 34, 19.5, 0, 0, 0.2),
+    P3(gIco(8, 0), '#2a201e', -22, 78, 0), P3(gIco(8, 0), '#2a201e', 22, 78, 0)] };
+const ELEM = { fur: '#9fe4ff', light: '#e8fbff', face: '#6fc9ef', eye: '#0d47a1', horn: '#ffffff', dark: '#4fa9d6', brow: '#1e5a86',
+  extra: () => [-1, 1].flatMap(s => [P3(gCone(4, 22, 5), '#e8fbff', s * 24, 84, -4, 0, 0, -s * 0.5), P3(gCone(3, 16, 5), '#b3e5fc', s * 20, 76, -10, -0.4, 0, -s * 0.3)]) };
+const CH_MODELS = {
+  icelizard: makeLizard,
+  wyrmling: () => makeDragon({ key: 'Wyrm', sc: '#7fd0c0', scD: '#3f8f80', bel: '#e0fff6', spike: '#ffffff', mem: '#b2f2e6' }),
+  seal: () => makeSealLike('leo', { fur: '#8a96a3', light: '#c9d2db', dark: '#5d6873', spots: true }, false),
+  walrus: () => makeSealLike('wal', { fur: '#8d6748', light: '#b98b68', dark: '#5a3f2c' }, true),
+  lavahound: () => wolfLike('lava', { fur: '#3a2a2a', dark: '#1f1414', light: '#ff7a2e', eye: '#ffcc00',
+    extra: () => [0, 1, 2, 3, 4].map(i => P3(gCone(2.6, 9, 5), i % 2 ? '#ff9a1f' : '#ffd166', 0, 31.5 - Math.abs(i - 2) * 0.6, -12 + i * 6, -0.35)) }),
+  magmagolem: () => yetiLike('magma', MAGMA),
+  lynx: () => wolfLike('lynx', { fur: '#e8dcc6', dark: '#9a8466', light: '#ffffff', eye: '#43a047',
+    extra: () => [P3(gCone(0.9, 6, 4), '#222', -4, 41.5, 18), P3(gCone(0.9, 6, 4), '#222', 4, 41.5, 18), ...spots('#9a8466', 8, 18, 1.5)] }),
+  spirit: () => yetiLike('spirit', { fur: '#d8eede', light: '#ffffff', face: '#9fcfb0', eye: '#00c853', horn: '#6b8f5a', dark: '#7fa48a', brow: '#3e6b4c',
+    extra: () => [P3(gCone(2, 10, 5), '#6b8f5a', -15, 106, 2, 0, 0, 1.0), P3(gCone(2, 10, 5), '#6b8f5a', 15, 106, 2, 0, 0, -1.0),
+      P3(gSph(5, 6, 4), '#66bb6a', -18, 70, 8), P3(gSph(4, 6, 4), '#43a047', 16, 60, 10), P3(gSph(4.5, 6, 4), '#66bb6a', 0, 100, -6)] }),
+  frostknight: makeKnight,
+  icewarden: () => yetiLike('warden', { fur: '#9fb3c8', light: '#d6e2ee', face: '#5f7389', eye: '#29b6f6', horn: '#e8f6ff', dark: '#4b5d73',
+    extra: () => [P3(gBox(16, 8, 18), '#cfdbe8', -26, 82, 0, 0, 0, 0.3), P3(gBox(16, 8, 18), '#cfdbe8', 26, 82, 0, 0, 0, -0.3), P3(gBox(22, 4, 22), '#cfdbe8', 0, 103, 4)] }),
+  stormeagle: () => makeBird('eagle', { body: '#6d4c41', belly: '#d7ccc8', head: '#f5f5f5', beak: '#ffc107', eye: '#3e2723', wing: '#5d4037', wingD: '#3e2723', tip: '#efebe9' }, 48),
+  snowleopard: () => wolfLike('leo', { fur: '#f2f2ee', dark: '#5d5d66', light: '#ffffff', eye: '#64b5f6', extra: () => spots('#5d5d66', 12, 17, 2) }),
+  shadowwolf: () => wolfLike('shadow', { fur: '#3b2f55', dark: '#1d1630', light: '#6c5a99', eye: '#ff1744',
+    extra: () => [0, 1, 2, 3, 4].map(i => P3(gCone(2.4, 9, 4), '#b388ff', 0, 31.5 - Math.abs(i - 2) * 0.6, -12 + i * 6, -0.35)) }),
+  iceelemental: () => yetiLike('elem', ELEM),
+  frostbart: makeFrostbart,
+  lavagiant: () => yetiLike('lavagiant', { ...MAGMA, extra: () => [...MAGMA.extra(), ...[0, 1, 2, 3, 4, 5, 6].map(i => { const a = i / 7 * PI * 2; return P3(gCone(3.2, 14, 5), i % 2 ? '#ff7a1a' : '#ffd166', Math.cos(a) * 11, 106, 4 + Math.sin(a) * 11); })] }),
+  witch: makeWitch,
+  frostking: makeFrostKing,
+  thunderbird: () => makeBird('thunder', { body: '#283593', belly: '#5c6bc0', head: '#283593', beak: '#ffd600', eye: '#ffeb3b', wing: '#1a237e', wingD: '#ffd600', tip: '#fff59d', crest: '#ffd600' }, 62),
+  eternal: () => yetiLike('eternal', { ...ELEM, fur: '#7fc8ef', eye: '#7c4dff', extra: () => [...ELEM.extra(), ...[0, 1, 2, 3, 4, 5, 6, 7].map(i => { const a = i / 8 * PI * 2; return P3(gCone(3, 22, 5), '#ffffff', Math.cos(a) * 12, 110, 4 + Math.sin(a) * 12); })] }),
+};
+
+/* ---------- Gebäude ---------- */
+function buildOutpost(Z) {
+  const g = buildCabin('outpost' + Z.id, 64, 36, 52, '#8a6a4a', shadeHex(Z.accent, -0.25), { chimney: true,
+    extra: () => [P3(gCyl(1.3, 1.3, 70, 6), '#5b3a22', -44, 35, 18), P3(gBox(22, 14, 0.8), Z.accent, -33, 62, 18)] });
+  return at(g, Z.outPos.x, Z.outPos.y);
+}
+function buildTrade(Z) {
+  const g = group(mesh(model('trade' + Z.id, () => [
+    P3(gBox(56, 18, 26), '#a06a3c', 0, 9, 0), P3(gBox(58, 3, 28), '#c48a55', 0, 19.5, 0),
+    ...[[-26, -12], [26, -12], [-26, 12], [26, 12]].map(([x, z]) => P3(gCyl(1.5, 1.5, 44, 6), '#5d4037', x, 22, z)),
+    ...[0, 1, 2, 3, 4, 5].map(i => P3(gBox(10.5, 2, 34), i % 2 ? '#ffffff' : Z.accent, -31.5 + 5.25 + i * 10.5, 45, 0, 0.12)),
+    P3(gBox(14, 12, 14), '#c9965e', -38, 6, 8), P3(gBox(12, 10, 12), '#c9965e', -36, 17, 6, 0, 0.4), P3(gCyl(6, 6, 14, 10), '#8b5a2b', 38, 7, 6),
+    P3(gSph(4, 6, 4), '#ffd84a', -6, 23.5, 4), P3(gSph(4, 6, 4), '#ffd84a', 4, 23.5, 2), P3(gBox(8, 4, 6), '#e53935', 14, 23, -2),
+  ])));
+  return at(g, Z.tradePos.x, Z.tradePos.y);
+}
+function buildPortal(Z) {
+  const g = new THREE.Group();
+  g.add(mesh(model('portalStones', () => [
+    P3(gCyl(34, 36, 3, 24), '#8a94a3', 0, 1.5, 0), P3(gBox(8, 46, 8), '#7d8796', -32, 23, 0, 0, 0, 0.06), P3(gBox(8, 46, 8), '#7d8796', 32, 23, 0, 0, 0, -0.06),
+    P3(gBox(76, 8, 10), '#929cab', 0, 48, 0), P3(gCone(6, 6, 4), '#f4f9ff', 0, 55, 0, 0, PI / 4),
+  ])));
+  const mat = new THREE.MeshBasicMaterial({ color: Z.accent, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide });
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(28, 32), mat); disc.rotation.x = -PI / 2; disc.position.y = 3.3; g.add(disc);
+  const ring = new THREE.Mesh(gTor(26, 2.2, 4, 32), glow(Z.accent)); ring.rotation.x = PI / 2; ring.position.y = 3.6; g.add(ring);
+  const veil = new THREE.Mesh(new THREE.PlaneGeometry(54, 40), mat); veil.position.y = 24; g.add(veil);
+  g.userData.ring = ring; g.userData.mat = mat; g.rotation.y = PI / 4;
+  return g;
+}
+function buildLandmark(Z) {
+  const a = [], glows = [];
+  const G = (geo, col, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, glow(col)); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); glows.push(m); return m; };
+  let anim = null;
+  switch (Z.id) {
+    case 'D':
+      a.push(P3(gCyl(40, 46, 70, 12), '#8a94a3', 0, 35, 0), P3(gCyl(47, 47, 8, 12), '#6f7884', 0, 74, 0), P3(gBox(20, 30, 4), '#3b2a1a', 0, 15, 45));
+      for (let i = 0; i < 8; i++) { const an = i / 8 * PI * 2; a.push(P3(gBox(12, 10, 10), '#8a94a3', Math.cos(an) * 42, 83, Math.sin(an) * 42, 0, -an, 0)); }
+      a.push(P3(gBox(24, 16, 30), '#f4ecd8', 0, 96, 2), P3(gBox(16, 9, 18), '#f4ecd8', 0, 92, 22), P3(gBox(5, 4, 1), '#2b2b2b', -6, 99, 17.2), P3(gBox(5, 4, 1), '#2b2b2b', 6, 99, 17.2),
+        P3(gCone(3.5, 22, 6), '#f4ecd8', -10, 110, -6, -0.8, 0, 0.3), P3(gCone(3.5, 22, 6), '#f4ecd8', 10, 110, -6, -0.8, 0, -0.3),
+        P3(gBox(16, 34, 1.2), Z.accent, -22, 46, 40.5, 0, -0.5, 0), P3(gBox(16, 34, 1.2), Z.accent, 22, 46, 40.5, 0, 0.5, 0));
+      glows.push(G(gCone(6, 14, 6), '#ffb347', -30, 90, 30), G(gCone(6, 14, 6), '#ffb347', 30, 90, 30));
+      break;
+    case 'E':
+      a.push(P3(gBox(120, 4, 44), '#a06a3c', 0, 5, 18), ...[-50, -20, 10, 40].map(x => P3(gCyl(3, 3, 12, 6), '#5d4037', x, 3, 40)),
+        P3(gCyl(14, 20, 80, 12), '#f5f5f5', -30, 40, -14), P3(gCyl(18.5, 18.5, 10, 12), '#e53935', -30, 24, -14), P3(gCyl(16, 16, 10, 12), '#e53935', -30, 56, -14),
+        P3(gCyl(16, 16, 12, 12), '#37474f', -30, 86, -14), P3(gCone(18, 16, 12), '#e53935', -30, 100, -14),
+        P3(gBox(56, 14, 22), '#8d6e63', 32, 9, 22), P3(gBox(58, 3, 24), '#5d4037', 32, 17, 22), P3(gCyl(1.5, 1.5, 60, 6), '#5d4037', 32, 47, 22), P3(gBox(1, 34, 30), '#ffffff', 33, 52, 22));
+      glows.push(G(gCyl(12, 12, 9, 12), '#fff59d', -30, 86, -14));
+      break;
+    case 'F':
+      a.push(P3(gBox(90, 40, 70), '#3d3533', 0, 20, 0), P3(gPrism(96, 26, 76), '#2a201e', 0, 40, 0), P3(gCyl(10, 12, 50, 10), '#4a3f3c', 30, 65, -20),
+        P3(gBox(16, 10, 9), '#2b2f36', -24, 5, 46), P3(gBox(22, 5, 11), '#3a414e', -24, 12.5, 46));
+      glows.push(G(gBox(70, 1, 8), '#ff7a1a', 0, 1, 42), G(gBox(26, 24, 1), '#ffb347', 14, 14, 35.2), G(gSph(4, 8, 6), '#ffd166', 30, 92, -20));
+      break;
+    case 'G':
+      a.push(P3(gBox(80, 8, 80), '#9e9e9e', 0, 4, 0), P3(gBox(56, 26, 56), '#c62828', 0, 21, 0), P3(gCone(52, 16, 4), '#2e7d32', 0, 42, 0, 0, PI / 4),
+        P3(gBox(40, 18, 40), '#c62828', 0, 59, 0), P3(gCone(40, 14, 4), '#2e7d32', 0, 75, 0, 0, PI / 4), P3(gBox(26, 14, 26), '#c62828', 0, 89, 0),
+        P3(gCone(28, 14, 4), '#2e7d32', 0, 103, 0, 0, PI / 4), P3(gCyl(1.5, 1.5, 20, 6), '#ffd84a', 0, 118, 0),
+        P3(gCyl(2.5, 2.5, 40, 8), '#c62828', -20, 20, 52), P3(gCyl(2.5, 2.5, 40, 8), '#c62828', 20, 20, 52), P3(gBox(54, 4, 5), '#1b1b22', 0, 42, 52), P3(gBox(46, 3, 4), '#c62828', 0, 34, 52));
+      for (const [x, z] of [[-36, -36], [36, -36], [-36, 36], [36, 36]]) glows.push(G(gSph(4, 8, 6), '#b9f6ca', x, 14, z));
+      break;
+    case 'H':
+      a.push(P3(gBox(80, 50, 70), '#b0bec5', 0, 25, 0), P3(gBox(22, 30, 3), '#3b2a1a', 0, 15, 36), P3(gBox(14, 30, 1), '#1e3a8a', -24, 34, 35.6), P3(gBox(14, 30, 1), '#1e3a8a', 24, 34, 35.6),
+        P3(gBox(10, 8, 1), '#ffd84a', 0, 40, 35.8));
+      for (const [x, z] of [[-40, -35], [40, -35], [-40, 35], [40, 35]]) a.push(P3(gCyl(12, 12, 70, 10), '#cfd8dc', x, 35, z), P3(gCone(15, 24, 10), '#1e3a8a', x, 82, z));
+      for (let i = 0; i < 7; i++) a.push(P3(gBox(7, 7, 7), '#b0bec5', -30 + i * 10, 53.5, 34), P3(gBox(7, 7, 7), '#b0bec5', -30 + i * 10, 53.5, -34));
+      break;
+    case 'I': {
+      a.push(P3(gBox(30, 20, 30), '#8a94a3', 0, 10, 0), P3(gCyl(8, 12, 110, 8), '#cfd8dc', 0, 75, 0), P3(gCyl(18, 18, 4, 12), '#607d8b', 0, 132, 0), P3(gCyl(1, 1, 40, 6), '#ffd600', 0, 154, 0));
+      glows.push(G(gSph(5, 8, 6), '#fff59d', 0, 176, 0));
+      const rotor = new THREE.Group(); rotor.position.y = 142;
+      rotor.add(mesh(model('rotor', () => [0, 1, 2, 3].flatMap(i => { const an = i * PI / 2; return [P3(gBox(1.5, 1.5, 22), '#455a64', Math.sin(an) * 11, 0, Math.cos(an) * 11, 0, an, 0), P3(gSph(3.6, 8, 6), '#e53935', Math.sin(an) * 22, 0, Math.cos(an) * 22)]; }))));
+      glows.push(rotor); anim = rotor;
+      break;
+    }
+    case 'J': {
+      a.push(P3(gCyl(62, 68, 8, 24), '#e1f5fe', 0, 4, 0), P3(gCyl(52, 56, 6, 24), '#b3e5fc', 0, 11, 0), P3(gBox(12, 90, 12), '#fff8e1', -50, 59, 0), P3(gBox(12, 90, 12), '#fff8e1', 50, 59, 0),
+        P3(gBox(116, 10, 14), '#fff8e1', 0, 108, 0), P3(gTor(40, 6, 8, 32), '#ffd54f', 0, 62, 0));
+      const sun = G(new THREE.CircleGeometry(34, 32), '#fff59d', 0, 62, 0.5); const sun2 = G(new THREE.CircleGeometry(34, 32), '#fff59d', 0, 62, -0.5, 0, PI, 0);
+      anim = sun; glows.push(sun2);
+      break;
+    }
+  }
+  const g = group(mesh(model('landmark' + Z.id, () => a)));
+  for (const m of glows) g.add(m);
+  g.userData.anim = anim; g.userData.smoke = Z.id === 'F' ? [30, 95, -20] : null;
+  g.rotation.y = PI / 4;
+  return at(g, Z.keyPos.x, Z.keyPos.y);
+}
+
+/* ---------- Landschaften ---------- */
+let LAVA_MAT = null, GHOSTS = [], VOLC_GLOW = null;
+function buildChapters() {
+  decal(620, Y_C - 230, 780, Y_C + 20, '#a9b6c6', () => lv('boss_baron'), 1.1);
+  for (const Z of ZONES) {
+    decal(X_MIN - 700, Z.y0, X_MAX + 700, Z === ZONES[ZONES.length - 1] ? Z.y1 + 700 : Z.y1, Z.ground, null, 0.3);
+    decal(600, Z.y0 - 60, 800, Z.y1 + 20, Z.path, null, 0.36);
+    decal(40, Z.y0 + 130, 1480, Z.y0 + 620, shadeHex(Z.path, 0.04), null, 0.33);
+    const r = mulberry32(1000 + Z.i * 77), a = [], gl = [];
+    const spot = m => {
+      for (let k = 0; k < 80; k++) {
+        const x = rand0(r, Z.area.x0 - 80, Z.area.x1 + 80), y = rand0(r, Z.y0 + 110, Z.y1 - 110);
+        if (zoneClear(x, y, Z, m) || LAVA.some(L => Math.hypot(L.x - x, L.y - y) < L.r + m + 20) || HOLES.some(h => Math.hypot(h.x - x, h.y - y) < 50 + m)
+          || CRIT_HOMES.some(h => Math.hypot(h.x - x, h.y - y) < h.r + m) || ZOBST.some(o => x > o.x0 - m - 40 && x < o.x1 + m + 40 && y > o.y0 - m - 40 && y < o.y1 + m + 40)) continue;
+        return [x, y];
+      }
+      return null;
+    };
+    const rock = (x, y, s, c1, c2) => a.push(P3(gIco(s, 0), c1, x, s * 0.5, y, 0, x, 0, 1.2, 0.8, 1), P3(gIco(s * 0.55, 0), c2, x - s * 0.1, s * 0.95, y - s * 0.1, 0, y, 0, 1, 0.45, 1));
+    switch (Z.id) {
+      case 'D':
+        for (let i = 0; i < 16; i++) { const q = spot(40); if (q) rock(q[0], q[1], rand0(r, 22, 46), '#7d8796', '#f4f9ff'); }
+        for (let i = 0; i < 6; i++) { const q = spot(70); if (!q) continue; const [x, y] = q, ry = rand0(r, 0, PI);
+          a.push(P3(gBox(110, 6, 6), '#e8e0cc', x, 4, y, 0, ry, 0));
+          for (let k = -2; k <= 2; k++) a.push(P3(gTor(22 - Math.abs(k) * 3, 2.4, 4, 10, PI), '#f4ecd8', x + Math.cos(ry) * k * 18, 2, y - Math.sin(ry) * k * 18, 0, ry + PI / 2, 0));
+          a.push(P3(gBox(18, 14, 26), '#f4ecd8', x + Math.cos(ry) * 64, 8, y - Math.sin(ry) * 64, 0, ry + PI / 2, 0)); }
+        for (let i = 0; i < 5; i++) { const q = spot(30); if (!q) continue; const [x, y] = q;
+          a.push(P3(gTor(16, 5, 5, 12), '#8d6e63', x, 3, y, PI / 2), P3(gSph(1, 8, 6), '#b2ebf2', x - 5, 7, y, 0, 0, 0, 5, 7, 5), P3(gSph(1, 8, 6), '#80deea', x + 5, 7, y + 3, 0, 0, 0, 5, 7, 5), P3(gSph(1, 8, 6), '#b2ebf2', x, 7, y - 5, 0, 0, 0, 5, 7, 5)); }
+        break;
+      case 'E': {
+        for (let i = 0; i < 12; i++) { const q = spot(60); if (!q) continue; const [x, y] = q, s = rand0(r, 30, 60);
+          a.push(P3(gIco(s, 0), '#f4fbff', x, s * 0.7, y, 0, x, 0, 1, 1.5, 0.9), P3(gIco(s * 0.6, 0), '#b3e5fc', x + s * 0.4, s * 0.4, y + s * 0.3, 0, y, 0, 1, 1, 1)); }
+        for (let i = 0; i < 6; i++) { const q = spot(50); if (q) a.push(P3(gCyl(rand0(r, 30, 55), rand0(r, 30, 55), 0.6, 20), '#3a6f99', q[0], 0.7, q[1])); }
+        const sx = 2165, sy = Z.y0 + 695;
+        a.push(P3(gBox(240, 34, 80), '#5d4037', sx, 12, sy, 0.05, 0, 0.12), P3(gBox(244, 4, 84), '#8d6e63', sx + 2, 30, sy, 0.05, 0, 0.12), P3(gPrism(84, 30, 80), '#5d4037', sx + 132, 14, sy, 0, PI / 2, 0, 1, 1, 0.5),
+          P3(gCyl(3, 3, 120, 6), '#4e342e', sx - 50, 90, sy, 0, 0, 0.14), P3(gCyl(3, 3, 140, 6), '#4e342e', sx + 40, 100, sy, 0, 0, 0.12),
+          P3(gBox(1.5, 60, 70), '#e0f7fa', sx - 46, 95, sy, 0, 0, 0.14), P3(gBox(1.5, 70, 80), '#e0f7fa', sx + 46, 105, sy, 0, 0, 0.12), P3(gBox(1, 18, 26), '#111111', sx + 52, 168, sy + 14, 0, 0, 0.12),
+          P3(gSph(3.5, 6, 4), '#ffffff', sx + 53, 170, sy + 14));
+        break;
+      }
+      case 'F':
+        for (let i = 0; i < 18; i++) { const q = spot(40); if (q) rock(q[0], q[1], rand0(r, 20, 44), '#3d3533', '#5a4b47'); }
+        for (let i = 0; i < 8; i++) { const q = spot(30); if (!q) continue; a.push(P3(gCone(16, 22, 8), '#2a201e', q[0], 11, q[1])); gl.push(P3(gCyl(5, 5, 1, 8), '#ff7a1a', q[0], 22.5, q[1])); }
+        for (const L of LAVA) { a.push(P3(gCyl(L.r + 12, L.r + 14, 2, 24), '#2a201e', L.x, 1, L.y)); }
+        a.push(P3(gCone(VOLCANO.r, 560, 18), '#4a3f3c', VOLCANO.x, 280, VOLCANO.y), P3(gCone(VOLCANO.r * 0.4, 120, 18), '#f4f9ff', VOLCANO.x, 520, VOLCANO.y));
+        break;
+      case 'G':
+        for (let i = 0; i < 16; i++) { const q = spot(20); if (!q) continue; const [x, y] = q, s = rand0(r, 0.8, 1.6);
+          a.push(P3(gCyl(3 * s, 4 * s, 12 * s, 8), '#f5f0e6', x, 6 * s, y), P3(gDome(10 * s, 12), '#e53935', x, 11 * s, y), P3(gSph(1.6 * s, 5, 4), '#ffffff', x + 4 * s, 15 * s, y + 3 * s), P3(gSph(1.4 * s, 5, 4), '#ffffff', x - 3 * s, 16 * s, y - 2 * s)); }
+        for (let i = 0; i < 10; i++) { const q = spot(30); if (q) a.push(P3(gCyl(5, 5, 40, 8), '#6b4a2e', q[0], 5, q[1], 0, rand0(r, 0, PI), PI / 2)); }
+        for (let i = 0; i < 22; i++) { const q = spot(0); if (!q) continue; const m = new THREE.Mesh(gSph(3.5, 8, 6), glow(i % 3 ? '#b9f6ca' : '#e1f5fe')); at(m, q[0], q[1], 30); m.userData.b = rand0(r, 0, 6); scene.add(m); GHOSTS.push(m); }
+        break;
+      case 'H':
+        for (const o of ZOBST) if (o.z === 'H') { const w = o.x1 - o.x0, d = o.y1 - o.y0; a.push(P3(gBox(w, 46, d), '#b0bec5', (o.x0 + o.x1) / 2, 23, (o.y0 + o.y1) / 2));
+          for (let k = 0; k < Math.max(w, d) / 22; k++) a.push(P3(gBox(10, 9, 10), '#b0bec5', w > d ? o.x0 + 8 + k * 22 : (o.x0 + o.x1) / 2, 50, w > d ? (o.y0 + o.y1) / 2 : o.y0 + 8 + k * 22)); }
+        for (let i = 0; i < 12; i++) { const q = spot(30); if (!q) continue; const h = rand0(r, 20, 80); a.push(P3(gCyl(9, 10, h, 10), '#cfd8dc', q[0], h / 2, q[1]), P3(gBox(22, 6, 22), '#b0bec5', q[0], 3, q[1])); }
+        for (let i = 0; i < 6; i++) { const q = spot(30); if (q) a.push(P3(gBox(8, 46, 1), '#1e3a8a', q[0], 40, q[1], 0, PI / 4, 0), P3(gCyl(1.2, 1.2, 70, 6), '#5d4037', q[0] - 5, 35, q[1] + 5)); }
+        break;
+      case 'I':
+        for (let i = 0; i < 20; i++) { const q = spot(40); if (!q) continue; const h = rand0(r, 60, 150), w = rand0(r, 18, 34);
+          a.push(P3(gCone(w, h, 6), '#90a4ae', q[0], h / 2, q[1], 0, q[0], 0), P3(gCone(w * 0.35, h * 0.3, 6), '#f4f9ff', q[0], h * 0.86, q[1], 0, q[0], 0)); }
+        for (let i = 0; i < 6; i++) { const q = spot(60); if (!q) continue; const [x, y] = q;
+          a.push(P3(gCyl(1.2, 1.2, 50, 6), '#5d4037', x - 40, 25, y), P3(gCyl(1.2, 1.2, 50, 6), '#5d4037', x + 40, 25, y), P3(gBox(80, 0.6, 0.6), '#5d4037', x, 46, y));
+          for (let k = 0; k < 7; k++) a.push(P3(gBox(8, 10, 0.5), ['#e53935', '#ffd600', '#43a047', '#1e88e5', '#ffffff'][k % 5], x - 33 + k * 11, 40, y)); }
+        break;
+      case 'J':
+        for (let i = 0; i < 18; i++) { const q = spot(40); if (!q) continue; const [x, y] = q, h = rand0(r, 50, 130);
+          gl.push(P3(gCone(h * 0.18, h, 6), '#9fe4ff', x, h / 2, y, 0.08, x, 0.1), P3(gCone(h * 0.12, h * 0.7, 6), '#e1f5fe', x + h * 0.15, h * 0.35, y + 6, 0.3, x, -0.4)); }
+        break;
+    }
+    if (a.length) scene.add(mesh(merge(a)));
+    if (gl.length) {
+      const glMat = Z.id === 'J' ? new THREE.MeshLambertMaterial({ vertexColors: true, emissive: '#1a6a86' }) : new THREE.MeshBasicMaterial({ vertexColors: true });
+      scene.add(mesh(merge(gl), glMat, Z.id === 'J'));
+    }
+  }
+  LAVA_MAT = new THREE.MeshBasicMaterial({ color: '#ff6a1a' });
+  for (const L of LAVA) {
+    const m = new THREE.Mesh(new THREE.CircleGeometry(L.r, 28), LAVA_MAT); m.rotation.x = -PI / 2; at(m, L.x, L.y, 2.2); scene.add(m);
+    const c = new THREE.Mesh(new THREE.CircleGeometry(L.r * 0.45, 20), glow('#ffd166')); c.rotation.x = -PI / 2; at(c, L.x + L.r * 0.15, L.y - L.r * 0.1, 2.4); scene.add(c);
+  }
+  VOLC_GLOW = new THREE.Mesh(new THREE.CircleGeometry(VOLCANO.r * 0.3, 24), new THREE.MeshBasicMaterial({ color: '#ff7a1a' }));
+  VOLC_GLOW.rotation.x = -PI / 2; at(VOLC_GLOW, VOLCANO.x, VOLCANO.y, 470); scene.add(VOLC_GLOW);
+}
+function syncChapters() {
+  for (const Z of ZONES) {
+    ensure('zout' + Z.id, lv(Z.out), () => buildOutpost(Z));
+    ensure('ztrade' + Z.id, lv(Z.trade), () => buildTrade(Z));
+    ensure('zkey' + Z.id, lv(Z.key), () => buildLandmark(Z));
+    ensure('cport' + Z.id, lv(Z.out), () => at(buildPortal(Z), Z.campPortal.x, Z.campPortal.y));
+    ensure('zport' + Z.id, lv(Z.out), () => at(buildPortal(Z), Z.portal.x, Z.portal.y));
+  }
+}
+let volcT = 0;
+function renderChapters(dt) {
+  const t = gameTime;
+  if (LAVA_MAT) LAVA_MAT.color.setRGB(1, 0.36 + 0.1 * Math.sin(t * 2), 0.08);
+  for (const m of GHOSTS) { m.position.y = 26 + Math.sin(t * 1.3 + m.userData.b) * 9; m.position.x += Math.sin(t * 0.5 + m.userData.b) * 0.15; }
+  // Rauch über dem Vulkan
+  volcT -= dt;
+  if (volcT <= 0 && lv(ZONES[1].key) && Math.abs(player.y - VOLCANO.y) < 1600 && puffs.length < 240) { volcT = 0.25; puffs.push({ x: VOLCANO.x + rand(-40, 40), y: 560, z: VOLCANO.y + rand(-40, 40), t: 0, life: rand(3, 4.5), s: rand(14, 22) }); }
+  for (const Z of ZONES) {
+    for (const k of ['cport', 'zport']) { const o = B3[k + Z.id]; if (o) { const s = 1 + 0.08 * Math.sin(t * 4 + Z.i); o.userData.ring.scale.set(s, s, 1); o.userData.mat.opacity = 0.4 + 0.15 * Math.sin(t * 3 + Z.i); } }
+    const lm = B3['zkey' + Z.id];
+    if (lm && lm.userData.anim) { if (Z.id === 'I') lm.userData.anim.rotation.y += dt * 3; else { const s = 1 + 0.06 * Math.sin(t * 2); lm.userData.anim.scale.set(s, s, 1); } }
+    if (lv(Z.trade)) pilePos(Z.pile, 'cash', Math.min(72, Math.ceil(Z.pile.amount / Math.max(5, Z.rate * 3))));
+  }
+  if (!running) return;
+  for (const Z of ZONES) {
+    if (lv(Z.out)) {
+      label3('cpl' + Z.id, `${Z.icon}<br><span style="font-size:12px">${Z.name}</span>`, Z.campPortal.x, Z.campPortal.y, 72, 'padname');
+      label3('zpl' + Z.id, '🌀 🏠 Lager', Z.portal.x, Z.portal.y, 72, 'padname');
+    }
+    if (lv(Z.trade) && Z.pile.amount > 0) label3('zpa' + Z.id, `💵 ${fmt(Z.pile.amount)}`, Z.pile.x, Z.pile.y, 46, 'padcost');
+    if (lv('glacier') && !lv(Z.pad) && worldH() === Z.y0)
+      label3('zlk' + Z.id, `<div class="lockt">🔒 ${Z.icon} ${Z.name}</div><div class="locks">Kapitel ${Z.ch}</div>`, 700, Z.y0 + 150, 80, '');
+  }
+}
+
 const $ = id => document.getElementById(id);
 const hud = { cash: $('hCash'), wood: $('hWood'), meat: $('hMeat'), meatMax: $('hMeatMax'), gold: $('hGold'), pMeat: $('pMeat'), hint: $('hint'), progTxt: $('progTxt'), progBar: $('progBar') };
 let lastHud = '', lastQuest = '', goal = null, goalTimer = 0;
@@ -4513,7 +5316,7 @@ function updateHud() {
   hud.meat.textContent = player.stack.length; hud.meatMax.textContent = '/' + player.cap;
   hud.pMeat.classList.toggle('full', player.stack.length >= player.cap);
   hud.hint.textContent = goal ? goal.text : '';
-  hud.progTxt.textContent = (S.win4 ? '🏆 Durchgespielt' : S.win3 ? '👿 Endkampf' : `Kapitel ${S.win2 ? 3 : S.win1 ? 2 : 1}`) + ` · ${done}/${TOTAL_LEVELS}` + (EXP() ? ` · Exp. ${EXP() + 1}` : '');
+  hud.progTxt.textContent = (lv('key_J') ? '🏆 Durchgespielt' : S.win3 && !S.win4 ? '👿 Endkampf' : `Kapitel ${chapterNo()}/10`) + ` · ${done}/${TOTAL_LEVELS}` + (EXP() ? ` · Exp. ${EXP() + 1}` : '');
   hud.progBar.style.width = (done / TOTAL_LEVELS * 100).toFixed(1) + '%';
 }
 function renderQuests() {
@@ -4573,7 +5376,8 @@ function renderStats() {
     ['Spielzeit', fmtTime(st.time)], ['Ausbauten', `${progress()} / ${TOTAL_LEVELS}`], ['Siedlungshäuser', `${housesBuilt()} / ${HOUSES.length}`],
     ['Tiere erlegt', st.kills], ['Ware verkauft', st.sold], ['Fische gefangen', st.fish], ['Angriffe abgewehrt', st.raids], ['Yetis besiegt', st.yeti],
     ['Aufträge erfüllt', st.quests || 0], ['Schätze ausgegraben', st.treasures || 0], ['Pinguine gefüttert', st.pengs || 0],
-    ['Bosse besiegt', `🍺 ${totKill('philip')} · ❄️ ${totKill('alex')} · 👑 ${totKill('boss')} · 👿 ${totKill('baron')} · 🐙 ${totKill('kraken')} · 🐉 ${totKill('dragon')}`],
+    ['Kapitel', `${chapterNo()} / 10`], ['Bosse besiegt', `🍺 ${totKill('philip')} · ❄️ ${totKill('alex')} · 👑 ${totKill('boss')} · 👿 ${totKill('baron')} · 🐙 ${totKill('kraken')}`],
+    ['Neue Bosse', ['dragon', 'frostbart', 'lavagiant', 'witch', 'frostking', 'thunderbird', 'eternal'].map(k => `${BOSSES[k].icon} ${totKill(k)}`).join(' · ')],
     ['Expedition', EXP() + 1], ['Spielerstufe', M.level], ['Polarsterne', M.stars], ['Erfolge', `${Object.keys(M.ach).length} / ${ACH.length}`], ['Trophäen', `${Object.keys(M.trophies).length} / ${TROPHIES.length}`], ['Gesamtspielzeit', fmtTime(tot('time'))],
     ['Zuletzt gespeichert', lastSaveOk ? new Date(lastSaveOk).toLocaleTimeString('de-DE') : '–'],
   ];
