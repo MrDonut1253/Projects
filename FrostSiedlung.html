@@ -515,7 +515,7 @@ function newState() {
   gate = { hp: 200, max: 200, broken: false, hitT: 0 };
   pads = PAD_DEFS.map(p => ({ ...p, paid: { cash: 0, wood: 0, gold: 0, crystal: 0 } }));
   makeTrees();
-  makeCritters(); waves = []; chestPops = []; resetChapters();
+  makeCritters(); waves = []; chestPops = []; resetChapters(); resetHouses();
   rebuildObstacles();
   for (let i = 0; i < 9; i++) spawnAnimal('A', true);
 }
@@ -629,7 +629,7 @@ function serialize() {
     grillQ: grill ? grill.q : 0, woodPile: WOODPILE.n, goldPile: GOLDPILE.n, crystalPile: CRYSTALPILE.n, crystal: S.crystal, mkingTimer: S.mkingTimer, meta: M,
     stack: player.stack, gate: { hp: Math.round(gate.hp), broken: gate.broken },
     raid: { timer: Math.max(S.raid.timer, S.raid.active ? 20 : 0), no: S.raid.no }, yetiTimer: S.yetiTimer,
-    win1: S.win1, win2: S.win2, win4: S.win4, zp: ZONES.map(Z => Z.pile.amount), day: S.day, quests: S.quests, chestCd: S.chestCd, savedAt: Date.now(),
+    win1: S.win1, win2: S.win2, win4: S.win4, zp: ZONES.map(Z => Z.pile.amount), rent: HOUSES.map(h => h.pile.amount), day: S.day, quests: S.quests, chestCd: S.chestCd, savedAt: Date.now(),
   };
 }
 let lastSaveOk = 0;
@@ -686,6 +686,7 @@ function applySave(d) {
   S.win1 = !!d.win1; S.win2 = !!d.win2;
   if (typeof d.day === 'number') S.day = d.day % DAY_LEN;
   if (Array.isArray(d.zp)) ZONES.forEach((Z, i) => { Z.pile.amount = d.zp[i] | 0; });
+  if (Array.isArray(d.rent)) HOUSES.forEach((h, i) => { h.pile.amount = d.rent[i] | 0; });
   for (const k of Object.values(BOSSES).map(D => D.key)) if (d.lv && d.lv[k]) S.lv[k] = 1;
   S.win4 = !!d.win4;
   if (Array.isArray(d.quests)) S.quests = d.quests.filter(q => QUEST_TYPES[q.type]);
@@ -983,7 +984,7 @@ function applyLevel(id, n, silent) {
     case 'rune': p.frostCd = 0; if (!silent) banner(n === 1 ? '🔮 Frost-Rune! Tippe unten rechts auf ❄️ (oder Leertaste) für einen Frostschlag' : '🔮 Frostschlag verstärkt!', 'info'); break;
     case 'sled': if (!silent) banner(['', '🛷 Hundeschlitten! Draußen in der Wildnis bist du jetzt viel schneller', '🛷 Rammschlitten! Du überfährst jetzt Tiere', '🛷 Turbo-Schlitten mit Eisrammbock!'][n], 'info'); break;
     case 'digger': workers.push(makeWorker('digger', 1450, 1140)); if (!silent) banner('🧭 Der Schatzsucher gräbt jetzt alle Schätze für dich aus', 'info'); break;
-    default: applyChapterLevel(id, n, silent); break;
+    default: applyHouseLevel(id, silent); applyChapterLevel(id, n, silent); break;
     case 'glacier': if (!silent) { banner('🏔️ Der Gletscher ist offen!', 'info'); for (let i = 0; i < 6; i++) spawnAnimal('C', true); } break;
     case 'drill1': case 'drill2': workers.push(makeWorker('driller', CRYSTALPILE.x + 30, CRYSTALPILE.y + 30)); break;
     case 'forge': refreshStats(); break;
@@ -1940,6 +1941,7 @@ function ach(id, name, stars, cur, goal) { ACH.push({ id, name, stars, cur, goal
 [[25, 2], [250, 6]].forEach(([g, s]) => ach('peng' + g, `Füttere ${g} Pinguine`, s, () => tot('pengs'), g));
 [[10, 2], [50, 6]].forEach(([g, s]) => ach('event' + g, `Erlebe ${g} Ereignisse`, s, () => tot('events'), g));
 ach('houses', 'Baue alle Blockhütten', 2, () => housesBuilt(), HOUSES.length);
+ach('zimmerei', 'Baue die Zimmerei voll aus', 6, () => lv('zimmerei'), 5);
 ach('radio', 'Baue den Funkturm', 3, () => lv('radio'), 1);
 ach('obs', 'Baue das Observatorium', 5, () => lv('observatory'), 1);
 ach('troph6', 'Finde 6 Trophäen', 4, () => Object.keys(M.trophies).length, 6);
@@ -2682,6 +2684,7 @@ function updateCritters(dt) {
 function updateContent(dt) {
   updateEvents(dt);
   updateChapters(dt);
+  updateHouses(dt);
   updateCritters(dt);
   if (lv('hunter1')) {
     S.treasureCd -= dt * (lv('digger') ? 1.8 : 1);
@@ -3067,6 +3070,98 @@ ZONES.forEach(Z => {
 });
 for (const s of SKILLS) s.max = 20;
 
+/* =========================================================
+   Blockhütten: Miete, Bewohner und Hausausbau (Zimmerei)
+   ========================================================= */
+for (const h of HOUSES) h.pile = { x: h.x, y: h.y + 50, amount: 0, acc: 0 };
+for (const p of PAD_DEFS) if (p.id.startsWith('house')) p.name = 'Blockhütte (Miete)';
+PAD_DEFS.push({ id: 'zimmerei', name: 'Zimmerei: Hausausbau', icon: '🔨', x: 1360, y: 1185, levels: [
+  L({ cash: 800, wood: 80 }, ['house3', 'mine']), L({ cash: 6000, wood: 200, gold: 40 }, ['house5', 'east']),
+  L({ cash: 25000, wood: 400, gold: 100 }, ['house7', 'smokehouse']), L({ cash: 120000, wood: 900, gold: 300, crystal: 100 }, ['house9', 'glacier']),
+  L({ cash: 900000, wood: 2500, gold: 900, crystal: 600 }, ['key_E'])] });
+TOTAL_LEVELS = PAD_DEFS.reduce((a, p) => a + p.levels.length, 0);
+
+const RENT_K = [1, 2, 3.5, 5.5, 8, 12];
+// Miete pro Hütte und Sekunde – wächst mit den Fleischpreisen, also mit dem ganzen Spielfortschritt
+function rentRate() { return 0.25 * shopPrice(SHOPS.meat) * RENT_K[lv('zimmerei')]; }
+const houseTier = () => lv('zimmerei') >= 3 ? 2 : lv('zimmerei') >= 1 ? 1 : 0;
+function resetHouses() { for (const h of HOUSES) { h.pile.amount = 0; h.pile.acc = 0; } residents = []; }
+function applyHouseLevel(id, silent) {
+  if (silent) return;
+  if (id.startsWith('house')) banner('🏠 Eine Familie zieht ein! Die Blockhütte zahlt jetzt Miete – hol sie dir vor der Tür ab', 'good');
+  if (id === 'zimmerei') banner(`🔨 Hausausbau Stufe ${lv('zimmerei')}: Alle Blockhütten zahlen jetzt ×${RENT_K[lv('zimmerei')]} Miete`, 'good');
+}
+const rentPiles = () => HOUSES.filter(h => lv(h.id)).map(h => h.pile);
+
+/* ---------- Bewohner ---------- */
+let residents = [];
+const RES_COATS = ['#d35454', '#e08e2b', '#2aa198', '#6c5ce7', '#3b7ddd', '#c2185b', '#7cb342', '#8d6e63', '#00897b'];
+function updateHouses(dt) {
+  const p = player, rate = rentRate();
+  for (const h of HOUSES) {
+    if (!lv(h.id)) continue;
+    const pl = h.pile;
+    if (pl.amount < rate * 240) { pl.acc += rate * dt; if (pl.acc >= 1) { const n = Math.floor(pl.acc); pl.acc -= n; pl.amount += n; } }
+    if (p.dead <= 0 && dist(p, pl) < 55 && pl.amount > 0 && p.pickCd <= 0) {
+      p.pickCd = 0.05; const c = takeChunk(pl, 'amount'); pl.amount -= c; S.stats.cashEarned += c;
+      fly('cash', { x: pl.x, y: pl.y, z: 10 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.3, () => { S.cash += c; popPill('pCash'); sfx('coin'); });
+    }
+  }
+  // jede Hütte hat einen Bewohner: tagsüber im Lager unterwegs, nachts und bei Angriffen im Haus
+  const built = HOUSES.filter(h => lv(h.id));
+  while (residents.length < built.length) {
+    const h = built[residents.length];
+    residents.push({ home: h, x: h.x, y: h.y + 40, tx: h.x, ty: h.y + 40, t: rand(0, 3), walkT: 0, face: 1, moving: false, side: 1, coat: RES_COATS[residents.length % RES_COATS.length], inside: false, hi: 0 });
+  }
+  const yMax = (lv('glacier') ? FENCE2_Y : H) - 40, home = isNight() || S.raid.active;
+  for (const r of residents) {
+    r.hi = Math.max(0, r.hi - dt);
+    if (home) { r.tx = r.home.x; r.ty = r.home.y + 34; }
+    else {
+      r.inside = false; r.t -= dt;
+      if (r.t <= 0) { r.t = rand(4, 9); r.tx = clamp(r.home.x + rand(-180, 180), X_MIN + 80, worldW() - 80); r.ty = clamp(r.home.y + rand(-80, 170), FENCE_Y + 60, yMax); }
+    }
+    if (r.inside) continue;
+    if (steer(r, r.tx, r.ty, 60, dt)) { r.moving = false; if (home) r.inside = true; }
+    // freundlicher Gruß, wenn man vorbeikommt
+    if (p.dead <= 0 && r.hi <= 0 && dist(p, r) < 70) { r.hi = 25; addText(r.x, r.y, 75, pick(['👋 Hallo!', '❤️ Danke für das Haus!', '😊 Schön warm hier!', '🍖 Lecker Steak heute!']), '#ffffff', 18); }
+  }
+}
+
+/* ---------- 3D ---------- */
+function buildHouse(tier) {
+  if (tier === 0) return buildCabin('house', 64, 38, 52, '#b27a47', '#7b4d29', { chimney: true });
+  const flowers = z => [P3(gBox(14, 4, 4), '#8b5a2b', -18, 14, z), P3(gBox(14, 4, 4), '#8b5a2b', 18, 14, z),
+    ...[-23, -18, -13, 13, 18, 23].map((x, i) => P3(gSph(1.8, 5, 4), i % 2 ? '#ffd23f' : '#e53935', x, 17, z))];
+  if (tier === 1) return buildCabin('houseA', 64, 38, 52, '#b9824e', '#a33b2b', { chimney: true, extra: () => [
+    P3(gBox(3, 26, 3), '#7b4d29', -28, 13, 40), P3(gBox(3, 26, 3), '#7b4d29', 28, 13, 40), P3(gBox(66, 3, 18), '#a33b2b', 0, 27, 35, -0.15),
+    P3(gBox(60, 2, 16), '#c48a55', 0, 1, 35), ...flowers(27.5), P3(gBox(4, 5, 4), '#ffd97a', 10, 22, 30)] });
+  return buildCabin('houseB', 64, 62, 52, '#c08a52', '#2f5f8f', { chimney: true, extra: () => [
+    P3(gBox(66, 3, 14), '#7b4d29', 0, 34, 33), P3(gBox(66, 8, 1.5), '#7b4d29', 0, 40, 39.5), ...[-30, -15, 0, 15, 30].map(x => P3(gBox(1.5, 8, 1.5), '#7b4d29', x, 40, 39.5)),
+    P3(gBox(3, 33, 3), '#7b4d29', -30, 16.5, 38), P3(gBox(3, 33, 3), '#7b4d29', 30, 16.5, 38), ...flowers(27.5),
+    P3(gBox(12, 10, 1.5), '#ffd97a', -16, 48, 26.5), P3(gBox(12, 10, 1.5), '#ffd97a', 16, 48, 26.5), P3(gBox(4, 5, 4), '#ffd97a', 0, 30, 30)] });
+}
+function syncHouses() {
+  const tier = houseTier();
+  for (const h of HOUSES) for (let k = 0; k < 3; k++) ensure(h.id + (k ? '_' + k : ''), lv(h.id) && tier === k, () => at(buildHouse(k), h.x, h.y));
+}
+function renderHouses() {
+  const rate = rentRate();
+  for (const h of HOUSES) {
+    if (!lv(h.id)) continue;
+    const n = Math.min(40, Math.ceil(h.pile.amount / Math.max(3, rate * 6)));
+    if (n > 0) pilePos(h.pile, 'cash', n);
+    if (running && h.pile.amount >= rate * 20) label3('rent' + h.id, `🏠 ${fmt(h.pile.amount)} $`, h.pile.x, h.pile.y, 40, 'padcost');
+  }
+  if (!running) return;
+  for (const r of residents) {
+    if (r.inside) continue;
+    const m = ensureModel(r, () => makeHuman(r.coat));
+    at(m.root, r.x, r.y);
+    animHuman(m, r, null);
+  }
+}
+
 
 function nearestOf(list, p) { let best = null, bd = 1e9; for (const o of list) { const d = dist(p, o); if (d < bd) { bd = d; best = o; } } return best; }
 function currentGoal() { return portalize(currentGoal0()); }
@@ -3117,7 +3212,7 @@ function currentGoal0() {
       if (c) return { text: 'Baue Kristalle im Gletscher ab', x: c.x, y: c.y, tree: true };
     }
     if (r.cash > S.cash) {
-      const pile = SHOP_LIST.map(sh => sh.pile).sort((a, b) => b.amount - a.amount)[0];
+      const pile = SHOP_LIST.map(sh => sh.pile).concat(rentPiles()).sort((a, b) => b.amount - a.amount)[0];
       if (pile.amount >= Math.min(15, r.cash - S.cash)) return { text: 'Sammle das Geld ein', x: pile.x, y: pile.y };
     }
     if (r.wood > S.wood + WOODPILE.n && workers.filter(w => w.kind === 'lumber').length < 2) {
@@ -3891,7 +3986,7 @@ function syncWorld() {
     if (rg) rg.userData.regDisc.material.color.set(sh.cashier ? '#5ccf5c' : '#ffffff');
   }
   ensure('hut', lv('lumber'), () => at(buildCabin('hut', HUT.x1 - HUT.x0, 40, HUT.y1 - HUT.y0, '#9a6436', '#7b4d29'), (HUT.x0 + HUT.x1) / 2, (HUT.y0 + HUT.y1) / 2));
-  for (const h of HOUSES) ensure(h.id, lv(h.id), () => at(buildCabin('house', 64, 38, 52, '#b27a47', '#7b4d29', { chimney: true }), h.x, h.y));
+  syncHouses();
   const gr = ensure('grill', lv('grill'), buildGrill);
   const fu = ensure('furnace', lv('furnace'), buildFurnace);
   if (fu) fu.userData.flames.forEach((f, i) => { const s = 0.8 + 0.25 * Math.sin(t * 9 + i * 1.7); f.scale.set(s, 0.8 + 0.35 * Math.sin(t * 11 + i), s); });
@@ -4875,6 +4970,7 @@ function buildExtra() {
 }
 function renderExtra(dt) {
   renderChapters(dt);
+  renderHouses();
   const tr = running ? S.treasures : [];
   TRES.forEach((g, i) => {
     const t = tr[i]; g.visible = !!t; if (!t) return;
