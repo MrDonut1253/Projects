@@ -199,6 +199,20 @@
     #banner { font-size: 19px; }
     #prog { min-width: 0; max-width: 34vw; }
   }
+  #evt { position: fixed; left: calc(env(safe-area-inset-left) + 14px); bottom: calc(env(safe-area-inset-bottom) + 18px); z-index: 6; pointer-events: none;
+    background: linear-gradient(135deg, rgba(124,58,190,.88), rgba(47,115,201,.88)); color: #fff; font-weight: 900; font-size: 18px; padding: 9px 16px;
+    border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,.25); text-shadow: 0 2px 0 rgba(0,0,0,.35); white-space: nowrap; }
+  #evt.blood { background: linear-gradient(135deg, rgba(160,20,30,.92), rgba(90,10,20,.92)); }
+  #bFrost { position: fixed; right: calc(env(safe-area-inset-right) + 22px); bottom: calc(env(safe-area-inset-bottom) + 26px); width: 96px; height: 96px;
+    border-radius: 50%; border: 4px solid #fff; z-index: 6; font-size: 46px; color: #fff; padding: 0; cursor: pointer; touch-action: none;
+    background: radial-gradient(circle at 35% 30%, #c8f1ff, #3d8fe0 60%, #1f5fb0); display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 16px rgba(0,0,0,.3); --k: 0; }
+  #bFrost .cd { position: absolute; inset: -4px; border-radius: 50%; pointer-events: none;
+    background: conic-gradient(rgba(15,25,45,.74) calc(var(--k) * 1%), transparent 0); }
+  #bFrost .cdt { position: absolute; font-size: 30px; font-weight: 900; text-shadow: 0 2px 0 rgba(0,0,0,.6); pointer-events: none; }
+  #bFrost.ready { animation: frostPulse 1.3s infinite; }
+  @keyframes frostPulse { 0%, 100% { box-shadow: 0 6px 16px rgba(0,0,0,.3), 0 0 0 0 rgba(150,225,255,.85); } 60% { box-shadow: 0 6px 16px rgba(0,0,0,.3), 0 0 0 18px rgba(150,225,255,0); } }
+  @media (max-aspect-ratio: 1/1), (max-width: 900px) { #bFrost { width: 82px; height: 82px; font-size: 38px; } #evt { font-size: 15px; } }
 </style>
 </head>
 <body>
@@ -219,6 +233,8 @@
   <span id="saved">💾</span>
 </div>
 <div id="hint"></div>
+<div id="evt" class="hidden"></div>
+<button id="bFrost" class="hidden" aria-label="Frostschlag"><span class="cd"></span>❄️<span class="cdt" id="frostT"></span></button>
 <div id="banner"></div>
 <div id="hud">
   <div class="pill" id="pCash"><span class="ic">💵</span><span id="hCash">0</span></div>
@@ -233,6 +249,7 @@
   <div class="info panel" style="padding:16px 24px">Jage Eisbären, verkaufe Fleisch und Fisch an die Überlebenden, verteidige dein Tor in der Nacht und baue die Siedlung immer weiter aus.<br>
     Ziehe mit dem Finger irgendwo über den Bildschirm, um zu laufen. Angreifen, Holz hacken, Angeln und Einsammeln passiert automatisch.<br>
     Drei Kapitel, Expeditionen, Fähigkeiten, Erfolge und Trophäen warten auf dich.<br>
+    <b style="color:#2f73c9">Neu:</b> Frostschlag, Hundeschlitten, Schatzsuche, Pinguine, Ereignisse – und zwei neue Bosse: der Eissee-Krake und der Frostdrache!<br>
     <i style="opacity:.75">Doch Bosse versperren dir den Weg: Philip Krüger, Alexander Karbowiak, Benedict Million – und am Ende wartet Herr Faudt …</i></div>
   <button class="big-btn" id="bPlay">Spielen</button>
   <button class="big-btn grey hidden" id="bNew">Neues Spiel</button>
@@ -339,6 +356,8 @@ const HOLES = [{ x: 1795, y: 1040 }, { x: 1925, y: 1005 }, { x: 2005, y: 1110 },
 const PONDS = [{ x: -30, y: 230, r: 78 }, { x: 870, y: 120, r: 72 }, { x: 1900, y: 170, r: 84 }, { x: 2390, y: 440, r: 72 }];
 for (const pd of PONDS) HOLES.push({ x: pd.x - pd.r * 0.35, y: pd.y - 6, pond: true }, { x: pd.x + pd.r * 0.35, y: pd.y + 12, pond: true });
 const POND_B_HOLE = HOLES.findIndex(h => h.pond && h.x > 1800);
+const AREA_L = { x0: LAKE.x - 60, x1: LAKE.x + 60, y0: LAKE.y - 40, y1: LAKE.y + 40 };   // Eissee-Krake bleibt im See
+const RUNE = { x: 620, y: 1120 }, KENNEL = { x: 40, y: 780 };
 const SMOKEHOUSE = { x: 2050, y: 800 };
 const CHEST = { x: 70, y: 105 };
 const H_C = 2150, FENCE2_Y = 1600, Y_MAX = H_C + WM;
@@ -402,9 +421,14 @@ const PAD_DEFS = [
   { id: 'board', name: 'Auftragsbrett', icon: '📜', x: 300, y: 850, levels: [L({ cash: 120, wood: 10 }, ['grill'])] },
   { id: 'husky', name: 'Husky-Begleiter', icon: '🐕', x: 970, y: 1030, levels: [L({ cash: 250, wood: 20 }, ['tower1'])] },
   { id: 'spear', name: 'Speerwurf', icon: '🔱', x: 1250, y: 1095, levels: [L({ cash: 300, wood: 20 }, ['tower1']), L({ cash: 1500, wood: 40, gold: 20 }, ['furnace']), L({ cash: 5000, wood: 80, gold: 50 }, ['east'])] },
+  { id: 'rune', name: 'Frost-Rune', icon: '🔮', x: RUNE.x, y: RUNE.y, levels: [L({ cash: 450, wood: 30 }, ['tower1']), L({ cash: 2500, wood: 60, gold: 20 }, ['furnace']),
+    L({ cash: 9000, wood: 100, gold: 60 }, ['east']), L({ cash: 40000, crystal: 80 }, ['glacier'])] },
   { id: 'furnace', name: 'Großer Ofen', icon: '🔥', x: FURNACE.x, y: FURNACE.y, big: true, levels: [L({ cash: 800, wood: 60, gold: 30 }, ['hunter2', 'axes:2', 'tower1', 'boss_philip'])] },
   // ---- Kapitel 2 ----
   { id: 'east', name: 'Neues Gebiet: Eissee', icon: '🗺️', x: 1340, y: 1090, levels: [L({ cash: 2500, wood: 60 }, ['furnace'])] },
+  { id: 'sled', name: 'Hundeschlitten', icon: '🛷', x: KENNEL.x, y: KENNEL.y + 90, levels: [L({ cash: 1800, wood: 60 }, ['furnace']), L({ cash: 7000, wood: 120, gold: 40 }, ['east']),
+    L({ cash: 30000, wood: 300, crystal: 40 }, ['glacier'])] },
+  { id: 'digger', name: 'Schatzsucher anheuern', icon: '🧭', x: 1450, y: 1180, levels: [L({ cash: 3500, wood: 40 }, ['east'])] },
   { id: 'mine2', name: 'Größere Lore', icon: '🛒', x: 300, y: 990, levels: [L({ cash: 2000, wood: 40 }, ['furnace', 'mine'])] },
   { id: 'house4', name: 'Blockhütte', icon: '🏠', x: HOUSES[3].x, y: HOUSES[3].y, levels: [L({ cash: 3000, wood: 60 }, ['house3', 'furnace'])] },
   { id: 'fishmarket', name: 'Fischmarkt', icon: '🐟', x: 1610, y: 858, levels: [L({ cash: 1500, wood: 30 }, ['east'])] },
@@ -450,6 +474,8 @@ const TYPES = {
   alex: { name: 'alex', kind: 'alex', hp: 2000, dmg: 11, speed: 110, size: 1.5, meat: 12, gold: 25 },
   frostwolf: { name: 'frostwolf', kind: 'wolf', hp: 60, dmg: 10, speed: 180, size: 1.05, meat: 3 },
   mammoth: { name: 'mammoth', kind: 'mammoth', hp: 480, dmg: 20, speed: 70, size: 1.9, meat: 10, crystal: 2 },
+  kraken: { name: 'kraken', kind: 'kraken', hp: 2000, dmg: 14, speed: 0, size: 2, meat: 0, fish: 40, gold: 40, still: true },
+  dragon: { name: 'dragon', kind: 'dragon', hp: 2000, dmg: 18, speed: 125, size: 1.8, meat: 25, gold: 80, crystal: 60 },
   mking: { name: 'mking', kind: 'mking', hp: 6000, dmg: 35, speed: 78, size: 2.6, meat: 30, gold: 25, crystal: 40 },
 };
 
@@ -471,8 +497,9 @@ function newState() {
     stats: { time: 0, kills: 0, sold: 0, fish: 0, yeti: 0, raids: 0, woodGot: 0, goldGot: 0, benedict: 0, killsBy: { bear: 0, wolf: 0, yeti: 0, boss: 0 } },
     raid: { timer: 70, active: false, no: 0 }, yetiTimer: 45, win1: false, win2: false,
     day: 30, quests: [], chestCd: 700, bossIntro: 0, weather: { storm: false, t: 0, next: 240 }, crystal: 0, mkingTimer: 200,
+    treasures: [], treasureCd: 35, event: null, evCd: 200,
   };
-  Object.assign(S.stats, { cashEarned: 0, crystals: 0, quests: 0 });
+  Object.assign(S.stats, { cashEarned: 0, crystals: 0, quests: 0, treasures: 0, frosts: 0, pengs: 0, events: 0 });
   for (const sh of SHOP_LIST) { sh.count = 0; sh.pile.amount = 0; sh.cashier = null; sh.timer = 1; }
   WOODPILE.n = 0; GOLDPILE.n = 0; CRYSTALPILE.n = 0;
   player = {
@@ -481,12 +508,14 @@ function newState() {
     atkCd: 0, swing: 0, hurtT: 0, lastHit: 99, dead: 0,
     base: { cap: 12, speed: 235, dmg: 10, hp: 100, orbitDmg: 7 }, spearMult: 1,
     orbit: 0, orbitDmg: 7, orbitR: 62, orbitA: 0, sway: 0, payCd: 0, pickCd: 0, fishT: 0, fishing: null, spearCd: 1, knock: null,
+    frostCd: 0, frostMult: 1, onSled: false, digging: null,
   };
   animals = []; items = []; flyers = []; arrows = []; parts = []; texts = []; hazards = []; pet = null;
   customers = []; workers = []; towers = []; cart = null; grill = null;
   gate = { hp: 200, max: 200, broken: false, hitT: 0 };
   pads = PAD_DEFS.map(p => ({ ...p, paid: { cash: 0, wood: 0, gold: 0, crystal: 0 } }));
   makeTrees();
+  makeCritters(); waves = []; chestPops = [];
   rebuildObstacles();
   for (let i = 0; i < 9; i++) spawnAnimal('A', true);
 }
@@ -543,7 +572,7 @@ function makeTrees() {
   crates = [{ x: 780, y: 1090 }, { x: 805, y: 1106 }, { x: 772, y: 1122 }];
 }
 
-function areaOf(zone) { return zone === 'B' ? AREA_B : zone === 'C' ? AREA_C : AREA_A; }
+function areaOf(zone) { return zone === 'B' ? AREA_B : zone === 'C' ? AREA_C : zone === 'L' ? AREA_L : AREA_A; }
 function spawnAnimal(zone, initial, typeName, raider) {
   const area = areaOf(zone);
   let x, y, tries = 0;
@@ -582,6 +611,8 @@ function rebuildObstacles() {
   if (lv('radio')) OBST.push({ x0: RADIO.x - 30, y0: RADIO.y - 30, x1: RADIO.x + 30, y1: RADIO.y + 30 });
   if (lv('forge')) OBST.push({ x0: FORGE.x - 34, y0: FORGE.y - 28, x1: FORGE.x + 34, y1: FORGE.y + 28 });
   if (lv('observatory')) OBST.push({ x0: OBSERVATORY.x - 55, y0: OBSERVATORY.y - 55, x1: OBSERVATORY.x + 55, y1: OBSERVATORY.y + 55 });
+  if (lv('sled')) OBST.push({ x0: KENNEL.x - 32, y0: KENNEL.y - 26, x1: KENNEL.x + 62, y1: KENNEL.y + 26 });
+  if (lv('rune')) OBST.push({ x0: RUNE.x - 12, y0: RUNE.y - 9, x1: RUNE.x + 12, y1: RUNE.y + 9 });
 }
 
 /* =========================================================
@@ -652,7 +683,7 @@ function applySave(d) {
   if (d.yetiTimer) S.yetiTimer = d.yetiTimer;
   S.win1 = !!d.win1; S.win2 = !!d.win2;
   if (typeof d.day === 'number') S.day = d.day % DAY_LEN;
-  for (const k of ['boss_philip', 'boss_alex', 'boss_benedict', 'boss_baron']) if (d.lv && d.lv[k]) S.lv[k] = 1;
+  for (const k of ['boss_philip', 'boss_alex', 'boss_benedict', 'boss_baron', 'boss_kraken', 'boss_dragon']) if (d.lv && d.lv[k]) S.lv[k] = 1;
   S.win4 = !!d.win4;
   if (Array.isArray(d.quests)) S.quests = d.quests.filter(q => QUEST_TYPES[q.type]);
   S.chestCd = d.chestCd > 0 && d.chestCd < 2000 ? d.chestCd : 700;
@@ -700,7 +731,7 @@ function tone(freq, dur, type = 'sine', vol = 0.12, slide = 0, delay = 0) {
 }
 function sfx(name) {
   const now = performance.now();
-  const gap = { pick: 45, coin: 60, hit: 70, chop: 90, drop: 45, arrow: 120, splash: 200 }[name] || 0;
+  const gap = { pick: 45, coin: 60, hit: 70, chop: 90, drop: 45, arrow: 120, splash: 200, peng: 90, treasure: 150 }[name] || 0;
   if (lastSnd[name] && now - lastSnd[name] < gap) return;
   lastSnd[name] = now;
   switch (name) {
@@ -716,6 +747,10 @@ function sfx(name) {
     case 'alarm': [440, 330, 440, 330].forEach((f, i) => tone(f, 0.22, 'square', 0.06, 0, i * 0.24)); break;
     case 'build': [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.18, 'triangle', 0.1, 0, i * 0.08)); break;
     case 'win': [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.3, 'triangle', 0.12, 0, i * 0.12)); break;
+    case 'frost': [1320, 990, 740, 550].forEach((f, i) => tone(f, 0.28, 'triangle', 0.08, -150, i * 0.045)); tone(110, 0.45, 'sawtooth', 0.07, -50); break;
+    case 'roar': tone(85, 0.9, 'sawtooth', 0.13, -35); tone(130, 0.75, 'square', 0.06, -70, 0.06); tone(60, 1.0, 'sawtooth', 0.08, -20, 0.1); break;
+    case 'treasure': [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.16, 'square', 0.05, 0, i * 0.07)); break;
+    case 'peng': tone(1150, 0.07, 'square', 0.045, 350); tone(1500, 0.08, 'square', 0.04, 250, 0.08); break;
   }
 }
 
@@ -748,7 +783,7 @@ cv.addEventListener('pointerup', joyEnd);
 cv.addEventListener('pointercancel', joyEnd);
 window.addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'TEXTAREA') return;
-  keys[e.key.toLowerCase()] = true; initAudio(); if (e.key === 'Escape') togglePause();
+  keys[e.key.toLowerCase()] = true; initAudio(); if (e.key === 'Escape') togglePause(); if (e.key === ' ' || e.key.toLowerCase() === 'e') castFrost();
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 document.addEventListener('gesturestart', e => e.preventDefault());
@@ -896,7 +931,7 @@ function levelUp(p) {
   save();
 }
 function makeWorker(kind, x, y, extra = {}) {
-  const coat = { hunter: '#2f9e5b', lumber: '#b8612d', fisher: '#2a7fb8', driller: '#6a4fb3' }[kind];
+  const coat = { hunter: '#2f9e5b', lumber: '#b8612d', fisher: '#2a7fb8', driller: '#6a4fb3', digger: '#c58b2b' }[kind];
   return { kind, x, y, coat, face: 1, walkT: 0, moving: false, state: 'work', carry: 0, target: null, cd: 0, swing: 0, side: 1, ...extra };
 }
 function applyLevel(id, n, silent) {
@@ -942,6 +977,9 @@ function applyLevel(id, n, silent) {
           'Tipp: Im 📘-Menü kannst du jederzeit eine neue <b>Expedition</b> starten und Polarsterne für dauerhafte Boni sammeln.'), 1000);
       }
       break;
+    case 'rune': p.frostCd = 0; if (!silent) banner(n === 1 ? '🔮 Frost-Rune! Tippe unten rechts auf ❄️ (oder Leertaste) für einen Frostschlag' : '🔮 Frostschlag verstärkt!', 'info'); break;
+    case 'sled': if (!silent) banner(['', '🛷 Hundeschlitten! Draußen in der Wildnis bist du jetzt viel schneller', '🛷 Rammschlitten! Du überfährst jetzt Tiere', '🛷 Turbo-Schlitten mit Eisrammbock!'][n], 'info'); break;
+    case 'digger': workers.push(makeWorker('digger', 1450, 1140)); if (!silent) banner('🧭 Der Schatzsucher gräbt jetzt alle Schätze für dich aus', 'info'); break;
     case 'glacier': if (!silent) { banner('🏔️ Der Gletscher ist offen!', 'info'); for (let i = 0; i < 6; i++) spawnAnimal('C', true); } break;
     case 'drill1': case 'drill2': workers.push(makeWorker('driller', CRYSTALPILE.x + 30, CRYSTALPILE.y + 30)); break;
     case 'forge': refreshStats(); break;
@@ -956,7 +994,9 @@ function applyLevel(id, n, silent) {
       break;
   }
 }
+const winQ = [];
 function showWin(title, text) {
+  if (!document.getElementById('win').classList.contains('hidden')) { winQ.push([title, text]); return; }
   document.getElementById('winTitle').innerHTML = title;
   document.getElementById('winText').innerHTML = text;
   document.getElementById('win').classList.remove('hidden');
@@ -971,6 +1011,7 @@ function shopSprite(sh) { return sh.id === 'meat' ? (lv('grill') ? 'steak' : 'me
 function shopPrice(sh) {
   let p = sh.id === 'meat' ? (lv('grill') ? 12 : 5) : (lv('smokehouse') ? 60 : 26);   // Fisch kommt später, ist dafür deutlich mehr wert
   if (lv('furnace')) p = p * 1.5;
+  if (evOn('gold')) p *= 2;
   return Math.round(p * priceMult(sh));
 }
 function housesBuilt() { return HOUSES.filter(h => lv(h.id)).length; }
@@ -1000,7 +1041,7 @@ function damageAnimal(b, d, from) {
   let crit = false;
   if (from === player && Math.random() < critChance()) { d *= 2; crit = true; }
   b.hp -= d; b.hitT = 0.15; b.aggro = 4;
-  if (b.type.kind !== 'yeti' && b.type.kind !== 'boss') {
+  if (b.type.kind !== 'yeti' && b.type.kind !== 'boss' && !b.type.still && b.type.kind !== 'dragon') {
     const a = Math.atan2(b.y - from.y, b.x - from.x);
     b.x += Math.cos(a) * 6; b.y += Math.sin(a) * 6;
     clampAnimal(b);
@@ -1059,6 +1100,7 @@ function update(dt) {
   updateTrees(dt);
   updateRaid(dt);
   updateDay(dt);
+  updateContent(dt);
   updateWeather(dt);
   updatePet(dt);
   updateHazards(dt);
@@ -1120,9 +1162,12 @@ function updatePlayer(dt) {
   const v = inputVector();
   const mv = Math.hypot(v.x, v.y);
   p.moving = mv > 0.05;
+  const sled = lv('sled') > 0 && (p.y < FENCE_Y - 6 || (lv('glacier') && p.y > FENCE2_Y + 6));
+  if (sled !== p.onSled) { p.onSled = sled; burst(p.x, p.y, 8, '#ffffff', 12, 140); if (sled) sfx('peng'); }
+  p.frostCd -= dt;
   if (p.moving) {
     if (p.slowT > 0) p.slowT -= dt;
-    const sp = p.speed * (S.weather.storm ? 0.8 : 1) * (p.slowT > 0 ? p.slowK : 1);
+    const sp = p.speed * (S.weather.storm ? 0.8 : 1) * (p.slowT > 0 ? p.slowK : 1) * (p.onSled ? [1, 1.3, 1.45, 1.6][lv('sled')] : 1);
     moveEntity(p, v.x * sp * dt, v.y * sp * dt);
     p.walkT += dt * 12 * mv;
     if (Math.abs(v.sx) > 0.1) p.face = v.sx > 0 ? 1 : -1;
@@ -1133,6 +1178,19 @@ function updatePlayer(dt) {
     const x0 = X_MIN + 20, x1 = worldW() - 20, y0 = Y_MIN + 20, y1 = worldH() - 20;
     const bx = p.x < x0 ? x0 - p.x : p.x > x1 ? x1 - p.x : 0, by = p.y < y0 ? y0 - p.y : p.y > y1 ? y1 - p.y : 0;
     if (bx || by) { const k = Math.min(1, dt * 0.55); moveEntity(p, bx * k, by * k); }
+  }
+
+  // Rammschlitten: überfährt Tiere vor dem Schlitten
+  if (p.onSled && lv('sled') >= 2 && p.moving && mv > 0.5) {
+    const fx = v.x / mv, fy = v.y / mv, hx = p.x + fx * 40, hy = p.y + fy * 40;
+    for (const b of animals) {
+      if (b.dead || (b.ramCd || 0) > 0 || (b.boss && b.boss.state === 'intro')) continue;
+      if (Math.hypot(b.x - hx, b.y - hy) > 34 + 24 * b.type.size) continue;
+      b.ramCd = 0.6;
+      damageAnimal(b, Math.round(p.dmg * (lv('sled') >= 3 ? 3 : 1.8)), p);
+      if (!b.dead && !b.boss && !b.type.still) { b.x += fx * 42; b.y += fy * 42; clampAnimal(b); }
+      burst(b.x, b.y, 12, '#ffffff', 8, 160); shake(0.15);
+    }
   }
 
   // Speerwurf
@@ -1180,6 +1238,16 @@ function updatePlayer(dt) {
         gainXP(3); rollTrophy('kristallherz', 0.01);
       }
     }
+  }
+
+  // Schatz ausgraben
+  p.digging = null;
+  if (!target) for (const t of S.treasures) if (dist(p, t) < 38) { p.digging = t; break; }
+  if (p.digging) {
+    const t = p.digging;
+    t.dig += dt * (1 + 0.1 * sk('schatz'));
+    if (p.swing <= 0) { p.swing = 0.25; p.face = isoX(t.x - p.x, t.y - p.y) > 0 ? 1 : -1; sfx('chop'); burst(t.x, t.y, 4, '#9c6b3f', 4, 110); }
+    if (t.dig >= TDIG) openTreasure(t, null);
   }
 
   // Wirbelnde Äxte
@@ -1304,6 +1372,8 @@ function updateAnimals(dt) {
     b.hitT = Math.max(0, b.hitT - dt);
     b.aggro -= dt; b.atkCd -= dt; b.orbitCd -= dt; b.lunge = Math.max(0, b.lunge - dt);
     b.spawnT = Math.min(1, b.spawnT + dt * 2);
+    b.ramCd = (b.ramCd || 0) - dt;
+    if (b.frozen > 0) { b.frozen -= dt; continue; }
     const dp = dist(b, p);
     const reach = 44 * b.type.size;
     const inCampB = b.y > FENCE_Y && b.zone !== 'C';
@@ -1501,6 +1571,7 @@ function updateWorkers(dt) {
     if (w.kind === 'hunter') updateHunter(w, hunters, dt);
     else if (w.kind === 'lumber') updateLumber(w, dt);
     else if (w.kind === 'driller') updateDriller(w, dt);
+    else if (w.kind === 'digger') updateDigger(w, dt);
     else updateFisher(w, dt);
   }
 }
@@ -1675,20 +1746,21 @@ function updateRaid(dt) {
     if (R.pending) {
       R.pending = false;
       R.active = true; R.no++;
-      const n = Math.min(12, 2 + R.no);
+      const n = Math.min(12, 2 + R.no) * (R.blood ? 2 : 1);
       for (let i = 0; i < n; i++) {
         const type = R.no >= 3 && Math.random() < 0.35 ? 'spiky' : (lv('east') && Math.random() < 0.3 ? 'wolf' : 'polar');
         const a = spawnAnimal('A', false, type, true);
         a.x = clamp(GATE_CX + rand(-380, 380), AREA_A.x0, AREA_A.x1);
         a.y = RAID_Y0 + rand(0, 60);
       }
-      banner('🌙⚠️ Nachtangriff! Verteidige das Tor!');
+      banner(R.blood ? '🩸⚠️ Blutmond-Angriff! Doppelt so viele Bären!' : '🌙⚠️ Nachtangriff! Verteidige das Tor!');
       sfx('alarm');
     }
   } else if (!animals.some(b => b.raider && !b.dead)) {
     R.active = false; R.timer = rand(150, 210);
     S.stats.raids++;
-    const reward = Math.round((60 + 40 * R.no) * (1 + 0.5 * EXP()));
+    const reward = Math.round((60 + 40 * R.no) * (1 + 0.5 * EXP()) * (R.blood ? 2 : 1));
+    R.blood = false;
     SHOPS.meat.pile.amount += reward; S.stats.cashEarned += reward;
     gainXP(80 + 20 * R.no);
     banner(`🛡️ Angriff abgewehrt! +${reward} $`, 'good');
@@ -1732,6 +1804,7 @@ function updateFlyers(dt) {
   for (const f of flyers) {
     f.t += dt / f.dur;
     if (f.t < 0) continue;
+    if (f.trail && f.t < 1) parts.push({ x: f.x, y: f.y, z: f.z, vx: rand(-20, 20), vy: rand(-20, 20), vz: 120, color: Math.random() < 0.5 ? '#ffe98a' : '#ffffff', t: 0, life: 0.5, r: rand(2.5, 5) });
     const k = Math.min(1, f.t);
     const to = f.toFn();
     const e = k * k * (3 - 2 * k);
@@ -1777,6 +1850,8 @@ const SKILLS = [
   { id: 'heiler', name: 'Zähigkeit', icon: '🩹', max: 10, desc: '+15 % Heilung' },
   { id: 'glueck', name: 'Glück', icon: '🍀', max: 10, desc: '+2 % Volltreffer, +10 % Trophäen-Chance' },
   { id: 'anfuehrer', name: 'Anführer', icon: '📣', max: 10, desc: '+5 % Tempo aller Helfer' },
+  { id: 'frost', name: 'Frostmagie', icon: '🔮', max: 10, desc: '+10 % Frostschlag-Schaden, −4 % Abklingzeit' },
+  { id: 'schatz', name: 'Schatzjäger', icon: '🗺️', max: 10, desc: '+10 % Schatz-Beute, schneller graben' },
 ];
 const PERKS = [
   { id: 'haendler', name: 'Händlerglück', icon: '💰', max: 20, base: 2, desc: '+10 % Verkaufspreise' },
@@ -1811,6 +1886,10 @@ const TROPHIES = [
   { id: 'eiszepter', name: 'Eiszepter', icon: '🔱', desc: '+15 % Schaden aller Helfer', hint: 'Der Eisstab von Herrn Faudt …' },
   { id: 'polarstern', name: 'Polarstern', icon: '🌟', desc: '+10 % Polarsterne', hint: 'Erreiche die fünfte Expedition.' },
   { id: 'nordlicht', name: 'Nordlicht-Kristall', icon: '🌌', desc: '+10 % Erfahrung', hint: 'Baue das Observatorium.' },
+  { id: 'krakenauge', name: 'Krakenauge', icon: '🐙', desc: '+25 % Fischpreis', hint: 'Etwas Großes lebt unter dem Eis des Sees …' },
+  { id: 'drachenschuppe', name: 'Drachenschuppe', icon: '🐉', desc: '+15 % Schaden', hint: 'Ein uraltes Wesen wacht über den Gletscher.' },
+  { id: 'schatzkarte', name: 'Alte Schatzkarte', icon: '🗺️', desc: '+50 % Schatz-Beute', hint: 'Wer viele Schätze ausgräbt, findet vielleicht eine Karte.' },
+  { id: 'pinguinfeder', name: 'Pinguinfeder', icon: '🐧', desc: '+5 % Laufgeschwindigkeit', hint: 'Pinguine sind dankbar für einen Fisch.' },
 ];
 function rollTrophy(id, chance) {
   if (M.trophies[id] || Math.random() > chance * (1 + 0.1 * sk('glueck'))) return;
@@ -1844,6 +1923,12 @@ function ach(id, name, stars, cur, goal) { ACH.push({ id, name, stars, cur, goal
 [[50, 2], [500, 6]].forEach(([g, s]) => ach('quest' + g, `Erfülle ${g} Aufträge`, s, () => tot('quests'), g));
 [[1000, 3], [10000, 8]].forEach(([g, s]) => ach('crys' + g, `Sammle ${fmt(g)} Kristalle`, s, () => tot('crystals'), g));
 [[10, 5], [25, 10], [50, 20]].forEach(([g, s]) => ach('time' + g, `Spiele ${g} Stunden`, s, () => Math.floor(tot('time') / 3600), g));
+[[1, 10], [5, 15], [25, 30]].forEach(([g, s]) => ach('drache' + g, g === 1 ? 'Besiege den Frostdrachen' : `Besiege den Frostdrachen ${g}-mal`, s, () => totKill('dragon'), g));
+[[1, 4], [10, 10]].forEach(([g, s]) => ach('krake' + g, g === 1 ? 'Besiege den Eissee-Kraken' : `Besiege den Eissee-Kraken ${g}-mal`, s, () => totKill('kraken'), g));
+[[10, 2], [100, 6], [500, 12]].forEach(([g, s]) => ach('schatz' + g, `Grabe ${g} Schätze aus`, s, () => tot('treasures'), g));
+[[100, 2], [1000, 6]].forEach(([g, s]) => ach('frost' + g, `Setze ${fmt(g)}-mal den Frostschlag ein`, s, () => tot('frosts'), g));
+[[25, 2], [250, 6]].forEach(([g, s]) => ach('peng' + g, `Füttere ${g} Pinguine`, s, () => tot('pengs'), g));
+[[10, 2], [50, 6]].forEach(([g, s]) => ach('event' + g, `Erlebe ${g} Ereignisse`, s, () => tot('events'), g));
 ach('houses', 'Baue alle Blockhütten', 2, () => housesBuilt(), HOUSES.length);
 ach('radio', 'Baue den Funkturm', 3, () => lv('radio'), 1);
 ach('obs', 'Baue das Observatorium', 5, () => lv('observatory'), 1);
@@ -1865,7 +1950,7 @@ function checkAchievements(dt) {
 
 /* ---------- Erfahrung & Stufen ---------- */
 function xpFor(L) { return Math.floor(50 * Math.pow(L, 1.45)); }
-function xpMult() { return (1 + 0.1 * pk('erfahrung')) * (hasT('nordlicht') ? 1.1 : 1) * (1 + 0.25 * EXP()); }
+function xpMult() { return (1 + 0.1 * pk('erfahrung')) * (hasT('nordlicht') ? 1.1 : 1) * (1 + 0.25 * EXP()) * (evOn('aurora') ? 2 : 1); }
 function gainXP(n) {
   M.xp += n * xpMult();
   let up = false;
@@ -1888,7 +1973,7 @@ function workerMult() { return (1 + 0.05 * sk('anfuehrer')) * (1 + 0.08 * pk('he
 function workerDmg(base) { return Math.round(base * hpScale() * workerMult() * (hasT('eiszepter') ? 1.15 : 1)); }
 function forgeMult() { return 1 + 0.2 * lv('forge'); }
 function priceMult(sh) {
-  return (1 + 0.04 * sk('handel')) * (1 + 0.1 * pk('haendler')) * (1 + 0.5 * EXP()) * (hasT('monokel') ? 1.1 : 1) * (sh && sh.id === 'fish' && hasT('goldfisch') ? 1.1 : 1);
+  return (1 + 0.04 * sk('handel')) * (1 + 0.1 * pk('haendler')) * (1 + 0.5 * EXP()) * (hasT('monokel') ? 1.1 : 1) * (sh && sh.id === 'fish' && hasT('goldfisch') ? 1.1 : 1) * (sh && sh.id === 'fish' && hasT('krakenauge') ? 1.25 : 1);
 }
 function costScale(res) { return res === 'cash' ? 1 + 0.5 * EXP() : 1 + 0.15 * EXP(); }
 function critChance() { return 0.02 * sk('glueck'); }
@@ -1904,11 +1989,12 @@ function refreshStats() {
   const hpMax = Math.round(b.hp * (1 + 0.1 * sk('ausdauer')) * (hasT('silberpelz') ? 1.05 : 1) * (hasT('bierkrug') ? 1.1 : 1));
   if (hpMax !== p.maxHp) { p.hp = Math.max(1, p.hp * hpMax / (p.maxHp || hpMax)); p.maxHp = hpMax; }
   p.cap = b.cap + 2 * sk('sammler') + 3 * pk('ruecken') + (hasT('mammutzahn') ? 3 : 0);
-  p.speed = b.speed * (1 + 0.025 * sk('tempo') + 0.04 * pk('fuesse')) * (hasT('zylinder') ? 1.05 : 1);
-  const dm = (1 + 0.06 * sk('kraft')) * (1 + 0.1 * pk('arme')) * forgeMult() * (hasT('wolfszahn') ? 1.05 : 1) * (hasT('eiskrone') ? 1.1 : 1);
+  p.speed = b.speed * (1 + 0.025 * sk('tempo') + 0.04 * pk('fuesse')) * (hasT('zylinder') ? 1.05 : 1) * (hasT('pinguinfeder') ? 1.05 : 1);
+  const dm = (1 + 0.06 * sk('kraft')) * (1 + 0.1 * pk('arme')) * forgeMult() * (hasT('wolfszahn') ? 1.05 : 1) * (hasT('eiskrone') ? 1.1 : 1) * (hasT('drachenschuppe') ? 1.15 : 1);
   p.dmg = Math.round(b.dmg * dm);
   p.orbitDmg = Math.round(b.orbitDmg * dm * (1 + 0.08 * sk('wirbel')) * (hasT('yetihorn') ? 1.1 : 1));
   p.spearMult = dm * (1 + 0.08 * sk('speer')) * (hasT('handschuh') ? 1.1 : 1);
+  p.frostMult = dm * (1 + 0.1 * sk('frost'));
 }
 function gateMax(n) { return Math.round([200, 400, 700, 1100][n] * (1 + 0.15 * pk('wache')) * (1 + 0.3 * EXP())); }
 
@@ -2029,6 +2115,7 @@ const QUEST_TYPES = {
   raid: { text: () => 'Wehre einen Nachtangriff ab', stat: () => S.stats.raids, n: [1, 1, 1], req: () => lv('tower1') },
   yeti: { text: () => 'Besiege den Yeti', stat: () => S.stats.killsBy.yeti, n: [1, 1, 1], req: () => lv('east') },
   kills: { text: n => `Erlege ${n} Tiere`, stat: () => S.stats.kills, n: [8, 20, 40] },
+  treasure: { text: n => `Grabe ${n} Schätze aus`, stat: () => S.stats.treasures, n: [2, 4, 8], req: () => lv('hunter1') },
 };
 function questTier() { return Math.min(2, Math.floor(progress() / 17)); }
 function newQuest() {
@@ -2081,11 +2168,19 @@ const BOSSES = {
     spawn: { x: 1100, y: 1880 }, center: { x: 1100, y: 1880 }, base: 1700, trophy: 'eiszepter',
     lines: ['„Du Checker!“', '„Trivial.“', '„Die Messe ist gelesen.“', '„Das ist ein Perpetuum mobile!“', '„Du bist nicht John Doppelspalt!“'], intro: '„Endlich … das Nordlicht wird MIR gehören!“', angry: '„Trivial. Jetzt wird es ernst!“', say: 4.2, outro: '„Die Messe ist gelesen.“',
     first: '' },
+  kraken: { id: 'kraken', key: 'boss_kraken', type: 'kraken', name: 'Eissee-Krake', icon: '🐙', akk: 'den Eissee-Kraken', zone: 'L', gate: null, after: 'fisher2', still: true, guards: null,
+    spawn: { x: LAKE.x, y: LAKE.y }, center: { x: LAKE.x, y: LAKE.y }, base: 1300, trophy: 'krakenauge', appear: '🐙 Das Eis des Sees bricht – der Eissee-Krake taucht auf!',
+    lines: ['„Blubb.“', '„BLUBB BLUBB!“', '„*schlürf*“', '„Das ist MEIN See!“', '„Finger weg von meinen Fischen!“'], intro: '„Wer angelt hier meine Fische?!“', angry: '„Jetzt gibt’s Tinte!“',
+    first: 'Der Eissee-Krake ist besiegt und zieht sich in die Tiefe zurück – der See gehört wieder dir!<br><br>Er hat einen ganzen Berg Fische fallen gelassen. Als Trophäe kannst du manchmal sein <b>Krakenauge</b> finden (+25 % Fischpreis). Ab und zu taucht er wieder auf – jedes Mal stärker.' },
+  dragon: { id: 'dragon', key: 'boss_dragon', type: 'dragon', name: 'Frostdrache', icon: '🐉', akk: 'den Frostdrachen', zone: 'C', gate: null, after: 'boss_baron', guards: 'frostwolf',
+    spawn: { x: 1500, y: 1950 }, center: { x: 1500, y: 1950 }, base: 2600, trophy: 'drachenschuppe', appear: '🐉 Ein Brüllen erschüttert den Gletscher – der Frostdrache erwacht!',
+    lines: ['„ROOOAAAR!“', '„*schnaub*“', '„Ich hab Hunger.“', '„Mein Gletscher!“', '„Grrrr …“'], intro: '„WER WAGT ES, MICH ZU WECKEN?!“', angry: '„JETZT WIRD ES RICHTIG KALT!“',
+    first: 'Unglaublich – du hast den <b>Frostdrachen</b> bezwungen, das mächtigste Wesen des Nordens!<br><br>Er kehrt ab und zu zurück, jedes Mal stärker. Als Trophäe winkt eine <b>Drachenschuppe</b> (+15 % Schaden).' },
 };
 const bossLvl = id => (M.bossLvl && M.bossLvl[id]) || 0;
 function bossAlive() { return animals.some(b => b.boss && !b.dead && !b.gone); }
 function gateReqs(D) { return PAD_DEFS.find(p => p.id === D.gate).levels[0].req.filter(r => r !== D.key); }
-function bossZoneOpen(D) { return D.zone === 'A' || (D.zone === 'B' && lv('east')) || (D.zone === 'C' && lv('glacier')); }
+function bossZoneOpen(D) { return D.zone === 'A' || (D.zone === 'B' && lv('east')) || (D.zone === 'C' && lv('glacier')) || (D.zone === 'L' && lv('fishmarket')); }
 let bossCheckT = 0;
 function updateChest(dt) { // Boss-Auftritte steuern
   if (S.bossIntro > 0) { S.bossIntro -= dt; if (S.bossIntro <= 0) summonBoss(S.bossPending, S.bossRandom); return; }
@@ -2094,7 +2189,7 @@ function updateChest(dt) { // Boss-Auftritte steuern
   // Pflicht-Boss: alle anderen Voraussetzungen für das nächste große Gebäude erfüllt
   for (const D of Object.values(BOSSES)) {
     if (lv(D.key) || !bossZoneOpen(D)) continue;
-    if (D.final ? !lv('observatory') : (lv(D.gate) || !reqMet(gateReqs(D)))) continue;
+    if (!(D.final ? lv('observatory') : D.after ? lv(D.after) : !lv(D.gate) && reqMet(gateReqs(D)))) continue;
     if ((S.bossRetry || 0) > 0) { S.bossRetry -= 2; return; }
     startBossIntro(D.id, false); return;
   }
@@ -2108,8 +2203,8 @@ function updateChest(dt) { // Boss-Auftritte steuern
 function startBossIntro(id, random) {
   const D = BOSSES[id];
   S.bossIntro = 1.8; S.bossPending = id; S.bossRandom = random;
-  banner(random ? `${D.icon} ${D.name} ist zurück!` : D.final ? `${D.icon} ${D.name} erscheint im Gletscher!` : `${D.icon} ${D.name} versperrt den Weg!`);
-  sfx('alarm'); shake(0.6);
+  banner(random ? `${D.icon} ${D.name} ist zurück!` : D.appear ? D.appear : D.final ? `${D.icon} ${D.name} erscheint im Gletscher!` : `${D.icon} ${D.name} versperrt den Weg!`);
+  sfx(D.id === 'dragon' || D.id === 'kraken' ? 'roar' : 'alarm'); shake(D.id === 'dragon' ? 1 : 0.6);
 }
 function summonBoss(id, random) {
   // Stärke-Stufe: Pflichtkämpfe wachsen höchstens um eine Stufe pro Expedition (sonst kann man feststecken),
@@ -2120,7 +2215,8 @@ function summonBoss(id, random) {
   b.type = { ...TYPES[D.type], hp, dmg: Math.round(TYPES[D.type].dmg * (1 + 0.15 * lvl) * dmgScale()) }; b.hp = hp;
   b.x = D.spawn.x; b.y = D.spawn.y; b.spawnT = 0;
   b.boss = { id, state: 'intro', t: 1.8, atkCd: 3, dashCd: 7, phase: 1, away: 0, dashV: null, hitDone: false, random, shots: 0, lvl, weak: 1 };
-  burst(b.x, b.y, 40, id === 'alex' ? '#e8f6ff' : id === 'philip' ? '#ffcc40' : '#ffd84a', 40, 260);
+  burst(b.x, b.y, 40, id === 'alex' ? '#e8f6ff' : id === 'philip' ? '#ffcc40' : id === 'kraken' ? '#b57ee0' : id === 'dragon' ? '#bfe9ff' : '#ffd84a', 40, 260);
+  if (id === 'kraken') { burst(b.x, b.y, 5, '#eaf6ff', 40, 300); burst(b.x, b.y, 5, '#8fc6ec', 24, 220); sfx('splash'); }
   shake(1);
   bossSay(b, D.intro, 3.5);
 }
@@ -2133,6 +2229,7 @@ function defeatBoss(b) {
   hazards = []; shots = [];
   if (!M.bossLvl) M.bossLvl = {};
   const bl = M.bossLvl[D.id] = bossLvl(D.id) + 1;
+  S.bossRetry = 40;   // kurze Verschnaufpause bis zum nächsten Boss
   const firstRun = !lv(D.key);
   S.lv[D.key] = 1;
   if (D.id === 'benedict') { S.stats.benedict++; if (bl >= 3) rollTrophy('zylinder', 0.2); }
@@ -2140,6 +2237,7 @@ function defeatBoss(b) {
   const st = 1 + Math.floor(bl / 3); M.stars += st; M.starsTotal += st;
   for (let i = 0; i < b.type.meat; i++) dropItem('meat', b.x, b.y);
   for (let i = 0; i < b.type.gold; i++) dropItem('gold', b.x, b.y, 40);
+  for (let i = 0; i < (b.type.fish || 0); i++) dropItem('fish', b.x, b.y, 30);
   const reward = Math.round((2000 + 120 * progress()) * (1 + 0.5 * (bl - 1)) * (1 + 0.5 * EXP()));
   S.stats.cashEarned += reward;
   const n = 10;
@@ -2166,7 +2264,7 @@ function updateBoss(b, dt) {
   if (b.say) { b.say.t -= dt; if (b.say.t <= 0) b.say = null; }
   if (B.state !== 'intro') {
     B.sayCd = (B.sayCd === undefined ? 1.5 : B.sayCd) - dt;
-    if (B.sayCd <= 0 && !b.say) {
+    if (B.sayCd <= 0 && !b.say && D.lines.length) {
       B.sayCd = D.say || rand(6, 9);
       if (!B.bag || !B.bag.length) {
         B.bag = D.catch ? D.lines.concat([D.catch, D.catch]) : D.lines.slice();
@@ -2176,16 +2274,23 @@ function updateBoss(b, dt) {
       bossSay(b, B.bag.pop(), 3);
     }
   }
-  b.hitT = Math.max(0, b.hitT - dt); b.lunge = Math.max(0, b.lunge - dt); b.atkCd -= dt; b.orbitCd -= dt;
+  b.hitT = Math.max(0, b.hitT - dt); b.lunge = Math.max(0, b.lunge - dt); b.atkCd -= dt; b.orbitCd -= dt; b.ramCd = (b.ramCd || 0) - dt;
   b.spawnT = Math.min(1, b.spawnT + dt * 1.5);
   if (B.state === 'intro') { B.t -= dt; if (B.t <= 0) B.state = 'fight'; return; }
-  const inArena = p.dead <= 0 && (D.zone === 'C' ? p.y > FENCE2_Y + 5 : p.y < FENCE_Y - 5);
+  if (b.frozen > 0) { b.frozen -= dt; return; }
+  if (B.breath > 0) {   // Eisatem des Drachen
+    B.breath -= dt;
+    const a = B.breathA;
+    for (let i = 0; i < 4; i++) { const q = a + rand(-0.16, 0.16), s = rand(320, 560);
+      parts.push({ x: b.x + Math.cos(a) * 80, y: b.y + Math.sin(a) * 80, z: 105, vx: Math.cos(q) * s, vy: Math.sin(q) * s, vz: rand(-260, -80), color: Math.random() < 0.5 ? '#ffffff' : '#9fe4ff', t: 0, life: 0.55, r: rand(3, 6.5) }); }
+  }
+  const inArena = p.dead <= 0 && (D.zone === 'L' ? Math.hypot(p.x - LAKE.x, p.y - LAKE.y) < 280 : D.zone === 'C' ? p.y > FENCE2_Y + 5 : p.y < FENCE_Y - 5);
   if (!inArena) { B.away += dt; if (B.random && B.away > 150) { bossLeaves(b, `${D.name} verschwindet wieder …`); return; } }
   else B.away = 0;
   if (B.phase === 1 && b.hp < b.type.hp * 0.5) {
     B.phase = 2; banner(`💢 ${D.name} wird wütend!`); sfx('alarm'); shake(0.5);
     const area = areaOf(D.zone);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < (D.guards ? 3 : 0); i++) {
       const w = spawnAnimal(D.zone, false, D.guards);
       w.x = clamp(b.x + rand(-70, 70), area.x0, area.x1); w.y = clamp(b.y + rand(-70, 70), area.y0, area.y1);
       w.guard = true; w.aggro = 30; w.spawnT = 0;
@@ -2223,8 +2328,12 @@ function updateBoss(b, dt) {
     return;
   }
   if (B.atkCd <= 0) { bossAttack(b, D, B, fast); }
+  if (D.still) {   // der Krake bleibt im See und schlägt nur aus nächster Nähe zu
+    if (dp < 100 && b.atkCd <= 0) { b.atkCd = 1.4 / fast; b.lunge = 0.3; hurtPlayer(b.type.dmg); shake(0.2); }
+    return;
+  }
   if (B.dashCd <= 0 && dp > 90 && dp < 450) { B.state = 'windup'; B.t = 0.8; return; }
-  const keep = D.id === 'alex' ? 170 : 58; // Alexander hält Abstand und wirft
+  const keep = D.id === 'alex' ? 170 : D.id === 'dragon' ? 190 : 58; // Alexander und der Drache halten Abstand
   if (dp > keep) {
     const s = b.type.speed * fast * (S.weather.storm ? 0.8 : 1);
     b.x += (p.x - b.x) / dp * s * dt; b.y += (p.y - b.y) / dp * s * dt; clampAnimal(b); b.walkT += dt * s * 0.09;
@@ -2251,6 +2360,44 @@ function bossAttack(b, D, B, fast) {
       hazards.push({ beer: true, fx: b.x, fy: b.y, x: p.x + Math.cos(a) * r + (p.moving ? rand(-20, 20) : 0), y: p.y + Math.sin(a) * r, r: 46, t: 0, delay: 1.1 + i * 0.12, dmg: Math.round(12 * dmgL), id: ++UID });
     }
     sfx('arrow');
+  } else if (D.id === 'kraken') {
+    B.atkCd = (B.phase === 2 ? 1.6 : 2.2) / fast;
+    if (B.shots % 3) {
+      // Tentakel brechen unter dir durch das Eis
+      const n = B.phase === 2 ? 4 : 2;
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, r = i === 0 ? 0 : rand(60, 140);
+        hazards.push({ tent: true, x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r, r: 46, t: 0, delay: 1.0 + i * 0.15, dmg: Math.round(18 * dmgL), id: ++UID });
+      }
+    } else {
+      // Tintenstrahl im Fächer
+      const n = B.phase === 2 ? 7 : 4, base = Math.atan2(p.y - b.y, p.x - b.x);
+      for (let i = 0; i < n; i++) {
+        const a = base + (i - (n - 1) / 2) * 0.18;
+        shots.push({ ink: true, x: b.x + Math.cos(a) * 40, y: b.y + Math.sin(a) * 40, z: 40, vx: Math.cos(a) * 380, vy: Math.sin(a) * 380, t: 0, life: 1.6, r: 12, dmg: Math.round(10 * dmgL) });
+      }
+    }
+    sfx('splash');
+  } else if (D.id === 'dragon') {
+    B.atkCd = (B.phase === 2 ? 2.0 : 2.8) / fast;
+    if (B.shots % 2) {
+      // Eisatem: eine Bahn aus Eisstacheln quer über das Feld
+      const a0 = Math.atan2(p.y - b.y, p.x - b.x), n = B.phase === 2 ? 10 : 8;
+      B.breath = 1.1; B.breathA = a0;
+      for (const a of B.phase === 2 ? [a0 - 0.32, a0, a0 + 0.32] : [a0]) for (let i = 0; i < n; i++) {
+        const d = 60 + i * 44;
+        hazards.push({ ice: true, x: b.x + Math.cos(a) * d, y: b.y + Math.sin(a) * d, r: 40, t: 0, delay: 0.7 + i * 0.07, dmg: Math.round(20 * dmgL), id: ++UID });
+      }
+      sfx('roar');
+    } else {
+      // Eisbrocken stürzen vom Himmel
+      const n = B.phase === 2 ? 7 : 5;
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, r = i === 0 ? 0 : rand(60, 170);
+        hazards.push({ ice: true, x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r, r: 48, t: 0, delay: 1.1 + i * 0.1, dmg: Math.round(24 * dmgL), id: ++UID });
+      }
+      sfx('arrow');
+    }
   } else if (D.id === 'baron') {
     B.atkCd = (B.phase === 2 ? 2.0 : 2.6) / fast;
     if (B.shots % 2) {
@@ -2296,9 +2443,9 @@ function updateShots(dt) {
     if (s.big) s.r = Math.min(34, s.r + 6 * dt);
     if (p.dead <= 0 && Math.hypot(p.x - s.x, p.y - s.y) < s.r + 14) {
       s.done = true; hurtPlayer(s.dmg);
-      p.slowT = s.big ? 1.6 : s.ice ? 0.8 : 1.0; p.slowK = s.big ? 0.3 : 0.5;
-      addText(p.x, p.y, 90, s.big ? 'Eingeschneit!' : s.ice ? 'Eiskalt!' : 'Brrr!', '#bfe6ff', 20);
-      burst(s.x, s.y, s.z, '#ffffff', s.big ? 18 : 8, 150);
+      p.slowT = s.big ? 1.6 : s.ice ? 0.8 : s.ink ? 1.4 : 1.0; p.slowK = s.big ? 0.3 : s.ink ? 0.45 : 0.5;
+      addText(p.x, p.y, 90, s.big ? 'Eingeschneit!' : s.ice ? 'Eiskalt!' : s.ink ? 'Tinte!' : 'Brrr!', s.ink ? '#d6a8ff' : '#bfe6ff', 20);
+      burst(s.x, s.y, s.z, s.ink ? '#4a1f66' : '#ffffff', s.big ? 18 : 8, 150);
     }
     if (s.t > s.life) { s.done = true; burst(s.x, s.y, s.z, '#ffffff', 4, 80); }
   }
@@ -2310,6 +2457,7 @@ function updateHazards(dt) {
     if (!h.hit && h.t >= h.delay) {
       h.hit = true;
       if (h.stomp || h.ice) { burst(h.x, h.y, 5, '#dff4ff', 16, 220); burst(h.x, h.y, 5, '#8fd3ff', 8, 160); shake(0.35); }
+      else if (h.tent) { burst(h.x, h.y, 8, '#eaf6ff', 16, 220); burst(h.x, h.y, 10, '#9c5bd6', 8, 150); shake(0.3); }
       else if (h.beer) { burst(h.x, h.y, 8, '#ffcc40', 14, 170); burst(h.x, h.y, 10, '#ffffff', 8, 120); burst(h.x, h.y, 6, '#bfe6ff', 5, 150); }
       else { burst(h.x, h.y, 10, '#ffd84a', 10, 160); burst(h.x, h.y, 10, '#fff4b0', 4, 100); }
       if (player.dead <= 0 && dist(player, h) < h.r) {
@@ -2317,10 +2465,210 @@ function updateHazards(dt) {
         if (h.ice) { player.slowT = 1.2; player.slowK = 0.4; }
         if (h.beer) { player.slowT = 2.2; player.slowK = 0.55; addText(player.x, player.y, 90, 'Rutschig!', '#ffd84a', 20); }
       }
-      sfx(h.stomp ? 'hurt' : h.beer ? 'splash' : 'coin');
+      sfx(h.stomp || h.tent ? 'hurt' : h.beer ? 'splash' : h.ice ? 'hit' : 'coin');
     }
   }
   hazards = hazards.filter(h => h.t < h.delay + 0.35);
+}
+
+/* =========================================================
+   Neue Inhalte: Frostschlag, Schatzsuche, Ereignisse, Pinguine
+   ========================================================= */
+let critters = [], waves = [], chestPops = [];
+
+/* ---------- Frostschlag (Frost-Rune) ---------- */
+const FROST = { cd: [0, 14, 12, 10, 8], dmg: [0, 40, 80, 160, 320], r: [0, 150, 175, 205, 240], frz: [0, 1.6, 2.2, 2.8, 3.4] };
+const frostMax = () => FROST.cd[lv('rune')] * (1 - 0.04 * sk('frost'));
+function castFrost() {
+  const p = player, l = lv('rune');
+  if (!running || paused || !l || p.frostCd > 0 || p.dead > 0) return;
+  p.frostCd = frostMax();
+  const r = FROST.r[l], dmg = Math.round(FROST.dmg[l] * p.frostMult);
+  waves.push({ x: p.x, y: p.y, r, t: 0 });
+  shake(0.35); sfx('frost'); S.stats.frosts++;
+  for (let i = 0; i < 30; i++) {
+    const a = i / 30 * Math.PI * 2, s = r * rand(1.3, 1.9);
+    parts.push({ x: p.x, y: p.y, z: 8, vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: rand(80, 240), color: i % 3 ? '#bfe9ff' : '#ffffff', t: 0, life: 0.6, r: rand(3, 5.5) });
+  }
+  for (const b of animals) {
+    if (b.dead || dist(b, p) > r + 20 * b.type.size) continue;
+    if (b.boss && b.boss.state === 'intro') continue;
+    damageAnimal(b, dmg, p);
+    if (b.dead) continue;
+    b.frozen = b.boss ? 0.9 : FROST.frz[l];
+    if (!b.boss && !b.type.still) { const a = Math.atan2(b.y - p.y, b.x - p.x); b.x += Math.cos(a) * 26; b.y += Math.sin(a) * 26; clampAnimal(b); }
+  }
+}
+
+/* ---------- Schatzsuche ---------- */
+const TDIG = 1.5;
+function spawnTreasure(x, y) {
+  if (S.treasures.length >= 6) return;
+  if (x === undefined) {
+    const zones = ['A']; if (lv('east')) zones.push('B'); if (lv('glacier')) zones.push('C');
+    const ar = areaOf(pick(zones));
+    for (let k = 0; k < 25; k++) {
+      const tx = rand(ar.x0 + 30, ar.x1 - 30), ty = rand(ar.y0 + 30, ar.y1 - 30);
+      if (trees.some(t => t.logs > 0 && Math.abs(t.x - tx) < 40 && Math.abs(t.y - ty) < 40)) continue;
+      if (PONDS.some(pd => Math.hypot(pd.x - tx, pd.y - ty) < pd.r + 30)) continue;
+      if (crystals.some(c => Math.hypot(c.x - tx, c.y - ty) < 50)) continue;
+      x = tx; y = ty; break;
+    }
+    if (x === undefined) return;
+  }
+  S.treasures.push({ id: ++UID, x, y, dig: 0 });
+}
+// w: Schatzsucher (Beute geht zu den Lagern) oder null (Spieler)
+function openTreasure(t, w) {
+  S.treasures = S.treasures.filter(q => q !== t);
+  const big = Math.random() < 0.07 + 0.01 * sk('glueck');
+  const k = (1 + 0.1 * sk('schatz')) * (hasT('schatzkarte') ? 1.5 : 1) * (big ? 5 : 1);
+  const cash = Math.round((50 + 22 * progress()) * (1 + 0.5 * EXP()) * rand(0.8, 1.5) * k);
+  const gold = lv('mine') && Math.random() < 0.6 ? Math.round(rand(2, 6) * k) : 0;
+  const crys = lv('glacier') && Math.random() < 0.5 ? Math.round(rand(2, 5) * k) : 0;
+  const wood = lv('lumber') && Math.random() < 0.4 ? Math.round(rand(8, 20) * k) : 0;
+  S.stats.treasures++; S.stats.cashEarned += cash; gainXP(big ? 80 : 15);
+  chestPops.push({ x: t.x, y: t.y, t: 0, big });
+  burst(t.x, t.y, 20, '#ffd84a', big ? 40 : 18, big ? 260 : 180);
+  addText(t.x, t.y, 70, (big ? '💎 RIESENSCHATZ! ' : '💰 ') + '+' + fmt(cash) + ' $', '#ffe066', big ? 28 : 24);
+  sfx('treasure'); if (big) { shake(0.4); banner('💎 Riesenschatz gefunden!', 'good'); }
+  rollTrophy('schatzkarte', 0.015);
+  const src = { x: t.x, y: t.y, z: 20 };
+  if (!w) {
+    const n = 6;
+    for (let i = 0; i < n; i++) fly('cash', src, () => ({ x: player.x, y: player.y, z: 40 }), 0.45, i === n - 1 ? () => { S.cash += cash; popPill('pCash'); sfx('coin'); } : null, 70, 0.3 + i * 0.05);
+    for (let i = 0; i < gold; i++) dropItem('gold', t.x, t.y, 30);
+    for (let i = 0; i < crys; i++) dropItem('crystal', t.x, t.y, 30);
+    if (wood) fly('wood', src, () => ({ x: player.x, y: player.y, z: 40 }), 0.5, () => { S.wood += wood; S.stats.woodGot += wood; popPill('pWood'); }, 60, 0.35);
+  } else {
+    // der Schatzsucher schickt die Beute zu den Lagern
+    fly('cash', src, () => ({ x: SHOPS.meat.pile.x, y: SHOPS.meat.pile.y, z: 10 }), 1.2, () => { SHOPS.meat.pile.amount += cash; }, 220, 0.3);
+    if (gold) fly('gold', src, () => ({ x: GOLDPILE.x, y: GOLDPILE.y, z: 10 }), 1.2, () => { GOLDPILE.n += gold; }, 220, 0.4);
+    if (crys) fly('crystal', src, () => ({ x: CRYSTALPILE.x, y: CRYSTALPILE.y, z: 10 }), 1.2, () => { CRYSTALPILE.n += crys; }, 220, 0.5);
+    if (wood) fly('wood', src, () => ({ x: WOODPILE.x, y: WOODPILE.y, z: 10 }), 1.2, () => { WOODPILE.n += wood; }, 220, 0.45);
+  }
+}
+function updateDigger(w, dt) {
+  let t = w.target;
+  if (!t || !S.treasures.includes(t)) t = w.target = nearestOf(S.treasures, w);
+  if (!t) {
+    if (Math.hypot(1450 - w.x, 1140 - w.y) > 20) steer(w, 1450, 1140, 150 * workerMult(), dt); else w.moving = false;
+    return;
+  }
+  if (dist(w, t) > 26) { steer(w, t.x, t.y + 18, 165 * workerMult(), dt); return; }
+  w.moving = false;
+  w.face = isoX(t.x - w.x, t.y - w.y) > 0 ? 1 : -1;
+  t.dig += dt * 0.75 * workerMult();
+  if (w.cd <= 0) { w.cd = 0.45; w.swing = 0.25; burst(t.x, t.y, 4, '#9c6b3f', 3, 90); sfx('chop'); }
+  if (t.dig >= TDIG) { openTreasure(t, w); w.target = null; }
+}
+
+/* ---------- Ereignisse ---------- */
+const EVENTS = {
+  gold: { icon: '💰', name: 'Goldrausch', start: '💰 Goldrausch! Alle Kunden zahlen doppelt', dur: 60 },
+  meteor: { icon: '🌠', name: 'Sternschnuppen', start: '🌠 Sternschnuppen! Schätze fallen vom Himmel – schnell einsammeln!', dur: 30 },
+  penguin: { icon: '🐧', name: 'Pinguin-Parade', start: '🐧 Pinguin-Parade im Lager! Lauf hin und füttere sie', dur: 60 },
+  aurora: { icon: '🌌', name: 'Polarlicht', start: '🌌 Polarlicht! Doppelte Erfahrung, solange es leuchtet', dur: 80, dusk: true },
+  blood: { icon: '🩸', name: 'Blutmond', start: '🩸 Blutmond! Heute Nacht greifen doppelt so viele an – für doppelte Belohnung', dur: 0, dusk: true, req: () => lv('tower1') },
+};
+function evOn(id) { return !!(S && S.event && S.event.id === id); }
+function startEvent(id) {
+  const E = EVENTS[id];
+  S.event = { id, t: E.dur || 999, acc: 0 }; S.stats.events++;
+  banner(E.start, id === 'blood' ? '' : 'info'); sfx(id === 'blood' ? 'alarm' : 'win');
+  if (id === 'penguin') spawnParade();
+  if (id === 'blood') S.raid.blood = true;
+}
+let evPrevDay = 0;
+function updateEvents(dt) {
+  const ev = S.event, pd = evPrevDay; evPrevDay = S.day;
+  if (ev) {
+    ev.t -= dt;
+    if (ev.id === 'meteor') { ev.acc += dt; while (ev.acc > 0.4) { ev.acc -= 0.4; dropMeteor(); } }
+    if (ev.id === 'penguin' && !critters.some(c => c.parade)) ev.t = 0;
+    if (ev.id === 'blood') ev.t = S.raid.blood ? 999 : 0;
+    if (ev.t <= 0) { S.event = null; S.evCd = rand(150, 260); }
+    return;
+  }
+  if (!lv('grill')) return;
+  // in der Dämmerung: manchmal Polarlicht oder Blutmond
+  if (pd < 196 && S.day >= 196 && !S.raid.active && Math.random() < 0.4) {
+    const opts = Object.keys(EVENTS).filter(k => EVENTS[k].dusk && (!EVENTS[k].req || EVENTS[k].req()));
+    if (opts.length) { startEvent(pick(opts)); return; }
+  }
+  S.evCd -= dt;
+  if (S.evCd > 0 || S.raid.active || S.bossIntro > 0 || S.day > 185) return;
+  startEvent(pick(Object.keys(EVENTS).filter(k => !EVENTS[k].dusk)));
+}
+function dropMeteor() {
+  const p = player;
+  const x = clamp(p.x + rand(-420, 420), X_MIN + 40, worldW() - 40), y = clamp(p.y + rand(-300, 300), Y_MIN + 40, worldH() - 40);
+  const type = lv('glacier') && Math.random() < 0.35 ? 'crystal' : 'gold';
+  const f = fly(type, { x: x + 320, y: y - 320, z: 1100 }, () => ({ x, y, z: 0 }), 1.3, () => {
+    burst(x, y, 4, '#ffe98a', 14, 200); burst(x, y, 4, '#ffffff', 8, 150); sfx('hit');
+    if (Math.random() < 0.08) spawnTreasure(x, y);
+    else for (let i = 0; i < (Math.random() < 0.4 ? 2 : 1); i++) dropItem(type, x, y, 10);
+  }, 0);
+  f.trail = true;
+}
+
+/* ---------- Pinguine ---------- */
+function makeCritters() {
+  critters = [];
+  for (const pd of PONDS) for (let i = 0; i < 2; i++) {
+    const a = Math.random() * Math.PI * 2;
+    critters.push({ id: ++UID, kind: 'peng', home: pd, x: pd.x + Math.cos(a) * (pd.r + 10), y: pd.y + Math.sin(a) * (pd.r * 0.8 + 10), tx: pd.x, ty: pd.y,
+      t: rand(0, 3), walkT: rand(0, 6), face: 1, moving: false, slide: false, jump: 0, fedCd: 0, side: 1 });
+  }
+}
+function spawnParade() {
+  const y0 = 970 + rand(-6, 6);
+  for (let i = 0; i < 8; i++) critters.push({ id: ++UID, kind: 'peng', parade: true, wait: i * 0.7, x: X_MIN + 40, y: y0 + rand(-10, 10), tx: worldW() - 60, ty: y0,
+    walkT: rand(0, 6), face: 1, moving: true, side: 1, fed: false, jump: 0 });
+}
+function feedPenguin(c) {
+  const p = player;
+  const reward = Math.round((c.parade ? 15 + 6 * progress() : 5 + 2 * progress()) * (1 + 0.5 * EXP()));
+  if (c.parade) c.fed = true; else c.fedCd = 90;
+  c.jump = 0.6;
+  fly('fish', playerTop(), () => ({ x: c.x, y: c.y, z: 26 }), 0.3, null, 50);
+  fly('cash', { x: c.x, y: c.y, z: 30 }, () => ({ x: p.x, y: p.y, z: 40 }), 0.4, () => { S.cash += reward; S.stats.cashEarned += reward; popPill('pCash'); sfx('coin'); }, 60, 0.3);
+  addText(c.x, c.y, 50, '❤️ +' + reward + ' $', '#ff8fb0', 22);
+  burst(c.x, c.y, 30, '#ff6b8a', 8, 120);
+  S.stats.pengs++; gainXP(5); rollTrophy('pinguinfeder', 0.03); sfx('peng');
+}
+function updateCritters(dt) {
+  const p = player;
+  for (const c of critters) {
+    c.jump = Math.max(0, c.jump - dt); c.fedCd = Math.max(0, (c.fedCd || 0) - dt);
+    if (c.wait > 0) { c.wait -= dt; continue; }
+    if (c.parade) {
+      steer(c, c.tx, c.ty + Math.sin(gameTime * 0.8 + c.id) * 20, c.fed ? 95 : 70, dt);
+      if (c.x > c.tx - 30) c.remove = true;
+    } else {
+      c.t -= dt;
+      if (c.t <= 0) {
+        const pd = c.home, a = Math.random() * Math.PI * 2, rr = rand(0.2, 1.15);
+        c.t = rand(3, 7); c.tx = pd.x + Math.cos(a) * pd.r * rr; c.ty = pd.y + Math.sin(a) * pd.r * 0.8 * rr; c.slide = Math.random() < 0.3;
+      }
+      const dx = c.tx - c.x, dy = c.ty - c.y, d = Math.hypot(dx, dy);
+      c.moving = d > 4;
+      if (c.moving) { const st = Math.min(d, (c.slide ? 110 : 34) * dt); c.x += dx / d * st; c.y += dy / d * st; c.walkT += dt * (c.slide ? 2 : 9); }
+      else c.slide = false;
+    }
+    if (p.dead <= 0 && dist(p, c) < 46 && !(c.parade ? c.fed : c.fedCd > 0)) feedPenguin(c);
+  }
+  critters = critters.filter(c => !c.remove);
+}
+
+/* ---------- Takt ---------- */
+function updateContent(dt) {
+  updateEvents(dt);
+  updateCritters(dt);
+  if (lv('hunter1')) {
+    S.treasureCd -= dt * (lv('digger') ? 1.8 : 1);
+    if (S.treasureCd <= 0) { S.treasureCd = rand(45, 90); if (S.treasures.length < (lv('digger') ? 5 : 3)) spawnTreasure(); }
+  }
 }
 
 
@@ -2331,7 +2679,7 @@ function currentGoal() {
   const vis = pads.filter(padVisible);
   const meatN = p.stack.filter(t => t === 'meat').length, fishN = p.stack.length - meatN;
   const boss = animals.find(b => b.boss && !b.dead && !b.gone);
-  const bossGoal = boss ? { text: boss.boss.random ? `${BOSSES[boss.boss.id].icon} Besiege ${BOSSES[boss.boss.id].akk || BOSSES[boss.boss.id].name}!` : BOSSES[boss.boss.id].final ? '❄️👿 Besiege Herrn Faudt im Gletscher!' : `${BOSSES[boss.boss.id].icon} Besiege ${BOSSES[boss.boss.id].name}, um weiterzukommen!`, x: boss.x, y: boss.y, bear: true } : null;
+  const bossGoal = boss ? { text: boss.boss.random ? `${BOSSES[boss.boss.id].icon} Besiege ${BOSSES[boss.boss.id].akk || BOSSES[boss.boss.id].name}!` : BOSSES[boss.boss.id].final ? '❄️👿 Besiege Herrn Faudt im Gletscher!' : BOSSES[boss.boss.id].after ? `${BOSSES[boss.boss.id].icon} Besiege ${BOSSES[boss.boss.id].akk}!` : `${BOSSES[boss.boss.id].icon} Besiege ${BOSSES[boss.boss.id].name}, um weiterzukommen!`, x: boss.x, y: boss.y, bear: true } : null;
   if (bossGoal && dist(p, boss) < 300 && p.hp > p.maxHp * 0.3) return bossGoal;
   if (p.y > FENCE2_Y) { const mk = animals.find(b => b.type.kind === 'mking' && !b.dead && dist(b, p) < 500); if (mk) return { text: '⚠️ Der Mammutkönig! Kämpfe oder flieh!', x: mk.x, y: mk.y, bear: true }; }
   if (S.raid.active) {
@@ -2355,6 +2703,8 @@ function currentGoal() {
     if (S.cash >= r.cash && S.wood >= r.wood && S.gold >= r.gold && S.crystal >= r.crystal) { const d = dist(p, pad); if (d < bd) { bd = d; bestPad = pad; } }
   }
   if (bestPad) return { text: 'Baue: ' + bestPad.name, x: bestPad.x, y: bestPad.y, pad: true };
+  if (evOn('penguin')) { const c = nearestOf(critters.filter(q => q.parade && !q.fed && !(q.wait > 0)), p); if (c) return { text: '🐧 Füttere die Pinguine!', x: c.x, y: c.y }; }
+  if (evOn('meteor')) { const it = nearestOf(items.filter(i => (i.type === 'gold' || i.type === 'crystal') && !i.claimed), p); if (it && dist(p, it) < 650) return { text: '🌠 Sammle die Sternschnuppen-Schätze ein', x: it.x, y: it.y }; }
   if (bossGoal && p.hp > p.maxHp * 0.6) return bossGoal;
   if (S.stats.sold < 15) for (const sh of SHOP_LIST) if (sh.pile.amount > 0) return { text: 'Sammle das Geld ein', x: sh.pile.x, y: sh.pile.y };
   // nächstes Ziel: günstigstes sichtbares Bau-Feld
@@ -2387,6 +2737,7 @@ function currentGoal() {
   if (shopOpen(SHOPS.fish) && SHOPS.fish.count < 6 && workers.filter(w => w.kind === 'fisher').length < 2) {
     const h = nearestOf(HOLES, p); return { text: 'Angle Fische am Eisloch', x: h.x, y: h.y, hole: true };
   }
+  if (S.treasures.length && !workers.some(w => w.kind === 'digger')) { const t = nearestOf(S.treasures, p); return { text: '🗺️ Grabe den Schatz beim roten X aus', x: t.x, y: t.y, tree: true }; }
   const b = nearestAnimal(p); if (b) return { text: b.type.kind === 'yeti' ? 'Besiege den Yeti!' : 'Jage Tiere für Fleisch', x: b.x, y: b.y, bear: true };
   return null;
 }
@@ -2825,7 +3176,7 @@ function buildWorld() {
   for (const p of PAD_DEFS) makePadObj(p);
 
   // Gegenstände, Partikel usw. (instanziert)
-  for (const t of ['meat', 'steak', 'fish', 'smoked', 'wood', 'gold', 'cash', 'crystal', 'beer', 'snow']) {
+  for (const t of ['meat', 'steak', 'fish', 'smoked', 'wood', 'gold', 'cash', 'crystal', 'beer', 'snow', 'tentacle', 'ink']) {
     const im = new THREE.InstancedMesh(itemGeo(t), VC, 1600); im.count = 0; im.castShadow = true; im.frustumCulled = false;
     scene.add(im); inkIM(im); itemIM[t] = im;
   }
@@ -2833,7 +3184,7 @@ function buildWorld() {
   partIM.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(700 * 3), 3); partIM.count = 0; partIM.frustumCulled = false; scene.add(partIM);
   puffIM = new THREE.InstancedMesh(gSph(1, 7, 5), new THREE.MeshLambertMaterial({ color: '#e8edf5', transparent: true, opacity: 0.6, depthWrite: false }), 260);
   puffIM.count = 0; puffIM.frustumCulled = false; scene.add(puffIM);
-  hazIM = new THREE.InstancedMesh(gCyl(1, 1, 1, 28), new THREE.MeshBasicMaterial({ color: '#ff3b30', transparent: true, opacity: 0.35, depthWrite: false }), 30);
+  hazIM = new THREE.InstancedMesh(gCyl(1, 1, 1, 28), new THREE.MeshBasicMaterial({ color: '#ff3b30', transparent: true, opacity: 0.35, depthWrite: false }), 80);
   hazIM.count = 0; hazIM.frustumCulled = false; scene.add(hazIM);
   arrowIM = new THREE.InstancedMesh(model('arrow', () => [P3(gBox(1.6, 1.6, 22), '#7a4a2a', 0, 0, 0), P3(gCone(2.2, 6, 4), '#9aa3ae', 0, 0, 13, PI / 2), P3(gBox(0.4, 3, 5), '#ffffff', 0, 0, -9)]), VC, 80);
   arrowIM.count = 0; arrowIM.frustumCulled = false; scene.add(arrowIM); inkIM(arrowIM);
@@ -2854,6 +3205,7 @@ function buildWorld() {
   scene.add(goalPointer);
   const axeGeo = model('orbitAxe', () => [P3(gCyl(1.5, 1.5, 22, 6), '#7a4a2a', 0, 0, 0, 0, 0, PI / 2), P3(gBox(8, 10, 2), '#b8c2cf', 10, 3, 0), P3(gBox(2, 10, 2.2), '#eef2f7', 14, 3, 0)]);
   for (let i = 0; i < 6; i++) { const a = mesh(axeGeo); a.visible = false; scene.add(a); orbitAxes.push(a); }
+  buildExtra();
 }
 let gateDoors = [], gateDebris, torchFlames = [], chestObj, chestLid, chestGlint, fence2Group, crystalIM, crystalRockIM, aurora;
 function makeDoor(x) {
@@ -2880,6 +3232,9 @@ function itemGeo(t) {
       case 'crystal': return [P3(gCone(4.5, 13, 5), '#6fe7ff', 0, 6.5, 0), P3(gCone(3, 9, 5), '#b8f6ff', 4.5, 4.5, 1.5, 0, 0, -0.5), P3(gCone(3, 8, 5), '#4fc9f0', -4, 4, -1, 0, 0, 0.5)];
       case 'beer': return [P3(gCyl(5, 4.6, 12, 10), '#f2a900', 0, 6, 0), P3(gCyl(5.5, 5.5, 3.5, 10), '#fffdf2', 0, 13.2, 0), P3(gSph(2.4, 6, 4), '#fffdf2', 2, 15, 1), P3(gTor(3.4, 1.2, 4, 10), '#e0b040', 6.5, 6.5, 0)];
       case 'snow': return [P3(gSph(9, 10, 8), '#ffffff', 0, 0, 0), P3(gSph(4, 6, 4), '#e3f2fd', 3, -4, 5)];
+      case 'ink': return [P3(gSph(9, 10, 8), '#2a1238', 0, 0, 0), P3(gSph(4, 6, 4), '#6a3290', 3, 3, 5), P3(gSph(3, 6, 4), '#2a1238', -5, -2, -7)];
+      case 'tentacle': return [P3(gCyl(5.5, 8.5, 28, 10), '#8e4fc4', 0, 14, 0), P3(gCyl(3.4, 5.5, 24, 10), '#8e4fc4', 0, 37, 3.5, 0.3), P3(gCyl(1.2, 3.4, 20, 8), '#a066d4', 0, 55, 10.5, 0.62),
+        P3(gSph(1.8, 6, 4), '#f0d4ff', 0, 8, 7.6), P3(gSph(1.6, 6, 4), '#f0d4ff', 0, 20, 7), P3(gSph(1.4, 6, 4), '#f0d4ff', 0, 32, 8.4), P3(gSph(1.2, 6, 4), '#f0d4ff', 0, 43, 11)];
       case 'cash': return [P3(gBox(24, 3, 12), '#2e8b3a', 0, 1.5, 0), P3(gBox(24, 0.6, 12), '#5ccf5c', 0, 3.2, 0), P3(gCyl(3, 3, 0.6, 10), '#b8f5b0', 0, 3.6, 0, 0, 0, 0, 1, 1, 0.8)];
     }
   });
@@ -3146,8 +3501,9 @@ function syncWorld() {
   ensure('observatory', lv('observatory'), buildObservatory);
   fence2Group.visible = !!lv('glacier');
   const n = nightAmount();
-  aurora.visible = !!lv('observatory') && n > 0.05;
+  aurora.visible = (!!lv('observatory') || evOn('aurora')) && n > 0.05;
   if (aurora.visible) { at(aurora, camTarget.x, camTarget.z); aurora.children.forEach((m, i) => { m.material.opacity = n * (0.55 + 0.25 * Math.sin(t * 0.5 + i * 2)); m.position.y = 700 + i * 60 + Math.sin(t * 0.3 + i) * 30; }); }
+  syncExtra();
   const ra = ensure('radio', lv('radio'), buildRadio);
   if (ra) ra.userData.beacon.visible = Math.sin(t * 4) > 0;
   // Tor
@@ -3217,6 +3573,7 @@ function makeHuman(coat, o = {}) {
   let tool = null;
   if (o.tool === 'axe') { tool = mesh(model('axeTool', () => [P3(gCyl(1.3, 1.3, 24, 6), '#7a4a2a', 0, 0, 10, PI / 2), P3(gBox(1.8, 9, 8), '#b8c2cf', 0, 4, 20), P3(gBox(2, 2, 8.5), '#eef2f7', 0, 8.5, 20)])); tool.position.set(0, -16, 0); armR.add(tool); }
   if (o.tool === 'bow') { tool = mesh(model('bowTool', () => [P3(gTor(12, 1.2, 4, 10, PI), '#7a4a2a', 0, 0, 6, 0, PI / 2, 0), P3(gBox(0.4, 24, 0.4), '#dddddd', 0, 0, 6)])); tool.position.set(0, -16, 0); armL.add(tool); }
+  if (o.tool === 'shovel') { tool = mesh(model('shovelTool', () => [P3(gCyl(1.2, 1.2, 30, 6), '#8a5a35', 0, 0, 13, PI / 2), P3(gBox(7.5, 1.2, 10), '#9aa3ae', 0, 0, 31), P3(gBox(6, 1.4, 1.4), '#5b3a22', 0, 0, -2)])); tool.position.set(0, -16, 0); armR.add(tool); }
   if (o.tool === 'rod') { tool = mesh(model('rodTool', () => [P3(gCyl(0.9, 1.3, 46, 5), '#6b4a2e', 0, 16, 16, 1.0, 0, 0)])); tool.position.set(0, -16, 0); armR.add(tool); }
   const m = { root, inner, body, legL, legR, armL, armR, tool, meshes: [body, legL, legR, armL, armR], rot: 0, px: null, py: null, kind: 'human', headTop: style === 'beanie' ? 62 : 58 };
   return m;
@@ -3432,10 +3789,13 @@ function makeBenedict() {
   inner.add(legL, legR, armL, armR);
   return { root, inner, body, legL, legR, armL, armR, meshes: [body, legL, legR, armL, armR, cane, bag], rot: 0, px: null, py: null, biped: true };
 }
-function setFlash(m, on) {
-  if (m.flashing === on) return;
-  m.flashing = on;
-  for (const me of m.meshes) { if (on) { me.userData.mat = me.material; me.material = FLASH; } else if (me.userData.mat) me.material = me.userData.mat; }
+let ICE = null;
+// Treffer-Blitz (rot) oder eingefroren (eisblau)
+function setFlash(m, on, frozen) {
+  const want = on ? FLASH : frozen ? (ICE || (ICE = new THREE.MeshLambertMaterial({ color: '#d4f1ff', emissive: '#3d8fc4' }))) : null;
+  if (m.tintMat === want) return;
+  m.tintMat = want;
+  for (const me of m.meshes) { if (!me.userData.mat) me.userData.mat = me.material; me.material = want || me.userData.mat; }
 }
 function lerpAngle(a, b, t) { let d = ((b - a + PI) % (2 * PI) + 2 * PI) % (2 * PI) - PI; return a + d * t; }
 function heading(m, e, look) {
@@ -3492,11 +3852,12 @@ function renderEntities(dt) {
   if (pm.crown) pm.crown.visible = crowned;
   at(pm.root, p.x, p.y);
   const near = nearestAnimal(p, 90);
-  animHuman(pm, p, !p.moving ? (near || p.fishing || null) : null);
+  animHuman(pm, p, !p.moving ? (near || p.fishing || p.digging || null) : null);
   pm.tool.visible = !p.fishing;
   if (p.fishing) { pm.armR.rotation.x = -0.9; }
   setFlash(pm, p.hurtT > 0.12);
-  if (p.dead <= 0) stackOn(pm, p, p.stack, 64, p.sway * 30, 1);
+  const onSled = renderSled(pm, p);
+  if (p.dead <= 0) stackOn(pm, p, p.stack, onSled ? 67 : 64, p.sway * 30, 1);
   // Wirbelnde Äxte
   for (let k = 0; k < orbitAxes.length; k++) {
     const a = orbitAxes[k], on = k < p.orbit && p.dead <= 0;
@@ -3508,9 +3869,9 @@ function renderEntities(dt) {
   // Tiere
   for (const b of animals) {
     const kind = b.type.kind;
-    const m = ensureModel(b, () => kind === 'bear' ? makeBear(b.type.name === 'spiky', b.raider) : kind === 'wolf' ? makeWolf(b.guard, false, b.type.name === 'frostwolf') : kind === 'yeti' ? makeYeti() : kind === 'mammoth' ? makeMammoth(false) : kind === 'mking' ? makeMammoth(true) : kind === 'baron' ? makeBaron() : kind === 'philip' ? makePhilip() : kind === 'alex' ? makeAlex() : makeBenedict());
+    const m = ensureModel(b, () => kind === 'bear' ? makeBear(b.type.name === 'spiky', b.raider) : kind === 'wolf' ? makeWolf(b.guard, false, b.type.name === 'frostwolf') : kind === 'yeti' ? makeYeti() : kind === 'mammoth' ? makeMammoth(false) : kind === 'mking' ? makeMammoth(true) : kind === 'baron' ? makeBaron() : kind === 'philip' ? makePhilip() : kind === 'alex' ? makeAlex() : kind === 'kraken' ? makeKraken() : kind === 'dragon' ? makeDragon() : makeBenedict());
     at(m.root, b.x, b.y);
-    const s = (kind === 'bear' ? b.type.size * 1.1 : kind === 'yeti' ? 1.25 : kind === 'boss' || kind === 'philip' || kind === 'alex' || kind === 'baron' ? 1.85 : kind === 'mking' ? 1.6 : kind === 'wolf' ? b.type.size : 1) * (0.3 + 0.7 * b.spawnT);
+    const s = (kind === 'kraken' ? 1.7 : kind === 'dragon' ? 1.45 : kind === 'bear' ? b.type.size * 1.1 : kind === 'yeti' ? 1.25 : kind === 'boss' || kind === 'philip' || kind === 'alex' || kind === 'baron' ? 1.85 : kind === 'mking' ? 1.6 : kind === 'wolf' ? b.type.size : 1) * (0.3 + 0.7 * b.spawnT);
     m.root.scale.setScalar(s);
     const dp = dist(b, p);
     const attacking = !b.dead && p.dead <= 0 && dp < 80 * b.type.size;
@@ -3532,13 +3893,14 @@ function renderEntities(dt) {
       if (b.boss.state === 'dash') m.inner.rotation.x = 0.35;
       if (b.boss.state === 'intro') m.root.rotation.y = m.rot = Math.atan2(p.x - b.x, p.y - b.y);
     }
+    if (kind === 'kraken' || kind === 'dragon') animBigBoss(m, b, p);
     if (b.dead) { m.inner.rotation.z = Math.min(1.5, b.deadT * 5); m.root.position.y = -Math.max(0, b.deadT - 0.6) * 40; }
     if (b.hitT > 0.08 && gameTime - (m.flashAt || -9) > 0.25) m.flashAt = gameTime;
-    setFlash(m, gameTime - (m.flashAt || -9) < 0.07);
+    setFlash(m, gameTime - (m.flashAt || -9) < 0.07, b.frozen > 0 && !b.dead);
   }
   // Helfer
   for (const w of workers) {
-    const m = ensureModel(w, () => makeHuman(w.coat, { tool: w.kind === 'fisher' ? 'rod' : 'axe' }));
+    const m = ensureModel(w, () => makeHuman(w.coat, { tool: w.kind === 'fisher' ? 'rod' : w.kind === 'digger' ? 'shovel' : 'axe' }));
     at(m.root, w.x, w.y);
     const look = w.kind === 'fisher' ? (w.state === 'work' && !w.moving ? HOLES[w.hole] : null) : (!w.moving && w.target && !w.target.dead ? w.target : null);
     w.rodOn = w.kind === 'fisher' && w.state === 'work' && !w.moving;
@@ -3564,6 +3926,7 @@ function renderEntities(dt) {
     m.legs.forEach((l, i) => { l.rotation.x = moved ? ph * (i === 0 || i === 3 ? 0.7 : -0.7) : 0; });
     m.inner.position.z = pet.lunge > 0 ? Math.sin(pet.lunge / 0.2 * PI) * 7 : 0;
   }
+  renderCritters();
   // Türme: Bogenschützen zielen
   for (const t of towers) {
     const o = B3[t.id]; if (!o) continue;
@@ -3599,10 +3962,12 @@ function renderItems() {
   for (const h of hazards) {
     const k = (h.t - (h.delay - 0.5)) / 0.5;
     if (h.ice) { if (h.t > h.delay) for (let i = 0; i < 4; i++) pushItem('crystal', h.x + Math.cos(i * 1.57 + 0.4) * 16, h.y + Math.sin(i * 1.57 + 0.4) * 16, -10 + Math.min(1, (h.t - h.delay) * 8) * 10, i, 2.6); continue; }
+    if (h.tent) { if (h.t > h.delay - 0.15) pushItem('tentacle', h.x, h.y, -58 + 58 * clamp((h.t - (h.delay - 0.15)) / 0.15, 0, 1), h.id * 1.7, 1.25); continue; }
     if (h.beer) { const q = Math.min(1, h.t / h.delay); pushItem('beer', lerp(h.fx, h.x, q), lerp(h.fy, h.y, q), 70 + Math.sin(PI * q) * 170 - 60 * q, h.t * 9); continue; }
     if (k > 0 && k < 1 && !h.stomp) for (let i = 0; i < 5; i++) pushItem('gold', h.x + Math.cos(i * 1.3) * 18, h.y + Math.sin(i * 1.3) * 18, 320 * (1 - k) + i * 12, i + gameTime * 8, 0.9);
   }
-  for (const sh of shots) { if (sh.ice) pushItem('crystal', sh.x, sh.y, sh.z, Math.atan2(sh.vx, sh.vy), 1.3); else pushItem('snow', sh.x, sh.y, sh.z, sh.t * 8, sh.r / 9); }
+  for (const sh of shots) { if (sh.ice) pushItem('crystal', sh.x, sh.y, sh.z, Math.atan2(sh.vx, sh.vy), 1.3); else pushItem(sh.ink ? 'ink' : 'snow', sh.x, sh.y, sh.z, sh.t * 8, sh.r / 9); }
+  renderExtraItems();
   flushItems();
 }
 function pilePos(pile, type, count) {
@@ -3636,6 +4001,7 @@ function renderFx(dt) {
   // Gefahrenzonen (Goldregen)
   let hz = 0;
   for (const h of hazards) {
+    if (hz >= 80) break;
     const kk = Math.min(1, h.t / h.delay);
     _m4.compose(_p.set(h.x, 1.5 + hz * 0.05, h.y), _q.identity(), _s.set(h.r * (0.3 + 0.7 * kk), 1, h.r * (0.3 + 0.7 * kk))); hazIM.setMatrixAt(hz++, _m4);
   }
@@ -3721,6 +4087,7 @@ function updateLights(dt) {
   sun.color.lerpColors(DAY_SUN, NIGHT_SUN, n);
   hemi.color.lerpColors(DAY_HEMI, NIGHT_HEMI, n);
   scene.background.lerpColors(DAY_BG, NIGHT_BG, n);
+  if (evOn('blood')) { scene.background.lerp(_col.set('#4a0c16'), n * 0.85); sun.color.lerp(_col.set('#ff6a5a'), n * 0.7); hemi.color.lerp(_col.set('#a04050'), n * 0.6); }
   scene.fog.color.copy(scene.background).lerp(_col.set('#e8eef6'), stormK * (1 - n * 0.7));
   scene.fog.near = lerp(camDist + 150, 200, stormK); scene.fog.far = lerp(camDist + 1700, camDist + 350, stormK);
   pointLights.furnace.intensity = lv('furnace') ? 1.6 + 2.2 * n + Math.sin(gameTime * 10) * 0.2 : 0;
@@ -3798,7 +4165,7 @@ function renderLabels() {
     }
     for (const b of animals) {
       if (b.dead) continue;
-      if (b.say) label3('~say' + b.id, `<div class="speech">${b.say.text}</div>`, b.x, b.y, 175, 'sp', -30);
+      if (b.say) label3('~say' + b.id, `<div class="speech">${b.say.text}</div>`, b.x, b.y, b.type.kind === 'dragon' ? 240 : b.type.kind === 'kraken' ? 200 : 175, 'sp', -30);
       const hh = b.type.kind === 'boss' ? 150 : b.type.kind === 'yeti' ? 150 : b.type.kind === 'mking' ? 140 : b.type.kind === 'mammoth' ? 95 : b.type.kind === 'wolf' ? 50 : 62 * b.type.size;
       if (b.hp < b.type.hp && !b.boss) {
         const w = b.type.kind === 'yeti' || b.type.kind === 'mking' ? 90 : b.type.kind === 'mammoth' ? 70 : Math.round(46 * b.type.size);
@@ -3816,7 +4183,7 @@ function renderLabels() {
       label3('php', `<div class="hp me" style="width:60px"><i style="width:${(p.hp / p.maxHp * 100).toFixed(0)}%;background:${p.hp > p.maxHp * 0.35 ? '#5ccf5c' : '#ff5a3c'}"></i></div>`, p.x, p.y, 0, '', 20);
     if (lv('radio') && !lv('glacier')) label3('lock2', `<div class="lockt">🔒 Gletscher</div><div class="locks">Schalte das Gebiet im Lager frei</div>`, 700, 1560, 80, '');
     for (const D of Object.values(BOSSES)) {
-      if (D.final || lv(D.key) || lv(D.gate) || !reqMet(gateReqs(D))) continue;
+      if (!D.gate || lv(D.key) || lv(D.gate) || !reqMet(gateReqs(D))) continue;
       const gp = PAD_DEFS.find(q => q.id === D.gate);
       label3('gate_' + D.id, `<div class="lockt" style="font-size:22px">🔒 ${PAD_DEFS.find(q => q.id === D.gate).name}</div><div class="locks">Besiege zuerst ${D.icon} ${D.name}!</div>`, gp.x, gp.y, 20, '');
     }
@@ -3840,6 +4207,7 @@ function render3D(dt) {
   updateDecoIM();
   updateCrystalsIM();
   renderEntities(dt);
+  renderExtra(dt);
   renderItems();
   renderFx(dt);
   updateGoal3D();
@@ -3859,6 +4227,270 @@ function reset3D() {
   for (const t of trees) t.dirty = true;
   for (const c of crystals) c.dirty = true;
   decoAt = null; LOCK_U.value.set(lv('east') ? 0 : 1, lv('glacier') ? 0 : 1);
+}
+
+/* =========================================================
+   3D für die neuen Inhalte: Krake, Frostdrache, Pinguine, Hundeschlitten, Frost-Rune, Schätze
+   ========================================================= */
+let TRES = [], POPS = [], WAVEM = [], SLED = null;
+
+// flache Flughaut (Fächer aus Dreiecken, oben und unten sichtbar)
+function gWing() {
+  if (GEO.wingPoly) return GEO.wingPoly;
+  const P = [[0, 4], [50, 2], [40, -18], [27, -31], [12, -28], [0, -18]], pos = [];
+  for (let i = 1; i < P.length - 1; i++) {
+    const a = P[0], b = P[i], c = P[i + 1];
+    pos.push(a[0], 0.5, a[1], b[0], 0.5, b[1], c[0], 0.5, c[1]);
+    pos.push(a[0], -0.5, a[1], c[0], -0.5, c[1], b[0], -0.5, b[1]);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+  return (GEO.wingPoly = g);
+}
+// gerader Stab von a nach b in der x-z-Ebene
+function rodXZ(a, b, th, color, y = 0) {
+  const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
+  return P3(gBox(L, th, th), color, (a[0] + b[0]) / 2, y, (a[1] + b[1]) / 2, 0, Math.atan2(-dz, dx), 0);
+}
+
+function makeKraken() {
+  const root = new THREE.Group(), inner = new THREE.Group(); root.add(inner);
+  const pur = '#8e4fc4', purL = '#b57ee0', purD = '#5e2a8c';
+  const body = mesh(model('kraken', () => {
+    const a = [
+      P3(gCyl(42, 42, 1.2, 28), '#163a5c', 0, 3.6, 0),                                  // offenes Wasser im gebrochenen Eis
+      P3(gSph(1, 18, 14), pur, 0, 42, -6, -0.22, 0, 0, 25, 36, 23),                     // Mantel
+      P3(gSph(1, 16, 12), purL, 0, 22, 5, 0, 0, 0, 22, 18, 19),                         // Gesicht
+      P3(gSph(3.2, 8, 6), purD, 9, 56, 9), P3(gSph(2.6, 8, 6), purD, -11, 48, 13), P3(gSph(3, 8, 6), purD, -4, 66, 2), P3(gSph(2.2, 8, 6), purD, 14, 40, 14),
+      ...spEyes(29, 21.6, { w: 5.6, h: 6.6, sp: 5.4, turn: 0.26, d: 2.2, pr: 1.7, tilt: 0.1 }),
+      P3(gBox(8, 1.8, 2), '#3b1650', -6.2, 36.8, 21.4, 0, -0.26, -0.35), P3(gBox(8, 1.8, 2), '#3b1650', 6.2, 36.8, 21.4, 0, 0.26, 0.35),
+      ...spMouth(17.5, 23.8, 6, '#3b1650', -0.35),
+    ];
+    for (let i = 0; i < 10; i++) { const an = i / 10 * PI * 2 + 0.2; a.push(P3(gBox(16, 5, 10), i % 2 ? '#eaf6ff' : '#cfe8fa', Math.sin(an) * 45, 3.4, Math.cos(an) * 45, 0.15 * (i % 3 - 1), an, 0.35 * (i % 2 ? 1 : -1))); }
+    return a;
+  }));
+  inner.add(body);
+  const tg = model('krakTent', () => [P3(gCyl(5, 7, 22, 10), pur, 0, 10, 0, 0.15), P3(gCyl(3.4, 5, 20, 10), pur, 0, 28, 5, 0.45), P3(gCyl(1.2, 3.4, 18, 8), purL, 0, 41, 14, 0.85),
+    P3(gSph(1.6, 6, 4), '#f0d4ff', 0, 9, 6.5), P3(gSph(1.4, 6, 4), '#f0d4ff', 0, 22, 9), P3(gSph(1.2, 6, 4), '#f0d4ff', 0, 33, 13)]);
+  const tents = [0.95, 1.75, 2.6, 3.68, 4.53, 5.33].map(an => {
+    const t = mesh(tg); t.rotation.order = 'YXZ'; t.position.set(Math.sin(an) * 28, 0, Math.cos(an) * 28); t.rotation.y = an; inner.add(t); return t;
+  });
+  return { root, inner, body, tents, meshes: [body, ...tents], rot: 0, px: null, py: null };
+}
+
+function makeDragon() {
+  const root = new THREE.Group(), inner = new THREE.Group(); root.add(inner);
+  const sc = '#5fa8e0', scD = '#3d7fb8', bel = '#d6efff', horn = '#f4ecd8', spike = '#eaf8ff';
+  const body = mesh(model('dragon', () => {
+    const a = [
+      P3(gSph(1, 16, 12), sc, 0, 0, 0, 0, 0, 0, 16, 15, 28), P3(gSph(1, 14, 10), bel, 0, -5, 3, 0, 0, 0, 12.5, 10.5, 23),
+      P3(gCyl(6.5, 9, 26, 10), sc, 0, 10, 30, 0.9),                                                     // Hals
+      P3(gBox(15, 14, 18), sc, 0, 22, 46), P3(gBox(11, 7, 13), sc, 0, 18.5, 59), P3(gBox(10, 3, 12), scD, 0, 13.5, 56),   // Kopf, Schnauze, Kiefer
+      P3(gSph(1, 6, 4), '#1d2a3a', -2.6, 21, 65.6, 0, 0, 0, 1.1, 0.8, 0.5), P3(gSph(1, 6, 4), '#1d2a3a', 2.6, 21, 65.6, 0, 0, 0, 1.1, 0.8, 0.5),
+      P3(gCone(1.3, 3.5, 4), '#ffffff', -3.5, 14, 63, PI), P3(gCone(1.3, 3.5, 4), '#ffffff', 3.5, 14, 63, PI),
+      P3(gCone(2.8, 16, 6), horn, -5, 33, 41, -0.9, 0, 0.25), P3(gCone(2.8, 16, 6), horn, 5, 33, 41, -0.9, 0, -0.25),
+      ...spEyes(25, 55.4, { w: 2.7, h: 3.2, sp: 2.8, turn: 0.32, d: 1.3, pupil: '#c62828', pr: 0.85, tilt: -0.25, ink: 0.5 }),
+      P3(gBox(6, 1.6, 1.6), '#1e4f7a', -3.4, 29.6, 55.5, 0, 0, -0.38), P3(gBox(6, 1.6, 1.6), '#1e4f7a', 3.4, 29.6, 55.5, 0, 0, 0.38),
+      // Schwanz mit Eisspitze
+      P3(gCyl(4, 8.5, 26, 10), sc, 0, -1, -36, -PI / 2 + 0.12), P3(gCyl(1.6, 4, 24, 8), sc, 0, 1.5, -60, -PI / 2 + 0.2), P3(gCone(5.5, 9, 4), spike, 0, 3.5, -75, -PI / 2, 0, 0, 1, 1, 0.35),
+      // Beine mit Krallen
+      ...[[-9, 12], [9, 12], [-10, -12], [10, -12]].flatMap(([x, z]) => [P3(gCyl(3.6, 3, 15, 8), sc, x, -14, z, 0.35), P3(gBox(5, 3, 7), scD, x, -21, z + 3.5)]),
+    ];
+    for (let i = 0; i < 7; i++) a.push(P3(gCone(3.4, 10, 4), spike, 0, 14.5 - Math.abs(i - 2) * 0.8, -20 + i * 6.5, -0.35));
+    for (let i = 0; i < 3; i++) a.push(P3(gCone(2.4, 7, 4), spike, 0, 25 - i * 2, 39 - i * 5, -0.6));
+    return a;
+  }));
+  const wg = model('dragonWing', () => {
+    const m = P3(gWing(), '#9fd3f5', 0, 0, 0); m.ink = 0;
+    return [m, P3(gBox(50, 2.8, 3.2), scD, 25, 0, 3),
+      rodXZ([5, 2], [40, -18], 1.8, scD), rodXZ([5, 2], [27, -31], 1.8, scD), rodXZ([4, 2], [12, -28], 1.8, scD),
+      P3(gCone(1.9, 7, 4), horn, 52, 0, 3, 0, 0, -PI / 2)];
+  });
+  const wR = mesh(wg), wL = mesh(wg);
+  wR.position.set(11, 8, 4); wL.position.set(-11, 8, 4); wL.scale.x = -1;
+  inner.add(body, wR, wL);
+  return { root, inner, body, wings: [wR, wL], meshes: [body, wR, wL], rot: 0, px: null, py: null };
+}
+// Krake und Drache schauen immer zum Spieler; Tentakel wogen, Flügel schlagen
+function animBigBoss(m, b, p) {
+  if (!b.dead) { m.rot = lerpAngle(m.rot, Math.atan2(p.x - b.x, p.y - b.y), 0.08); m.root.rotation.y = m.rot; }
+  const t = gameTime;
+  if (m.tents) {
+    const atk = b.lunge > 0 ? Math.sin(b.lunge / 0.3 * PI) : 0;
+    m.tents.forEach((q, i) => { q.rotation.x = Math.sin(t * 2.2 + i * 1.3) * 0.22 - atk * 0.6; });
+    m.inner.position.y = Math.sin(t * 1.6) * 2.5; m.inner.position.z = 0;
+  }
+  if (m.wings) {
+    const fast = b.boss && (b.boss.state === 'dash' || b.boss.state === 'windup');
+    const fl = Math.sin(t * (fast ? 13 : 5.5)) * (fast ? 0.35 : 0.6);
+    m.wings[0].rotation.z = 0.12 + fl; m.wings[1].rotation.z = -(0.12 + fl);
+    m.inner.position.y = b.dead ? Math.max(0, 52 - b.deadT * 80) : 52 + Math.sin(t * 5.5 - 0.6) * 5;
+  }
+}
+
+function makePenguin() {
+  const root = new THREE.Group(), inner = new THREE.Group(); root.add(inner);
+  const body = mesh(model('penguin', () => [
+    P3(gSph(1, 12, 10), '#22252e', 0, 14, -0.5, 0, 0, 0, 9, 13, 8.5), P3(gSph(1, 12, 10), '#f7f9fc', 0, 13, 2.6, 0, 0, 0, 7, 10.5, 6.6),
+    P3(gSph(1, 12, 10), '#22252e', 0, 28, 0.5, 0, 0, 0, 7.4, 7, 7.2), P3(gSph(1, 10, 8), '#f7f9fc', 0, 27.6, 3.4, 0, 0, 0, 5.4, 4.8, 4.6),
+    ...spEyes(30, 7.4, { w: 1.9, h: 2.3, sp: 1.8, turn: 0.32, d: 0.9, pr: 0.62, ink: 0.4 }),
+    P3(gCone(1.9, 5, 6), '#ff9a1f', 0, 26.2, 9.4, PI / 2),
+    P3(gBox(4.4, 1.4, 5.5), '#ff9a1f', -3.2, 0.7, 2.6), P3(gBox(4.4, 1.4, 5.5), '#ff9a1f', 3.2, 0.7, 2.6),
+  ]));
+  const fg = model('pengFlip', () => [P3(gSph(1, 8, 6), '#22252e', 0, -5.5, 0, 0, 0, 0, 1.4, 6.5, 3.6)]);
+  const flipL = mesh(fg), flipR = mesh(fg); flipL.position.set(-8.4, 20, 0); flipR.position.set(8.4, 20, 0);
+  inner.add(body, flipL, flipR);
+  return { root, inner, body, flipL, flipR, meshes: [body, flipL, flipR], rot: 0, px: null, py: null };
+}
+function renderCritters() {
+  for (const c of critters) {
+    if (c.wait > 0) continue;
+    const m = ensureModel(c, () => { const q = makePenguin(); q.root.scale.setScalar(1.15); return q; });
+    at(m.root, c.x, c.y);
+    heading(m, c, null);
+    const w = c.moving && !c.slide;
+    m.inner.rotation.z = w ? Math.sin(c.walkT) * 0.2 : 0;
+    m.inner.rotation.x = c.slide ? 1.35 : 0;
+    m.inner.position.y = c.jump > 0 ? Math.sin(c.jump / 0.6 * PI) * 14 : c.slide ? 7 : 0;
+    const f = 0.22 + (c.slide ? 1.1 : w ? Math.abs(Math.sin(c.walkT)) * 0.45 : 0) + (c.jump > 0 ? 1.0 : 0);
+    m.flipL.rotation.z = -f; m.flipR.rotation.z = f;
+  }
+}
+
+/* ---------- Hundeschlitten ---------- */
+function buildSled() {
+  const g = new THREE.Group();
+  g.add(mesh(model('sled', () => {
+    const w = '#5b3a22', wl = '#c08a52', wd = '#8b5a2b';
+    const a = [
+      P3(gBox(2.4, 2.4, 60), w, -11, 1.2, 22), P3(gBox(2.4, 2.4, 60), w, 11, 1.2, 22),
+      P3(gBox(2.4, 2.4, 12), w, -11, 5, 55, -0.75), P3(gBox(2.4, 2.4, 12), w, 11, 5, 55, -0.75),
+      P3(gBox(26, 2.6, 40), wl, 0, 8, 28),
+      P3(gBox(2.2, 7, 36), wd, -12.5, 12, 28), P3(gBox(2.2, 7, 36), wd, 12.5, 12, 28), P3(gBox(27, 7, 2.2), wd, 0, 12, 47),
+      P3(gBox(17, 9, 20), '#c0392b', 0, 14, 31), P3(gBox(17.6, 1.4, 1.4), '#f2e3c6', 0, 15, 26), P3(gBox(17.6, 1.4, 1.4), '#f2e3c6', 0, 15, 36),
+      P3(gBox(2.4, 24, 2.4), wd, -10, 17, 11, -0.15), P3(gBox(2.4, 24, 2.4), wd, 10, 17, 11, -0.15), P3(gBox(24, 2.6, 2.6), wd, 0, 28.6, 9.2),
+      P3(gBox(0.9, 0.9, 22), '#3b2a1a', -6, 13, 60), P3(gBox(0.9, 0.9, 22), '#3b2a1a', 6, 13, 60),
+    ];
+    for (const z of [8, 28, 44]) for (const x of [-11, 11]) a.push(P3(gBox(1.8, 6, 1.8), wd, x, 4.5, z));
+    return a;
+  })));
+  const dogs = [];
+  for (const sx of [-1, 1]) { const d = makeWolf(false, true); d.root.scale.setScalar(0.72); d.root.position.set(sx * 9, 0, 88); g.add(d.root); dogs.push(d); }
+  g.userData.dogs = dogs; g.scale.setScalar(1.1); g.visible = false; scene.add(g);
+  return g;
+}
+function renderSled(pm, p) {
+  const on = running && p.onSled && p.dead <= 0;
+  if (!SLED) { if (!on) return false; SLED = buildSled(); }
+  SLED.visible = on;
+  if (!on) return false;
+  at(SLED, p.x, p.y); SLED.rotation.y = pm.rot;
+  pm.root.position.y = 2.6;
+  pm.legL.rotation.x = 0; pm.legR.rotation.x = 0.25; pm.inner.position.y = 0; pm.inner.rotation.z = 0;
+  if (!p.fishing) pm.armL.rotation.x = -1.0;
+  const run = p.moving, t = gameTime * 16;
+  for (const d of SLED.userData.dogs) {
+    d.legs.forEach((l, i) => { l.rotation.x = run ? Math.sin(t + (i < 2 ? 0 : PI)) * 0.8 * (i % 2 ? -1 : 1) : 0; });
+    d.inner.position.y = run ? Math.abs(Math.sin(t)) * 2 : 0;
+  }
+  if (run && Math.random() < 0.5) {
+    const [fx, fy] = forward(pm);
+    parts.push({ x: p.x - fx * 4 + rand(-8, 8), y: p.y - fy * 4 + rand(-8, 8), z: 2, vx: -fx * 60 + rand(-30, 30), vy: -fy * 60 + rand(-30, 30), vz: rand(60, 140), color: '#ffffff', t: 0, life: 0.45, r: rand(2, 4) });
+  }
+  return true;
+}
+
+/* ---------- Gebäude: Hundezwinger und Frost-Rune ---------- */
+function buildKennel() {
+  const g = buildCabin('kennel', 60, 32, 46, '#8a5a35', '#3d6e9c', { chimney: true, extra: () => {
+    const a = [];
+    for (const z of [-13, 15]) a.push(P3(gBox(20, 16, 20), '#c0392b', 50, 8, z), P3(gPrism(26, 12, 26), '#7b2a20', 50, 16, z), P3(gPrism(27, 9, 22), '#f4f9ff', 50, 19, z),
+      P3(gBox(9, 11, 1), '#2a1a10', 50, 5.5, z + 10.2));
+    a.push(P3(gCyl(4, 3, 2.5, 10), '#9aa3ae', 34, 1.2, 30), P3(gBox(7, 1.6, 2), '#f4ecd8', 26, 1, 36, 0, 0.5));
+    return a;
+  } });
+  return at(g, KENNEL.x, KENNEL.y);
+}
+function buildRune() {
+  const g = group(mesh(model('runeStone', () => [
+    P3(gIco(14, 0), '#8a94a3', 0, 3, 0, 0, 0, 0, 1.7, 0.45, 1.5),
+    P3(gBox(17, 46, 11), '#7d8796', 0, 25, 0), P3(gBox(14, 8, 9.5), '#929cab', 0.6, 50, 0, 0, 0, 0.1),
+    P3(gCone(7.5, 6, 6), '#f4f9ff', 0.8, 56.5, 0, 0, 0, 0.1, 1, 1, 0.75),
+  ])));
+  const mat = new THREE.MeshBasicMaterial({ color: '#6fe7ff' });
+  const glyph = new THREE.Group(); glyph.position.set(0, 27, 5.7);
+  for (const a of [0, PI / 3, -PI / 3]) { const b = new THREE.Mesh(gBox(1.8, 17, 0.8), mat); b.rotation.z = a; glyph.add(b); }
+  for (let i = 0; i < 6; i++) { const a = i * PI / 3, b = new THREE.Mesh(gBox(5, 1.5, 0.8), mat); b.position.set(Math.sin(a) * 6, Math.cos(a) * 6, 0); b.rotation.z = -a; glyph.add(b); }
+  g.add(glyph);
+  const cr = [];
+  for (let i = 0; i < 4; i++) { const a = i / 4 * PI * 2 + PI / 4, c = new THREE.Mesh(gCone(3.2, 12, 5), mat); c.position.set(Math.cos(a) * 25, 8, Math.sin(a) * 25); g.add(c); cr.push(c); }
+  g.userData.mat = mat; g.userData.cr = cr;
+  g.rotation.y = PI / 4;   // Vorderseite zur Kamera
+  return at(g, RUNE.x, RUNE.y);
+}
+function syncExtra() {
+  ensure('kennel', lv('sled'), buildKennel);
+  const ru = ensure('rune', lv('rune'), buildRune);
+  if (ru) {
+    const k = player.frostCd <= 0 ? 0.75 + 0.25 * Math.sin(gameTime * 4) : 0.25;
+    ru.userData.mat.color.setRGB(0.2 + 0.5 * k, 0.5 + 0.5 * k, 0.7 + 0.3 * k);
+    ru.userData.cr.forEach((c, i) => { c.visible = i < lv('rune'); c.rotation.y = gameTime * 0.8 + i; c.position.y = 9 + Math.sin(gameTime * 2 + i) * 2.5; });
+  }
+}
+
+/* ---------- Schätze, Truhen, Frostwelle ---------- */
+function buildExtra() {
+  const xg = model('xmark', () => [
+    P3(gSph(1, 12, 6), '#a8774a', 0, 0, 0, 0, 0, 0, 18, 3.2, 15),
+    P3(gBox(28, 1.4, 5.5), '#d32f2f', 0, 3.3, 0, 0, PI / 4), P3(gBox(28, 1.4, 5.5), '#d32f2f', 0, 3.35, 0, 0, -PI / 4),
+    P3(gCyl(0.9, 0.9, 26, 5), '#8a5a35', 13, 12, -8, 0, 0, -0.35), P3(gBox(6, 1.4, 1.4), '#5b3a22', 17.4, 24.2, -8, 0, 0, -0.35),
+    P3(gBox(7, 9, 1.2), '#9aa3ae', 8.8, 1.5, -8, 0, 0, -0.35),
+  ]);
+  for (let i = 0; i < 6; i++) {
+    const g = new THREE.Group(); g.add(mesh(xg));
+    const sp = new THREE.Sprite(chestGlint.material.clone()); sp.scale.set(24, 24, 1); sp.position.y = 18; g.add(sp); g.userData.sp = sp;
+    g.visible = false; scene.add(g); TRES.push(g);
+  }
+  for (let i = 0; i < 3; i++) {
+    const g = new THREE.Group();
+    g.add(mesh(model('chestBase', () => [])));
+    const lid = new THREE.Group(); lid.position.set(0, 16, -11); lid.add(mesh(model('chestLid', () => []))); g.add(lid);
+    g.userData.lid = lid; g.visible = false; scene.add(g); POPS.push(g);
+  }
+  for (let i = 0; i < 3; i++) {
+    const r = new THREE.Mesh(new THREE.RingGeometry(0.82, 1, 56), new THREE.MeshBasicMaterial({ color: '#bfe9ff', transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+    r.rotation.x = -PI / 2; r.visible = false; scene.add(r); WAVEM.push(r);
+  }
+}
+function renderExtra(dt) {
+  const tr = running ? S.treasures : [];
+  TRES.forEach((g, i) => {
+    const t = tr[i]; g.visible = !!t; if (!t) return;
+    at(g, t.x, t.y); g.rotation.y = t.id * 0.7;
+    g.rotation.z = t.dig > 0 ? Math.sin(gameTime * 40) * 0.03 : 0;
+    const sp = g.userData.sp; sp.position.y = 18 + Math.sin(gameTime * 3 + i) * 4; sp.material.rotation = gameTime * 0.8 + i;
+    if (t.dig > 0) label3('~dig' + t.id, `<div class="hp" style="width:56px"><i style="width:${Math.min(100, t.dig / TDIG * 100).toFixed(0)}%;background:#ffd34d"></i></div>`, t.x, t.y, 44, '');
+  });
+  for (let i = chestPops.length - 1; i >= 0; i--) { chestPops[i].t += dt; if (chestPops[i].t > 2.4) chestPops.splice(i, 1); }
+  POPS.forEach((g, i) => {
+    const c = chestPops[i]; g.visible = !!c; if (!c) return;
+    const k = c.t;
+    at(g, c.x, c.y, -18 + Math.min(1, k * 4) * 18 - Math.max(0, k - 1.8) * 50);
+    g.rotation.y = PI / 4; g.scale.setScalar(c.big ? 1.6 : 1.15);
+    g.userData.lid.rotation.x = -Math.min(1, Math.max(0, k - 0.25) * 3) * 1.9;
+  });
+  for (let i = waves.length - 1; i >= 0; i--) { waves[i].t += dt; if (waves[i].t > 0.5) waves.splice(i, 1); }
+  WAVEM.forEach((r, i) => {
+    const w = waves[i]; r.visible = !!w; if (!w) return;
+    const k = w.t / 0.5, e = 1 - (1 - k) * (1 - k), s = w.r * (0.15 + 0.85 * e);
+    at(r, w.x, w.y, 4); r.scale.set(s, s, 1); r.material.opacity = 0.95 * (1 - k);
+  });
+}
+// Eisstacheln am Rand der Frostwelle
+function renderExtraItems() {
+  for (const w of waves) {
+    const k = Math.min(1, w.t / 0.5), e = 1 - (1 - k) * (1 - k), rr = w.r * (0.15 + 0.85 * e);
+    for (let i = 0; i < 16; i++) { const a = i / 16 * PI * 2 + w.x; pushItem('crystal', w.x + Math.cos(a) * rr, w.y + Math.sin(a) * rr, -6 + Math.sin(k * PI) * 10, a, 1.7); }
+  }
 }
 
 const $ = id => document.getElementById(id);
@@ -3917,6 +4549,22 @@ function updateOverlays() {
   } else j.style.display = k.style.display = 'none';
   const n = running ? nightAmount() : 0;
   $('clock').textContent = !running ? '' : S.weather.storm ? '❄️' : n > 0.5 ? '🌙' : n > 0 ? '🌆' : '☀️';
+  // Frostschlag-Knopf
+  const fb = $('bFrost'), fl = running ? lv('rune') : 0;
+  fb.classList.toggle('hidden', !fl);
+  if (fl) {
+    const k = Math.max(0, p.frostCd) / frostMax();
+    fb.style.setProperty('--k', (k * 100).toFixed(1)); fb.classList.toggle('ready', k <= 0);
+    const tx = k > 0 ? String(Math.ceil(p.frostCd)) : ''; if ($('frostT').textContent !== tx) $('frostT').textContent = tx;
+  }
+  // laufendes Ereignis
+  const ev = running && S.event, ee = $('evt');
+  ee.classList.toggle('hidden', !ev);
+  if (ev) {
+    const E = EVENTS[ev.id], tx = `${E.icon} ${E.name}` + (E.dur ? ` · ${Math.max(0, Math.ceil(ev.t))} s` : '');
+    if (ee.textContent !== tx) ee.textContent = tx;
+    ee.classList.toggle('blood', ev.id === 'blood');
+  }
 }
 function fmtTime(s) { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60; return h ? `${h} h ${m} min` : `${m} min ${s % 60} s`; }
 function renderStats() {
@@ -3924,7 +4572,8 @@ function renderStats() {
   const rows = [
     ['Spielzeit', fmtTime(st.time)], ['Ausbauten', `${progress()} / ${TOTAL_LEVELS}`], ['Siedlungshäuser', `${housesBuilt()} / ${HOUSES.length}`],
     ['Tiere erlegt', st.kills], ['Ware verkauft', st.sold], ['Fische gefangen', st.fish], ['Angriffe abgewehrt', st.raids], ['Yetis besiegt', st.yeti],
-    ['Aufträge erfüllt', st.quests || 0], ['Bosse besiegt', `🍺 ${totKill('philip')} · ❄️ ${totKill('alex')} · 👑 ${totKill('boss')} · 👿 ${totKill('baron')}`],
+    ['Aufträge erfüllt', st.quests || 0], ['Schätze ausgegraben', st.treasures || 0], ['Pinguine gefüttert', st.pengs || 0],
+    ['Bosse besiegt', `🍺 ${totKill('philip')} · ❄️ ${totKill('alex')} · 👑 ${totKill('boss')} · 👿 ${totKill('baron')} · 🐙 ${totKill('kraken')} · 🐉 ${totKill('dragon')}`],
     ['Expedition', EXP() + 1], ['Spielerstufe', M.level], ['Polarsterne', M.stars], ['Erfolge', `${Object.keys(M.ach).length} / ${ACH.length}`], ['Trophäen', `${Object.keys(M.trophies).length} / ${TROPHIES.length}`], ['Gesamtspielzeit', fmtTime(tot('time'))],
     ['Zuletzt gespeichert', lastSaveOk ? new Date(lastSaveOk).toLocaleTimeString('de-DE') : '–'],
   ];
@@ -3962,6 +4611,18 @@ function startGame(fresh) {
   if (S.offline) { const r = S.offline; S.offline = null;
     showWin('👋 Willkommen zurück!', `Während du ${fmtTime(r.away)} weg warst, haben deine Helfer weitergearbeitet:<br><br>` +
       [r.cash && `💵 ${fmt(r.cash)}`, r.wood && `🪵 ${fmt(r.wood)}`, r.gold && `🪙 ${fmt(r.gold)}`, r.crystal && `💎 ${fmt(r.crystal)}`].filter(Boolean).join(' &nbsp; ')); }
+  if (!M.upd5) {
+    M.upd5 = true;
+    showWin('✨ Großes Winter-Update! ✨', '<div style="text-align:left;line-height:1.55">' +
+      '🔮 <b>Frost-Rune</b> – Frostschlag per Knopf: Schaden im Umkreis, alles friert ein<br>' +
+      '🛷 <b>Hundeschlitten</b> – rase durch die Wildnis und überfahre Tiere<br>' +
+      '🗺️ <b>Schatzsuche</b> – grabe rote X aus, oder heuere einen Schatzsucher an<br>' +
+      '🐙 <b>Eissee-Krake</b> – ein neuer Boss bricht durch das Eis des Sees<br>' +
+      '🐉 <b>Frostdrache</b> – der ultimative Boss nach Herrn Faudt<br>' +
+      '🌠 <b>Ereignisse</b> – Goldrausch, Sternschnuppen, Pinguin-Parade, Polarlicht, Blutmond<br>' +
+      '🐧 <b>Pinguine</b> an den Eisseen – füttere sie!<br>' +
+      '🏆 Neue Trophäen, Erfolge, Fähigkeiten und Aufträge</div>');
+  }
   save();
 }
 function togglePause() {
@@ -4020,7 +4681,8 @@ $('bReset').addEventListener('click', () => {
   if (!confirm('Wirklich neu anfangen? Der Fortschritt geht verloren.')) return;
   $('pause').classList.add('hidden'); startGame(true);
 });
-$('bWinOk').addEventListener('click', () => { $('win').classList.add('hidden'); paused = false; });
+$('bWinOk').addEventListener('click', () => { $('win').classList.add('hidden'); if (winQ.length) { const [a, b] = winQ.shift(); showWin(a, b); } else paused = false; });
+$('bFrost').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); initAudio(); castFrost(); });
 $('bSound').addEventListener('click', () => { soundOn = !soundOn; $('bSound').textContent = soundOn ? '🔊' : '🔇'; initAudio(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 window.addEventListener('pagehide', save);
